@@ -95,24 +95,9 @@
   .projchip.grayout{opacity:0.4;}
   .progresswrap{position:relative; margin:45px 0 7px;}
   .progresstrack{height:14px; background:var(--panel2); border-radius:999px; border:2px solid var(--lineS); overflow:hidden;}
-  .progressfill{height:100%; background:var(--brass); border-radius:999px; transition:width .3s ease;}
+  .progressfill{height:100%; background:var(--brass); border-radius:999px;}
   .catwalk{position:absolute; top:-37px; transform:translateX(-30%); transition:left .3s ease;}
   .catwalk.walking{animation:catBob 0.5s steps(2) infinite;}
-  /* ---- "stretch" bar style: the fill itself reads as the cat's elongating body ---- */
-  .progresswrap.stretch{margin:52px 0 10px;}
-  .progresstrack.stretch{height:22px; background:transparent; border:none; border-bottom:2px dashed var(--lineS); border-radius:0; overflow:visible; position:relative;}
-  .progressfill.stretch{
-    border-radius:999px;
-    background:
-      repeating-linear-gradient(90deg, rgba(0,0,0,0.09) 0 3px, transparent 3px 10px),
-      linear-gradient(180deg, color-mix(in srgb, var(--furcolor,#FF9EC7) 82%, white) 0%, var(--furcolor,#FF9EC7) 55%, color-mix(in srgb, var(--furcolor,#FF9EC7) 68%, black) 100%);
-    box-shadow: inset 0 0 0 2px var(--outlinecolor,#2B2A3A);
-    transition: width .4s cubic-bezier(.34,1.45,.64,1);
-    min-width:22px;
-  }
-  .progressfill.stretch.pulsing{animation:furBreathe 1s steps(2) infinite;}
-  @keyframes furBreathe{ 0%,100%{transform:scaleY(1);} 50%{transform:scaleY(1.1);} }
-  .cattail{position:absolute; left:-4px; bottom:-3px; z-index:1; filter:drop-shadow(1px 1px 0 var(--lineS));}
   .punchbtn{flex:1; display:flex; flex-direction:column; align-items:center; gap:6px; padding:14px 4px; border-radius:12px; cursor:pointer; background:var(--panel2); border:2px solid var(--lineS); color:var(--dim); font-family:inherit; box-shadow:2px 2px 0 var(--line); transition:transform .08s ease, box-shadow .08s ease;}
   .punchbtn:active{transform:translate(2px,2px); box-shadow:0 0 0 var(--line);}
   .punchbtn.active{background:var(--c,var(--brass)); background:color-mix(in srgb, var(--c,var(--brass)) 20%, var(--panel)); border-color:var(--c,var(--brass)); color:var(--c,var(--brass));}
@@ -309,8 +294,6 @@ const I18N = {
     settingsIntro: 'アプリの見た目や機能を項目別に調整します',
     appearancePixelArt: '🎨 ピクセルアート',
         morePixelArtSoon: 'ピクセルアートは今後追加予定です<br>ピクセル素材参考：kohacu (https://kohacu.com/)',
-    appearanceBarStyle: '📊 進捗バーのスタイル',
-    barStyleNames: {normal:'通常（歩くねこ）', stretch:'のびのび（伸びるねこ）'},
     appearanceTheme: '🌈 カラーテーマ',
     autoEnableNote: 'スイッチON：タスク開始時に自動で集中タイマーを開始します',
     templateDetail: (w,b,every,lb) => `集中${w}分 ／ 休憩${b}分${every>0?` ／ ${every}回ごとにロング休憩${lb}分`:''}`,
@@ -463,8 +446,6 @@ const I18N = {
     settingsIntro: "Adjust the app's look and features",
     appearancePixelArt: '🎨 Appearance · Pixel Art',
     morePixelArtSoon: 'More pixel art coming soon<br>Pixel art reference: kohacu (https://kohacu.com/)',
-    appearanceBarStyle: '📊 Progress Bar Style',
-    barStyleNames: {normal:'Normal (walking cat)', stretch:'Stretchy (growing cat)'},
     appearanceTheme: '🌈 Appearance · Color Theme',
     autoEnableNote: 'When ON: automatically start the focus timer when a task begins',
     templateDetail: (w,b,every,lb) => `Focus ${w}m / Break ${b}m${every>0?` / long break ${lb}m every ${every}`:''}`,
@@ -593,54 +574,6 @@ function pixelArtName(key){
   if(!art) return key;
   return (art.name && (art.name[LANG] || art.name.en)) || key;
 }
-// ---- helpers for the "stretch" progress bar style ----
-// Auto-detect each cat's main fur color (most-used non-outline color in its
-// sitting pose) so the stretchy body bar always matches whichever cat is
-// selected, including any new cats added later to pixel-arts.js.
-const _catMainColorCache = {};
-function catMainColor(key){
-  if(_catMainColorCache[key]) return _catMainColorCache[key];
-  const art = PIXEL_ART_GRIDS[key];
-  let color = '#FF9EC7';
-  if(art){
-    const grid = (art.poses && (art.poses.sitting || art.poses.walking)) || [];
-    const freq = {};
-    grid.forEach(row=>row.forEach(v=>{ if(v && v!==1) freq[v]=(freq[v]||0)+1; }));
-    let best=null, bestCount=-1;
-    Object.keys(freq).forEach(k=>{ if(freq[k]>bestCount){ bestCount=freq[k]; best=k; } });
-    if(best!==null && art.colors[best]) color = art.colors[best];
-    else { const vals=Object.values(art.colors||{}); if(vals.length) color=vals[0]; }
-  }
-  _catMainColorCache[key] = color;
-  return color;
-}
-function catOutlineColor(key){
-  const art = PIXEL_ART_GRIDS[key];
-  return (art && art.colors && art.colors[1]) || '#2B2A3A';
-}
-// Small curled-tail pixel motif anchored at the start of the stretch bar,
-// standing in for the cat's rear while the body (the fill) stretches away
-// from it. Recolored via the --furcolor/--outlinecolor CSS vars set inline.
-function renderCatTail(cell){
-  cell = cell || 2.4;
-  const grid = [
-    [0,0,0,0,1,1,0,0],
-    [0,0,0,1,2,2,1,0],
-    [0,0,1,2,2,1,0,0],
-    [0,1,2,2,1,0,0,0],
-    [0,1,2,2,1,0,0,0],
-    [0,1,2,2,1,0,0,0],
-    [0,0,1,2,2,1,0,0],
-    [0,0,0,1,2,2,1,0],
-    [0,0,0,0,1,2,2,1],
-    [0,0,0,0,0,1,1,1]
-  ];
-  const cellsHtml = grid.map(row=>row.map(v=>{
-    const bg = v===1 ? 'var(--outlinecolor)' : v===2 ? 'var(--furcolor)' : 'transparent';
-    return `<div style="width:${cell}px;height:${cell}px;background:${bg};"></div>`;
-  }).join('')).join('');
-  return `<div style="display:grid;grid-template-columns:repeat(${grid[0].length},${cell}px);grid-template-rows:repeat(${grid.length},${cell}px);">${cellsHtml}</div>`;
-}
 
 const POMODORO_DEFAULT_TEMPLATES = [
   {id:'std', name:t('tplStandard'), work:25, break:5, longBreakEvery:4, longBreak:15, builtin:true},
@@ -656,12 +589,10 @@ function defaultSettings(){
   return {
     pixelArt: Object.keys(PIXEL_ART_GRIDS)[0],
     theme:'original',
-    barStyle:'normal',
     pomodoro:{ templates: POMODORO_DEFAULT_TEMPLATES.map(t=>({...t})), activeTemplateId:'std', autoEnable:false }
   };
 }
 const THEME_NAMES = t('themeNames');
-const BAR_STYLE_NAMES = t('barStyleNames');
 const THEME_PREVIEW_KEYS = {
   original: ['#F3F7FC','#FF9EC7','#7FB3DC'],
   mono: ['#F1F1F1','#4B4B4B','#8C8C8C'],
@@ -671,7 +602,6 @@ function applyTheme(){
   document.documentElement.setAttribute('data-theme', settings.theme || 'original');
 }
 function selectTheme(key){ settings.theme=key; persistSettings(); applyTheme(); render(); }
-function selectBarStyle(key){ settings.barStyle=key; persistSettings(); render(); }
 
 let tasks = load('tt_tasks', null);
 let records = load('tt_records', {});
@@ -699,7 +629,6 @@ if(tasks.length === 0 && Object.keys(load('tt_records', {})).length === 0){
 }
 if(settings === null){ settings = defaultSettings(); }
 if(!settings.theme || !THEME_NAMES[settings.theme]) settings.theme = 'original';
-if(!settings.barStyle || !BAR_STYLE_NAMES[settings.barStyle]) settings.barStyle = 'normal';
 if(!settings.pomodoro) settings.pomodoro = defaultSettings().pomodoro;
 if(!settings.pomodoro.templates || !settings.pomodoro.templates.length) settings.pomodoro.templates = POMODORO_DEFAULT_TEMPLATES.map(t=>({...t}));
 if(!PIXEL_ART_GRIDS[settings.pixelArt]) settings.pixelArt = Object.keys(PIXEL_ART_GRIDS)[0];
@@ -1236,11 +1165,6 @@ function renderPunch(today, todayStr, weekday, suggested){
     </div>`;
   }
 
-  const stretchMode = settings.barStyle==='stretch';
-  const furColor = stretchMode ? catMainColor(settings.pixelArt) : '';
-  const outlineColor = stretchMode ? catOutlineColor(settings.pixelArt) : '';
-  const stretchVars = stretchMode ? `--furcolor:${furColor};--outlinecolor:${outlineColor};` : '';
-
   let html = `<div class="panel card-punch">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
       <div class="mono" style="font-size:12px;color:var(--faint);">${today.getFullYear()}.${pad(today.getMonth()+1)}.${pad(today.getDate())} (${WEEKDAYS[weekday]})</div>
@@ -1248,10 +1172,9 @@ function renderPunch(today, todayStr, weekday, suggested){
     </div>
     <div id="clockDisplay" class="clock" style="color:${status==='none'?'var(--faint)':sColor};">${msToHMS(ms)}</div>
     <div class="projlist">${chipsHtml}</div>
-    <div class="progresswrap${stretchMode?' stretch':''}">
-      ${stretchMode ? `<div class="cattail" style="${stretchVars}">${renderCatTail()}</div>` : ''}
+    <div class="progresswrap">
       <div class="catwalk ${status==='working'?'walking':''}" style="left:${percent}%;">${renderPixelArt(settings.pixelArt, 1.8, status==='working'?'walking':'sitting')}</div>
-      <div class="progresstrack${stretchMode?' stretch':''}"><div class="progressfill${stretchMode?' stretch':''}${stretchMode && status==='working'?' pulsing':''}" style="width:${percent}%;${stretchVars}"></div></div>
+      <div class="progresstrack"><div class="progressfill" style="width:${percent}%;"></div></div>
     </div>
     <div class="goalline">${hmLabel(ms)} / ${taskGoalHoursLabel(goalHours)}${t('parenWrap')(escapeHtml(currentTask?currentTask.name:''))}</div>
     ${buttonsHtml}
@@ -1759,26 +1682,6 @@ function renderSettings(){
         </div>`).join('')}
     </div>
     <div style="font-size:11px;color:var(--faint);margin-top:10px;">${t('morePixelArtSoon')}</div>
-  </div>`;
-
-  // 2b. Progress bar style
-  html += `<div class="panel" style="padding:16px;margin-bottom:16px;">
-    <div class="settitle">${t('appearanceBarStyle')}</div>
-    <div style="display:flex;gap:10px;flex-wrap:wrap;">
-      ${Object.keys(BAR_STYLE_NAMES).map(key=>{
-        const preview = key==='stretch'
-          ? `<div style="display:flex;align-items:center;justify-content:center;gap:2px;">
-               <div style="--furcolor:${catMainColor(settings.pixelArt)};--outlinecolor:${catOutlineColor(settings.pixelArt)};">${renderCatTail(1.6)}</div>
-               <div style="width:34px;height:12px;border-radius:999px;background:${catMainColor(settings.pixelArt)};box-shadow:inset 0 0 0 2px ${catOutlineColor(settings.pixelArt)};"></div>
-             </div>`
-          : `<div style="display:flex;align-items:center;justify-content:center;">${renderPixelArt(settings.pixelArt,0.85,'walking')}</div>`;
-        return `
-        <div class="themecard ${settings.barStyle===key?'on':''}" onclick="selectBarStyle('${key}')" style="flex:1;min-width:130px;">
-          <div style="height:34px;display:flex;align-items:center;justify-content:center;">${preview}</div>
-          <div class="name">${BAR_STYLE_NAMES[key]}${settings.barStyle===key?' ✓':''}</div>
-        </div>`;
-      }).join('')}
-    </div>
   </div>`;
 
   // 3. Theme
