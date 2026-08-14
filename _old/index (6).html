@@ -1,0 +1,2163 @@
+ <!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Timecard</title>
+<link rel="apple-touch-icon" href="./icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#FBF4F7">
+<link rel="manifest" href="./manifest.json">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DotGothic16&family=Press+Start+2P&family=JetBrains+Mono:wght@400;500;700&display=swap');
+  :root, [data-theme="original"]{
+    --bg:#F3F7FC; --panel:#FFFFFF; --panel2:#EEF5FB;
+    --line:#E4EEF8; --lineS:#CFE1F3;
+    --text:#2B2A3A; --dim:#8A8CA0; --faint:#BFC6D6;
+    --brass:#FF9EC7; --brassDim:#F17FB2;
+    --gray:#AACBE6; --paleblue:#BFE6FA;
+    --teal:#4FAE72; --rust:#E8746B; --blue:#7FB3DC;
+    --ink:#2B2A3A; --pix:2px; --sh:3px;
+  }
+  [data-theme="mono"]{
+    --bg:#F1F1F1; --panel:#FFFFFF; --panel2:#E9E9E9;
+    --line:#DEDEDE; --lineS:#C4C4C4;
+    --text:#242424; --dim:#8C8C8C; --faint:#BDBDBD;
+    --brass:#4B4B4B; --brassDim:#2C2C2C;
+    --gray:#B3B3B3; --paleblue:#D9D9D9;
+    --teal:#4E4E4E; --rust:#3A3A3A; --blue:#6E6E6E;
+    --ink:#242424; --pix:2px; --sh:3px;
+  }
+  [data-theme="dark"]{
+    --bg:#17171D; --panel:#1E1E25; --panel2:#26262F;
+    --line:#34343E; --lineS:#4B4B57;
+    --text:#ECECF0; --dim:#9C9CA8; --faint:#64646F;
+    --brass:#D9D9DE; --brassDim:#B7B7BF;
+    --gray:#8A8A94; --paleblue:#3A3A44;
+    --teal:#CFCFD4; --rust:#77777F; --blue:#9C9CA8;
+    --ink:#ECECF0; --pix:2px; --sh:3px;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0; padding:0; background:var(--bg); color:var(--text); font-family:'DotGothic16',sans-serif; -webkit-font-smoothing:antialiased;}
+  .mono{font-family:'JetBrains Mono',monospace;}
+  .pixnum{font-family:'Press Start 2P',monospace;}
+  #app{max-width:880px; margin:0 auto; padding:calc(20px + env(safe-area-inset-top)) 16px 90px;}
+  header{display:flex; align-items:center; justify-content:space-between; margin-bottom:14px;}
+  .eyebrow{font-family:'Press Start 2P',monospace; font-size:15px; letter-spacing:2px; color:var(--brass); margin-bottom:0; text-shadow:2px 2px 0 var(--lineS);}
+  .panel{background:var(--panel); border:var(--pix) solid var(--lineS); border-radius:16px; box-shadow: var(--sh) var(--sh) 0 var(--line);}
+  nav{display:flex; gap:6px; margin-bottom:18px;}
+  nav button{padding:9px 6px; background:var(--panel2); cursor:pointer; color:var(--dim); font-size:11px; font-weight:600; font-family:inherit; display:flex; align-items:center; justify-content:center; gap:5px; border:2px solid var(--lineS); border-radius:10px; box-shadow:2px 2px 0 var(--line); transition:transform .08s ease, box-shadow .08s ease; flex:1;}
+  nav button.active{color:#fff; background:var(--brass); border-color:var(--brassDim);}
+  nav button:active{transform:translate(2px,2px); box-shadow:0 0 0 var(--line);}
+  .status-dot{display:inline-flex; align-items:center; gap:8px;}
+  .status-dot .dot{width:9px; height:9px; border-radius:3px;}
+  select,input{width:100%; background:var(--panel2); border:2px solid var(--lineS); border-radius:9px; color:var(--text); padding:9px 10px; font-size:14px; font-family:inherit;}
+  .card-punch{padding:22px; position:relative; overflow:hidden; margin-bottom:16px;}
+  .clock{text-align:center; font-size:34px; font-weight:700; letter-spacing:1px; margin:6px 0 4px; font-family:'Press Start 2P',monospace; color:var(--text);}
+  .goalline{text-align:center; font-size:11px; color:var(--dim); margin-bottom:14px; font-family:'JetBrains Mono',monospace;}
+  .btnrow{display:flex; gap:10px;}
+  .bigbtn{flex:1; padding:16px 4px; border-radius:14px; cursor:pointer; font-family:inherit; font-size:15px; font-weight:700; border:2px solid var(--lineS); box-shadow:3px 3px 0 var(--line); transition:transform .08s ease, box-shadow .08s ease;}
+  .bigbtn:active{transform:translate(3px,3px); box-shadow:0 0 0 var(--line);}
+  .bigbtn.primary{background:var(--brass); color:#fff; border-color:var(--brassDim); box-shadow:3px 3px 0 rgba(255,158,199,0.4);}
+  .bigbtn.secondary{background:var(--panel); color:var(--dim);}
+  .bigbtn.pale{background:var(--paleblue); color:var(--text); border-color:#8FCBEA;}
+  .projlist{display:flex; flex-wrap:wrap; gap:8px; margin:16px 0;}
+  .projchip{display:flex; align-items:center; gap:6px; padding:8px 12px; border-radius:10px; background:var(--panel2); border:2px solid var(--lineS); font-size:12px; font-weight:600; color:var(--text); cursor:pointer; box-shadow:2px 2px 0 var(--line);}
+  .projchip .sq{width:9px; height:9px; border-radius:3px; flex-shrink:0;}
+  .projchip.selected{border-color:var(--brassDim); box-shadow:2px 2px 0 rgba(255,158,199,0.35);}
+  .projchip.running{color:#fff; box-shadow:2px 2px 0 var(--line);}
+  .projchip.grayout{opacity:0.4;}
+  .progresswrap{position:relative; margin:45px 0 7px;}
+  .progresstrack{height:14px; background:var(--panel2); border-radius:999px; border:2px solid var(--lineS); overflow:hidden;}
+  .progressfill{height:100%; background:var(--brass); border-radius:999px;}
+  .catwalk{position:absolute; top:-37px; transform:translateX(-30%); transition:left .3s ease;}
+  .catwalk.walking{animation:catBob 0.5s steps(2) infinite;}
+  .punchbtn{flex:1; display:flex; flex-direction:column; align-items:center; gap:6px; padding:14px 4px; border-radius:12px; cursor:pointer; background:var(--panel2); border:2px solid var(--lineS); color:var(--dim); font-family:inherit; box-shadow:2px 2px 0 var(--line); transition:transform .08s ease, box-shadow .08s ease;}
+  .punchbtn:active{transform:translate(2px,2px); box-shadow:0 0 0 var(--line);}
+  .punchbtn.active{background:var(--c,var(--brass)); background:color-mix(in srgb, var(--c,var(--brass)) 20%, var(--panel)); border-color:var(--c,var(--brass)); color:var(--c,var(--brass));}
+  .punchbtn:disabled{opacity:.4; cursor:default; box-shadow:none; transform:none;}
+  .punchbtn svg{width:18px; height:18px;}
+  .punchbtn span{font-size:11px; font-weight:600;}
+  .metrics{display:grid; grid-template-columns:repeat(3,1fr); gap:10px;}
+  .metric{background:var(--panel2); border-radius:10px; padding:10px 12px; border:2px solid var(--lineS); box-shadow:2px 2px 0 var(--line);}
+  .metric .lbl{font-size:10px; color:var(--dim); margin-bottom:4px;}
+  .metric .val{font-size:14px; font-weight:700; font-family:'JetBrains Mono',monospace;}
+  .seg{font-size:12px; color:var(--dim); margin-bottom:4px; display:flex; gap:8px;}
+  .banner{padding:14px; margin-bottom:16px; border:var(--pix) solid var(--rust); border-radius:14px; background:var(--panel); box-shadow: var(--sh) var(--sh) 0 rgba(232,116,107,0.18);}
+  .toast{position:fixed; left:50%; top:calc(16px + env(safe-area-inset-top)); transform:translateX(-50%); z-index:100; padding:12px 20px; border-radius:12px; background:var(--brass); color:#fff; border:2px solid var(--brassDim); box-shadow:3px 3px 0 rgba(255,158,199,0.4); font-size:13px; font-weight:700; white-space:nowrap; animation:toastIn .25s ease;}
+  @keyframes toastIn{ from{opacity:0; transform:translateX(-50%) translateY(-10px);} to{opacity:1; transform:translateX(-50%) translateY(0);} }
+  .locrow{padding:14px; margin-bottom:12px;}
+  .loc-name{font-weight:700; font-size:15px;}
+  .dot-sm{width:9px; height:9px; border-radius:3px; display:inline-block; margin-right:6px;}
+  .icobtn {display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 32px; padding: 0; margin: 0; background: var(--panel2); border: 2px solid var(--lineS); border-radius: 8px; color: var(--dim); cursor: pointer; box-shadow: 2px 2px 0 var(--line); font-size: 12px; font-family: 'Press Start 2P', monospace; }  
+  .field{margin-bottom:12px;}
+  .field label{font-size:11px; color:var(--dim); display:block; margin-bottom:5px;}
+  .days-picker{display:flex; gap:6px; flex-wrap:wrap;}
+  .day-chip{width:32px; height:32px; border-radius:9px; border:2px solid var(--lineS); background:var(--panel2); color:var(--dim); cursor:pointer; font-size:12px; box-shadow:2px 2px 0 var(--line);}
+  .day-chip.on{border-color:var(--brassDim); background:var(--brass); color:#fff; box-shadow:1px 1px 0 var(--line); transform:translate(1px,1px);}
+  .swatch-picker{display:flex; gap:8px; flex-wrap:wrap;}
+  .swatch{width:30px; height:30px; border-radius:999px; cursor:pointer; border:2.5px solid var(--panel); box-shadow:0 0 0 2px var(--lineS); display:flex; align-items:center; justify-content:center; font-size:14px; color:#fff;}
+  .swatch.on{box-shadow:0 0 0 2px var(--brassDim);}
+  .modal-bg{position:fixed; inset:0; background:rgba(43,42,58,0.45); display:flex; align-items:flex-end; justify-content:center; z-index:50;}
+  .modal{background:var(--panel); border-radius:18px 18px 0 0; padding:20px; width:100%; max-width:480px; border:var(--pix) solid var(--lineS); border-bottom:none; padding-bottom:calc(20px + env(safe-area-inset-bottom)); box-shadow:0 -3px 0 var(--line); max-height:86vh; overflow-y:auto;}
+  .btn-primary{flex:1; padding:11px 0; border-radius:10px; background:var(--brass); border:2px solid var(--brassDim); color:#fff; font-weight:700; cursor:pointer; font-family:inherit; box-shadow:3px 3px 0 rgba(255,158,199,0.35);}
+  .btn-primary:active{transform:translate(3px,3px); box-shadow:0 0 0 rgba(255,158,199,0.35);}
+    .btn-ghost {
+        flex: 1;
+        padding: 11px 0;
+        border-radius: 10px;
+        background: var(--panel2);
+        border: 2px solid var(--lineS);
+        color: var(--dim);
+        cursor: pointer;
+        font-family: inherit;
+        font-size: 13px;
+        font-weight: 600;
+        box-shadow: 3px 3px 0 var(--line);
+    }  .btn-ghost:active{transform:translate(3px,3px); box-shadow:0 0 0 var(--line);}
+  .navbtn{background:var(--panel2); border:2px solid var(--lineS); color:var(--text); width:34px; height:34px; border-radius:9px; cursor:pointer; font-size:16px; box-shadow:2px 2px 0 var(--line);}
+  .navbtn:active{transform:translate(2px,2px); box-shadow:0 0 0 var(--line);}
+  table{width:100%; border-collapse:collapse; font-size:12px;}
+  th{padding:10px 8px; font-weight:700; border-bottom:2px solid var(--lineS); color:var(--dim); text-align:left; white-space:nowrap;}
+  td{padding:8px; border-bottom:1px solid var(--line); white-space:nowrap;}
+  .tbl-wrap{overflow-x:auto;}
+  .barrow{display:flex; align-items:center; gap:10px; margin-bottom:10px; font-size:12px;}
+  .barrow .lbl{width:88px; flex-shrink:0; color:var(--dim); overflow:hidden; text-overflow:ellipsis;}
+  .barrow .bar{height:10px; border-radius:5px;}
+  .barwrap{flex:1; background:var(--panel2); border-radius:5px; overflow:hidden; display:flex; height:10px; border:1.5px solid var(--lineS);}
+  .stackbar{display:flex; width:100%; height:22px; border-radius:11px; overflow:hidden; border:2px solid var(--lineS); background:var(--panel2);}
+  .empty{padding:24px; text-align:center; color:var(--faint); font-size:13px;}
+  .cal-grid{display:grid; grid-template-columns:repeat(7,1fr); gap:5px;}
+  .cal-head{font-size:10px; color:var(--dim); text-align:center; padding-bottom:6px; font-family:'JetBrains Mono',monospace; font-weight:700;}
+  .cal-cell{background:var(--panel2); border-radius:9px; padding:5px 4px; min-height:58px; display:flex; flex-direction:column; gap:2px; border:2px solid var(--line); cursor:pointer; transition:transform .08s ease, box-shadow .08s ease;}
+  .cal-cell.blank{background:none; border-color:transparent; cursor:default;}
+  /* 当日：枠は標準色で、背景だけ薄ピンクにする */
+    .cal-cell.today {
+        border-color: color-mix(in srgb, var(--brass) 30%, var(--panel));
+        background: color-mix(in srgb, var(--brass) 14%, var(--panel));
+        box-shadow: none;
+    }  /* 選択中：背景は標準色（薄い青）で、枠と影だけピンクにする */
+  .cal-cell.selected {
+        border-color: var(--brassDim);
+        background: var(--panel2);
+        box-shadow: 2px 2px 0 rgba(255,158,199,0.4);
+    }
+  /* 当日かつ選択中：薄ピンクの背景＋ピンクの枠 */
+  .cal-cell.selected.today {
+        border-color: var(--brassDim);
+        background: color-mix(in srgb, var(--brass) 14%, var(--panel));
+        box-shadow: 2px 2px 0 rgba(255,158,199,0.45);
+  }  
+  .cal-cell:active{transform:translate(2px,2px); box-shadow:0 0 0 var(--line);}
+  .cal-day{font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--faint);}
+  .cal-hrs{font-family:'JetBrains Mono',monospace; font-size:11px; font-weight:700; color:var(--text);}
+  .cal-ach{font-family:'JetBrains Mono',monospace; font-size:9px;}
+  .cal-dots{display:flex; gap:2px; flex-wrap:wrap;}
+  .cal-dot{width:6px; height:6px; border-radius:2px;}
+  input[type=number]::-webkit-inner-spin-button{opacity:.5;}
+  ::-webkit-scrollbar{height:6px; width:6px;}
+  ::-webkit-scrollbar-thumb{background:var(--lineS); border-radius:4px;}
+  @keyframes catBob{ 0%,100%{transform:translateX(-30%) translateY(0);} 50%{transform:translateX(-30%) translateY(-3px);} }
+  .pixrow{display:flex; gap:8px; overflow-x:auto; padding-bottom:2px;}
+  .pixcard{display:flex; flex-direction:column; align-items:center; gap:6px; padding:10px 4px; border-radius:12px; background:var(--panel2); border:2px solid var(--lineS); cursor:pointer; box-shadow:2px 2px 0 var(--line); flex:0 0 auto; width:23%; min-width:70px;}
+  .pixcard.on{border-color:var(--brassDim); box-shadow:2px 2px 0 rgba(255,158,199,0.35);}
+  .pixcard .name{font-size:10px; font-weight:600; text-align:center; white-space:nowrap;}
+  .settitle{font-weight:700; font-size:14px; margin-bottom:12px; display:flex; align-items:center; gap:6px;}
+  .themecard{display:flex; flex-direction:column; gap:8px; padding:12px; border-radius:12px; border:2px solid var(--lineS); cursor:pointer; flex:1; min-width:100px; box-shadow:2px 2px 0 var(--line);}
+  .themecard.on{border-color:var(--brassDim); box-shadow:2px 2px 0 rgba(255,158,199,0.35);}
+  .themecard .swrow{display:flex; gap:4px;}
+  .themecard .sw{width:16px; height:16px; border-radius:4px; border:1px solid rgba(0,0,0,0.08);}
+  .themecard .name{font-size:11px; font-weight:600; color:var(--text);}
+  .installsteps{font-size:12px; color:var(--dim); line-height:1.9; margin:0; padding-left:18px;}
+  .installsteps li{margin-bottom:2px;}
+  .collapsehead{display:flex; align-items:center; justify-content:space-between; cursor:pointer; padding:4px 0;}
+  .collapsehead .tri{font-size:10px; color:var(--faint); transition:transform .15s ease;}
+  .collapsebody{margin-top:10px;}
+  .howto-page{margin-bottom:10px;}
+  .howto-page .pname{font-weight:700; font-size:12px; margin-bottom:2px;}
+  .howto-page .pdesc{font-size:12px; color:var(--dim); line-height:1.6;}
+  .howto-icon-row{display:flex; align-items:center; gap:8px; font-size:12px; color:var(--dim); margin-bottom:6px;}
+  .howto-icon-row .ic{width:22px; text-align:center; flex-shrink:0;}
+  .syncbar{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:12px 14px; margin-bottom:16px;}
+  .tplrow{display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:10px; background:var(--panel2); border:2px solid var(--lineS); margin-bottom:8px; cursor:pointer;}
+  .tplrow.on{border-color:var(--brassDim); box-shadow:2px 2px 0 rgba(255,158,199,0.3);}
+  .switch{position:relative; width:42px; height:24px; border-radius:999px; background:var(--panel2); border:2px solid var(--lineS); cursor:pointer; flex-shrink:0;}
+  .switch .knob{position:absolute; top:1px; left:1px; width:16px; height:16px; border-radius:999px; background:var(--faint); transition:transform .15s ease, background .15s ease;}
+  .switch.on{background:var(--brass); border-color:var(--brassDim);}
+  .switch.on .knob{transform:translateX(18px); background:#fff;}
+</style>
+
+
+</head>
+<body>
+<div id="app"></div>
+
+<script src="./pixel-arts.js"></script>
+<script>
+// ---------- language detection ----------
+// Bump this string every time index.html is updated — shown in Settings so it's
+// easy to confirm which build is actually live (helps catch stale-deploy/cache issues).
+const APP_VERSION = 'v12-2026-08-08';
+
+const LANG = (function(){
+  const langs = (navigator.languages && navigator.languages.length) ? navigator.languages : [navigator.language || 'en'];
+  return langs.some(l => String(l).toLowerCase().startsWith('ja')) ? 'ja' : 'en';
+})();
+document.documentElement.lang = LANG;
+
+// ---------- i18n dictionary ----------
+const I18N = {
+  ja: {
+    unfinishedBanner: '終業されていない記録があります',
+    endNow: '今すぐ終業にする',
+    noGoalSet: '目標未設定',
+    hoursSuffix: '時間',
+    noActiveTasks: '📍<br>有効なタスクがありません。<br>「Tasks」タブから追加、またはアーカイブを解除してください。',
+    noActiveTasksShort: '有効なタスクがありません',
+    statusWorking: '作業中', statusPaused: '中断中', statusNone: '未開始',
+    start: 'はじめる', pauseBtn: '少し休む', resumeBtn: 'また進める', endBtn: 'おつかれ',
+    inProgress: '（進行中）',
+        editTime: '✎ 時間を編集', duplicate: '⧉ 複製',
+    addMemo: '📝 メモを追加', editMemo: '📝 メモを編集', memoTitle: 'メモ', memoPlaceholder: '感想やメモを入力…',
+    entriesCount: n => `${n}件`,
+    deleteBtn: '削除',
+    todaysBreakdown: 'きょうの内訳',
+    tasksIntro: '曜日ごとのタスクと目標時間を登録します',
+    addBtn: '＋ 追加',
+    everyDay: '毎日',
+    goalLabel: '目標時間',
+    archiveTitle: 'アーカイブする', restoreTitle: '復元する',
+    archivedCount: n => `アーカイブ済み（${n}）`,
+    noArchivedTasks: 'アーカイブ済みのタスクはありません',
+    enterNameAlert: '名称を入力してください',
+    deleteTaskConfirm: 'このタスクを削除しますか？',
+    editTaskTitle: 'タスクを編集', addTaskTitle: 'タスクを追加',
+    nameLabel: '名称', namePlaceholder: '例：ランニング、英単語学習',
+    daysLabel: '曜日（未設定なら毎日）',
+    targetHoursLabel: '目標時間（1回あたり・時間）',
+    colorLabel: '色',
+    cancel: 'キャンセル', save: '保存',
+    editElapsedTitle: '経過時間を編集',
+    noSegments: '区間がありません（保存するとこの記録は削除されます）',
+    addSegment: '＋ 区間を追加',
+    endBeforeStartAlert: (s,e) => `終了時刻は開始時刻より後にしてください（${s}〜${e}）`,
+    addTaskFirstAlert: '先にTasksタブからタスクを登録してください',
+    addRecordTitle: '日付を指定して記録を追加',
+    dateLabel: '日付', taskLabel: 'タスク', archivedSuffix: '（アーカイブ）',
+    segmentsLabel: '区間', addAction: '追加する',
+    selectTaskAlert: 'タスクを選択してください',
+    enterDateAlert: '日付を入力してください',
+    atLeastOneSegmentAlert: '区間を1つ以上入力してください',
+    duplicateRecordTitle: '記録を複製',
+    duplicateTargetLabel: '複製先の日付',
+    duplicateNote: '同じタスク・時間帯でその日にコピーします',
+    duplicateAction: '複製する',
+    selectDateAlert: '日付を選択してください',
+    addPomodoroTemplateTitle: '集中タイマーテンプレートを追加',
+    pomodoroNamePlaceholder: '例：夜集中モード',
+    focusMinutes: '集中（分）', breakMinutes: '休憩（分）',
+    enterTemplateNameAlert: 'テンプレート名を入力してください',
+    enterFocusBreakAlert: '集中時間と休憩時間を入力してください',
+    deleteTemplateConfirm: 'このテンプレートを削除しますか？',
+    focusTimer: '⭐ 集中タイマー',
+    phaseWork: '集中', phaseBreak: '休憩', phaseLongBreak: 'ロング休憩',
+    templateLabel: 'テンプレート',
+    templateOption: (w,b) => `（集中${w}分/休憩${b}分）`,
+    focusTimerHint: '「はじめる」を押すとタイマーが使えるようになります',
+    purchaseThanks: '🎉 購入ありがとうございます！',
+    settingsIntro: 'アプリの見た目や機能を項目別に調整します',
+    appearancePixelArt: '🎨 ピクセルアート',
+        morePixelArtSoon: 'ピクセルアートは今後追加予定です<br>ピクセル素材参考：kohacu (https://kohacu.com/)',
+    appearanceTheme: '🌈 カラーテーマ',
+    autoEnableNote: 'スイッチON：タスク開始時に自動で集中タイマーを開始します',
+    templateDetail: (w,b,every,lb) => `集中${w}分 ／ 休憩${b}分${every>0?` ／ ${every}回ごとにロング休憩${lb}分`:''}`,
+    addTemplate: '＋ テンプレートを追加',
+    dataSection: '💾 データ',
+    exportBtn: '書き出す', importBtn: '読み込む',
+    backupSection: '💾 バックアップ',
+    backupMethod1Title: '方法1: ログインして自動同期',
+    backupMethod2Title: '方法2: 手動でバックアップ',
+    backupManualNote: 'ログインなしでローカルにデータを手動で保存します。',
+    importConfirm: '現在のデータを上書きしてバックアップを読み込みますか？',
+    importSuccess: 'バックアップを読み込みました!',
+    importFail: 'ファイルの読み込みに失敗しました。正しいバックアップファイルか確認してください。',
+    addToHomeScreen: '📲 ホーム画面に追加',
+    iphoneCase: 'iPhone（Safari）の場合',
+    iphoneStep1: 'Safariでこのページを開く',
+    iphoneStep2: '下部の共有ボタン（□に↑）をタップ',
+    iphoneStep3: '「ホーム画面に追加」を選択',
+    iphoneStep4: '右上の「追加」をタップ',
+    androidCase: 'Android／その他（Chromeなど）の場合',
+    androidStep1: 'Chromeなどでこのページを開く',
+    androidStep2: '右上のメニュー（⋮）をタップ',
+    androidStep3: '「ホーム画面に追加」または「アプリをインストール」を選択',
+    androidStep4: '画面の指示に従って追加',
+    installNote: '追加するとアイコンから直接起動でき、オフラインでも利用できます',
+    addRecordShort: '＋ 日付を指定して記録を追加',
+    totalTime: '合計時間', unmetTime: '未達成時間',
+    achievementByTask: 'タスクごとの達成率',
+    actualGoal: (a,goalStr) => `実績 ${a}${goalStr}`,
+    goalPart: g => ` / 目標 ${g}`,
+    unmetPercent: n => `未達成 ${n}%`,
+    thDate: '日付', thTask: 'タスク', thDuration: '所要時間', thRate: '達成率',
+    noRecordsThisMonth: 'この月の記録はありません',
+    calendarTitle: 'カレンダー（記録した時間）',
+    monthAchievement: '今月の達成率',
+    dayAchievement: '選択日の達成率',
+    todayAchievement: '今日の達成率',
+    dateAchievement: mmdd => `${mmdd}の達成率`,
+    noDateSelected: 'カレンダーで日付を選択してください',
+    noRecordsThisDay: 'この日の記録はありません',
+    deleteRecordConfirm: (date,name) => `${date} の記録（${name}）を削除しますか？`,
+    themeNames: {original:'オリジナル', mono:'モノクロ', dark:'ダークモード'},
+    pixelArtNames: {blueCat:'水色ねこ', brownCat:'茶トラねこ'},
+    weekdaysShort: ["日","月","火","水","木","金","土"],
+    hm: (h,m) => h>0 ? `${h}時間${m}分` : `${m}分`,
+    tplStandard: 'スタンダード', tplDeep: 'じっくり集中', tplShort: 'ショート',
+    parenWrap: name => name ? `（${name}）` : '',
+    aboutSection: '📖 アプリについて',
+    howToTitle: '🐱 アプリの使い方',
+    howToPages: [
+      {name:'TimeCard', desc:'今日のタスクを選んで時間を計測するページです。「はじめる」で計測開始、「少し休む／また進める」で一時停止・再開、「おつかれ」で終了します。'},
+      {name:'Tasks', desc:'記録したいタスク（学習・運動など）と、曜日・目標時間を登録するページです。'},
+      {name:'Summary', desc:'月ごとの合計時間・達成率をグラフやカレンダーで確認できるページです。'},
+      {name:'Settings', desc:'アプリの見た目や機能を調整するページです（このページです）。'}
+    ],
+    howToIconsTitle: 'アイコンの意味',
+    howToIcons: [
+        { icon: '✎', label: '編集' },{icon:'⧉', label:'複製'}, {icon:'🗑', label:'削除'},
+      {icon:'🗄', label:'アーカイブ（一時的に非表示にする）'}, {icon:'↩', label:'復元'},
+        { icon: '⭐', label: '集中タイマーの回数' }, { icon: '📝', label: '完了したタスクにメモを残せます' }
+    ],
+    syncSignedInAnon: '端末内に保存中（未ログイン）',
+    syncSignedInGoogle: name => `Googleアカウントで同期中：${name}`,
+    syncSignInGoogleBtn: 'Googleでログインして同期',
+    syncSignInEmailBtn: 'メールアドレスでログイン',
+    popupHint: 'ブラウザ設定で「ポップアップを許可」にしてください',
+    emailSendBtn: 'ログインリンクを送信',
+    emailSentMessage: (email)=>`${email} 宛にログインリンクを送信しました。メールを確認してリンクをタップしてください。`,
+    emailInvalidAlert: '正しいメールアドレスを入力してください',
+    emailLinkConfirmPrompt: '確認のため、リンクをリクエストしたメールアドレスを入力してください',
+    emailLinkSignInSuccess: '🎉 ログインしました！',
+    syncSignOutBtn: 'ログアウト',
+    syncConnecting: '接続中…',
+    syncNote: 'ログインすると複数の端末でデータを共有できます',
+    syncErrorAlert: 'ログインに失敗しました。もう一度お試しください。',
+    planFreeLabel: '無料版（広告あり）',
+    planPaidLabel: '✓ 広告なし版をご利用中です',
+    planUpgradeNote: '¥500の買い切りで広告を非表示にできます',
+    planUpgradeBtn: '広告なし版にアップグレード',
+    planUpgradeLoading: '処理中…',
+    planUpgradeError: '決済ページを開けませんでした。もう一度お試しください。',
+    planUpgradeLoginRequired: '購入には Google ログインが必要です。今ログインしますか？（ホーム画面のアイコンから開いている場合は、Safariなどの通常のブラウザで開いてからログインしてください）',
+  },
+  en: {
+    unfinishedBanner: 'You have unfinished records',
+    endNow: 'End now',
+    noGoalSet: 'No goal set',
+    hoursSuffix: 'h',
+    noActiveTasks: '📍<br>No active tasks.<br>Add one from the "Tasks" tab, or unarchive an existing task.',
+    noActiveTasksShort: 'No active tasks',
+    statusWorking: 'Working', statusPaused: 'Paused', statusNone: 'Not started',
+    start: 'Start', pauseBtn: 'Take a break', resumeBtn: 'Resume', endBtn: 'Finish',
+    inProgress: ' (in progress)',
+    editTime: '✎ Edit time', duplicate: '⧉ Duplicate',
+    addMemo: '📝 Add memo', editMemo: '📝 Edit memo', memoTitle: 'Memo', memoPlaceholder: 'Write a note…',
+    entriesCount: n => `${n} ${n===1?'entry':'entries'}`,
+    deleteBtn: 'Delete',
+    todaysBreakdown: "Today's breakdown",
+    tasksIntro: 'Set up tasks and target hours for each day of the week',
+    addBtn: '＋ Add',
+    everyDay: 'Every day',
+    goalLabel: 'Goal',
+    archiveTitle: 'Archive', restoreTitle: 'Restore',
+    archivedCount: n => `Archived (${n})`,
+    noArchivedTasks: 'No archived tasks',
+    enterNameAlert: 'Please enter a name',
+    deleteTaskConfirm: 'Delete this task?',
+    editTaskTitle: 'Edit task', addTaskTitle: 'Add task',
+    nameLabel: 'Name', namePlaceholder: 'e.g. Running, Vocabulary study',
+    daysLabel: 'Days (leave unset for every day)',
+    targetHoursLabel: 'Target hours (per session)',
+    colorLabel: 'Color',
+    cancel: 'Cancel', save: 'Save',
+    editElapsedTitle: 'Edit time',
+    noSegments: 'No time ranges (saving will delete this record)',
+    addSegment: '＋ Add range',
+    endBeforeStartAlert: (s,e) => `End time must be after start time (${s}–${e})`,
+    addTaskFirstAlert: 'Please add a task from the Tasks tab first',
+    addRecordTitle: 'Add record for a date',
+    dateLabel: 'Date', taskLabel: 'Task', archivedSuffix: ' (archived)',
+    segmentsLabel: 'Time ranges', addAction: 'Add',
+    selectTaskAlert: 'Please select a task',
+    enterDateAlert: 'Please enter a date',
+    atLeastOneSegmentAlert: 'Please enter at least one time range',
+    duplicateRecordTitle: 'Duplicate record',
+    duplicateTargetLabel: 'Target date',
+    duplicateNote: 'Copies the same task and time range to that day',
+    duplicateAction: 'Duplicate',
+    selectDateAlert: 'Please select a date',
+    addPomodoroTemplateTitle: 'Add focus timer template',
+    pomodoroNamePlaceholder: 'e.g. Night focus mode',
+    focusMinutes: 'Focus (min)', breakMinutes: 'Break (min)',
+    enterTemplateNameAlert: 'Please enter a template name',
+    enterFocusBreakAlert: 'Please enter focus and break times',
+    deleteTemplateConfirm: 'Delete this template?',
+    focusTimer: '⭐ Focus timer',
+    phaseWork: 'Focus', phaseBreak: 'Break', phaseLongBreak: 'Long break',
+    templateLabel: 'Template',
+    templateOption: (w,b) => ` (Focus ${w}m / Break ${b}m)`,
+    focusTimerHint: 'The timer becomes active once you press Start',
+    purchaseThanks: '🎉 Thanks for your purchase!',
+    settingsIntro: "Adjust the app's look and features",
+    appearancePixelArt: '🎨 Appearance · Pixel Art',
+    morePixelArtSoon: 'More pixel art coming soon<br>Pixel art reference: kohacu (https://kohacu.com/)',
+    appearanceTheme: '🌈 Appearance · Color Theme',
+    autoEnableNote: 'When ON: automatically start the focus timer when a task begins',
+    templateDetail: (w,b,every,lb) => `Focus ${w}m / Break ${b}m${every>0?` / long break ${lb}m every ${every}`:''}`,
+    addTemplate: '＋ Add template',
+    dataSection: '💾 Data',
+    exportBtn: 'Export', importBtn: 'Import',
+    backupSection: '💾 Backup',
+    backupMethod1Title: 'Method 1: Sign in for automatic sync',
+    backupMethod2Title: 'Method 2: Manual backup',
+    backupManualNote: 'Export or import a file. Works reliably even where sign-in is unavailable.',
+    importConfirm: 'This will overwrite your current data with the backup. Continue?',
+    importSuccess: 'Backup loaded!',
+    importFail: 'Failed to load the file. Please check that it is a valid backup file.',
+    addToHomeScreen: '📲 Add to Home Screen',
+    iphoneCase: 'On iPhone (Safari)',
+    iphoneStep1: 'Open this page in Safari',
+    iphoneStep2: 'Tap the share button (square with ↑) at the bottom',
+    iphoneStep3: 'Select "Add to Home Screen"',
+    iphoneStep4: 'Tap "Add" in the top right',
+    androidCase: 'On Android / other browsers (Chrome, etc.)',
+    androidStep1: 'Open this page in Chrome or similar',
+    androidStep2: 'Tap the menu (⋮) in the top right',
+    androidStep3: 'Select "Add to Home Screen" or "Install app"',
+    androidStep4: 'Follow the on-screen instructions',
+    installNote: 'Once added, you can launch it directly from the icon and use it offline',
+    addRecordShort: '＋ Add record for a date',
+    totalTime: 'Total time', unmetTime: 'Shortfall',
+    achievementByTask: 'Achievement rate by task',
+    actualGoal: (a,goalStr) => `Actual ${a}${goalStr}`,
+    goalPart: g => ` / Goal ${g}`,
+    unmetPercent: n => `Shortfall ${n}%`,
+    thDate: 'Date', thTask: 'Task', thDuration: 'Duration', thRate: 'Rate',
+    noRecordsThisMonth: 'No records this month',
+    calendarTitle: 'Calendar (recorded time)',
+    monthAchievement: 'This month',
+    dayAchievement: 'Selected day',
+    todayAchievement: 'Today',
+    dateAchievement: mmdd => `${mmdd}`,
+    noDateSelected: 'Select a date on the calendar',
+    noRecordsThisDay: 'No records for this day',
+    deleteRecordConfirm: (date,name) => `Delete the record for ${date} (${name})?`,
+    themeNames: {original:'Original', mono:'Mono', dark:'Dark mode'},
+    pixelArtNames: {blueCat:'Blue cat', brownCat:'Tabby cat'},
+    weekdaysShort: ["Su","Mo","Tu","We","Th","Fr","Sa"],
+    hm: (h,m) => h>0 ? `${h}h ${m}m` : `${m}m`,
+    tplStandard: 'Standard', tplDeep: 'Deep focus', tplShort: 'Short',
+    parenWrap: name => name ? ` (${name})` : '',
+    aboutSection: '📖 About This App',
+    howToTitle: 'How to Use',
+    howToPages: [
+      {name:'TimeCard', desc:'Pick a task and time it here. "Start" begins tracking, "Take a break / Resume" pauses and resumes, and "Finish" ends the session.'},
+      {name:'Tasks', desc:'Register the tasks you want to track (study, exercise, etc.) along with their days of the week and target time.'},
+      {name:'Summary', desc:'See your total time and achievement rate by month, with charts and a calendar view.'},
+      {name:'Settings', desc:"Adjust the app's appearance and features (this page)."}
+    ],
+    howToIconsTitle: 'Icon meanings',
+    howToIcons: [
+      {icon:'✎', label:'Edit'}, {icon:'⧉', label:'Duplicate'}, {icon:'🗑', label:'Delete'},
+      {icon:'🗄', label:'Archive (hide temporarily)'}, {icon:'↩', label:'Restore'},
+      {icon:'⭐', label:'Focus timer count'}
+    ],
+    syncSignedInAnon: 'Saved on this device (not signed in)',
+    syncSignedInGoogle: name => `Synced with Google account: ${name}`,
+    syncSignInGoogleBtn: 'Sign in with Google to sync',
+    syncSignInEmailBtn: 'Sign in with email',
+    popupHint: 'If Safari blocks the popup, tap "Allow" when prompted',
+    emailSendBtn: 'Send sign-in link',
+    emailSentMessage: (email)=>`Sent a sign-in link to ${email}. Check your inbox and tap the link.`,
+    emailInvalidAlert: 'Please enter a valid email address',
+    emailLinkConfirmPrompt: 'Please confirm the email address you used to request this link',
+    emailLinkSignInSuccess: '🎉 Signed in!',
+    syncSignOutBtn: 'Sign out',
+    syncConnecting: 'Connecting…',
+    syncNote: 'Sign in to share your data across devices',
+    syncErrorAlert: 'Sign-in failed. Please try again.',
+    planFreeLabel: 'Free plan (with ads)',
+    planPaidLabel: "✓ You're on the ad-free plan",
+    planUpgradeNote: 'One-time ¥500 payment removes ads',
+    planUpgradeBtn: 'Upgrade to ad-free',
+    planUpgradeLoading: 'Loading…',
+    planUpgradeError: "Couldn't open checkout. Please try again.",
+    planUpgradeLoginRequired: 'You need to sign in with Google to purchase. Sign in now? (If you opened this from the home screen icon, please open it in a regular browser like Safari first, then sign in.)',
+  }
+};
+function t(key){
+  const s = I18N[LANG] || I18N.en;
+  return s[key] !== undefined ? s[key] : I18N.en[key];
+}
+
+// ---------- constants ----------
+const WEEKDAYS = ["SUN","MON","TUE","WED","THU","FRI","SAT"];
+const WEEKDAYS_JP = t('weekdaysShort');
+const TASK_COLORS = ["#93B6D6","#A0CFC9","#FFBE56","#FF6744","#FC8B73","#AD95DA","#60C5B7","#DE83A3","#D4D15D","#CFA370"];
+function taskColor(taskId){
+  const idx = tasks.findIndex(t=>t.id===taskId);
+  const task = tasks[idx];
+  if(task && task.color) return task.color;
+  return TASK_COLORS[Math.max(0,idx)%TASK_COLORS.length];
+}
+
+// ---------- pixel art registry ----------
+// The actual sprite data (PIXEL_ART_GRIDS) lives in ./pixel-arts.js, loaded via
+// <script src="pixel-arts.js"> before this script tag, so new cats can be added
+// there without touching this file.
+function renderPixelArt(key, cell, pose){
+  cell = (cell || 1.8) * 1.5;
+  const art = PIXEL_ART_GRIDS[key] || PIXEL_ART_GRIDS[Object.keys(PIXEL_ART_GRIDS)[0]];
+  pose = (pose && art.poses[pose]) ? pose : 'sitting';
+  const grid = art.poses[pose];
+  const cellsHtml = grid.map(row => row.map(v=>{
+    const bg = art.colors[v] || 'transparent';
+    return `<div style="width:${cell}px;height:${cell}px;background:${bg};"></div>`;
+  }).join('')).join('');
+  return `<div style="display:grid;grid-template-columns:repeat(${grid[0].length},${cell}px);grid-template-rows:repeat(${grid.length},${cell}px);filter:drop-shadow(1px 1px 0 var(--lineS));">${cellsHtml}</div>`;
+}
+function pixelArtName(key){
+  const art = PIXEL_ART_GRIDS[key];
+  if(!art) return key;
+  return (art.name && (art.name[LANG] || art.name.en)) || key;
+}
+
+const POMODORO_DEFAULT_TEMPLATES = [
+  {id:'std', name:t('tplStandard'), work:25, break:5, longBreakEvery:4, longBreak:15, builtin:true},
+  {id:'deep', name:t('tplDeep'), work:50, break:10, longBreakEvery:0, longBreak:0, builtin:true},
+  {id:'short', name:t('tplShort'), work:15, break:3, longBreakEvery:0, longBreak:0, builtin:true},
+];
+
+// ---------- storage (localStorage, self-hosted so it actually persists) ----------
+function load(key, fallback){ try{ const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; }catch(e){ return fallback; } }
+function save(key, val){ try{ localStorage.setItem(key, JSON.stringify(val)); }catch(e){ console.error('save failed', e); } }
+
+function defaultSettings(){
+  return {
+    pixelArt: Object.keys(PIXEL_ART_GRIDS)[0],
+    theme:'original',
+    pomodoro:{ templates: POMODORO_DEFAULT_TEMPLATES.map(t=>({...t})), activeTemplateId:'std', autoEnable:false }
+  };
+}
+const THEME_NAMES = t('themeNames');
+const THEME_PREVIEW_KEYS = {
+  original: ['#F3F7FC','#FF9EC7','#7FB3DC'],
+  mono: ['#F1F1F1','#4B4B4B','#8C8C8C'],
+  dark: ['#17171D','#ECECF0','#4B4B57'],
+};
+function applyTheme(){
+  document.documentElement.setAttribute('data-theme', settings.theme || 'original');
+}
+function selectTheme(key){ settings.theme=key; persistSettings(); applyTheme(); render(); }
+
+let tasks = load('tt_tasks', null);
+let records = load('tt_records', {});
+let settings = load('tt_settings', null);
+
+// migrate from the older 工数管理 (timecard/project) data model if present
+if(tasks === null){
+  const oldLocations = load('tt_locations', []);
+  tasks = oldLocations.map(l=>{
+    let targetHours = 8;
+    if(l.startTime && l.endTime){
+      const [sh,sm] = l.startTime.split(':').map(Number);
+      const [eh,em] = l.endTime.split(':').map(Number);
+      let mins = (eh*60+em) - (sh*60+sm);
+      if(mins <= 0) mins += 24*60;
+      targetHours = mins/60;
+    }
+    return {id:l.id, name:l.name, days:l.days||[], targetHours, color:l.color, archived:!!l.archived};
+  });
+}
+// first-time users (no data at all, even after migration): seed one sample task so the app isn't empty
+if(tasks.length === 0 && Object.keys(load('tt_records', {})).length === 0){
+  tasks = [{ id: uid(), name: 'Sample', days: [1], targetHours: 1, color: TASK_COLORS[0], archived: false }];
+  save('tt_tasks', tasks);
+}
+if(settings === null){ settings = defaultSettings(); }
+if(!settings.theme || !THEME_NAMES[settings.theme]) settings.theme = 'original';
+if(!settings.pomodoro) settings.pomodoro = defaultSettings().pomodoro;
+if(!settings.pomodoro.templates || !settings.pomodoro.templates.length) settings.pomodoro.templates = POMODORO_DEFAULT_TEMPLATES.map(t=>({...t}));
+if(!PIXEL_ART_GRIDS[settings.pixelArt]) settings.pixelArt = Object.keys(PIXEL_ART_GRIDS)[0];
+
+// migrate old single-record-per-day format to session-array format, drop money fields, rename location->task
+Object.keys(records).forEach(date=>{
+  if(!Array.isArray(records[date])){
+    const old = records[date];
+    if(!old.id) old.id = uid();
+    records[date] = [old];
+  }
+  records[date] = records[date].map(s=>({
+    id:s.id, date:s.date||date, taskId:s.taskId||s.locationId, taskName:s.taskName||s.locationName,
+    segments:s.segments||[], currentStart:s.currentStart||null, status:s.status||'done', memo:s.memo||'',
+  }));
+  // fix: drop sessions whose elapsed time was fully deleted, instead of leaving an empty stray item
+  records[date] = records[date].filter(s=> s.status!=='done' || (s.segments && s.segments.length>0));
+  if(records[date].length===0) delete records[date];
+});
+
+let tab = load('tt_last_tab', 'punch');
+let selectedTaskId = null;
+let reportMonth = (()=>{ const d=new Date(); return `${d.getFullYear()}-${pad(d.getMonth()+1)}`; })();
+let editingTask = null; // for modal
+let showTaskForm = false;
+let editingRecordDate = null; // for segment-edit modal
+let editingSessionId = null;
+let editingSegmentsDraft = null;
+let showAddRecord = false;
+let showArchived = false;
+let showHowTo = false;
+let showInstall = false;
+let editingMemoDate = null;
+let editingMemoSessionId = null;
+let editingMemoDraft = '';
+let expandedReportDates = new Set();
+let selectedReportDate = fmtDate(new Date());
+let toastMessage = null;
+let toastTimer = null;
+function showToast(msg, ms){
+  toastMessage = msg;
+  render();
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>{ toastMessage=null; render(); }, ms || 3500);
+}
+let addDraft = null; // {date, taskId, segments:[{start,end}]}
+let showDuplicate = false;
+let duplicateSource = null; // {taskId, taskName, segmentsTimes}
+let duplicateTargetDate = null;
+let showPomodoroForm = false;
+let pomodoroDraft = null; // {name, work, break}
+let pomodoroState = null; // transient, not persisted: {sessionId, templateId, phase, remainingMs, running, cycleCount}
+
+// ---------- helpers ----------
+function pad(n){ return String(n).padStart(2,'0'); }
+function fmtDate(d){ return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; }
+function fmtTime(iso){ const d=new Date(iso); return `${pad(d.getHours())}:${pad(d.getMinutes())}`; }
+function msToHMS(ms){ const s=Math.max(0,Math.floor(ms/1000)); const h=Math.floor(s/3600),m=Math.floor((s%3600)/60),sec=s%60; return `${pad(h)}:${pad(m)}:${pad(sec)}`; }
+function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
+function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function hmLabel(ms){
+  const totalMin = Math.round(ms/60000);
+  const h = Math.floor(totalMin/60), m = totalMin%60;
+  return t('hm')(h,m);
+}
+
+function computeWorkMs(rec){
+  if(!rec) return 0;
+  let ms = rec.segments.reduce((s,seg)=> s + (new Date(seg.end)-new Date(seg.start)), 0);
+  if(rec.status==='working' && rec.currentStart) ms += Date.now() - new Date(rec.currentStart);
+  return ms;
+}
+function taskGoalHours(task){ return task && task.targetHours ? Number(task.targetHours) : 0; }
+function persistRecords(){ save('tt_records', records); fbScheduleSave(); }
+function persistTasks(){ save('tt_tasks', tasks); fbScheduleSave(); }
+function persistSettings(){ save('tt_settings', settings); fbScheduleSave(); }
+
+// ---------- Firebase sync (Firestore doc per user; anonymous by default, Google to sync across devices) ----------
+let fbUser = null;
+let fbSaveTimer = null;
+let fbApplyingRemote = false;
+let userPlan = 'free'; // 'free' | 'paid' — set only by the server (Cloud Function), never written by the client
+
+function fbDocRef(){
+  const f = window.__fb;
+  return f.doc(f.db, 'users', fbUser.uid);
+}
+function fbScheduleSave(){
+  if(!fbUser || fbApplyingRemote || !window.__fb) return;
+  clearTimeout(fbSaveTimer);
+  fbSaveTimer = setTimeout(fbPushNow, 1200);
+}
+function fbPushNow(){
+  if(!fbUser || !window.__fb) return;
+  const f = window.__fb;
+  // merge:true is important — without it, each save would overwrite the whole
+  // document and wipe out server-only fields like `plan` that Cloud Functions set.
+  f.setDoc(fbDocRef(), { tasks, records, settings, updatedAt: f.serverTimestamp() }, { merge: true }).catch(e=>console.error('firebase save failed', e));
+}
+function fbApplyRemote(data){
+  if(!data) return;
+  fbApplyingRemote = true;
+  if(data.tasks) tasks = data.tasks;
+  if(data.records) records = data.records;
+  if(data.settings){
+    settings = data.settings;
+    if(!PIXEL_ART_GRIDS[settings.pixelArt]) settings.pixelArt = Object.keys(PIXEL_ART_GRIDS)[0];
+    if(!settings.theme || !THEME_NAMES[settings.theme]) settings.theme = 'original';
+    if(!settings.pomodoro || !settings.pomodoro.templates || !settings.pomodoro.templates.length) settings.pomodoro = defaultSettings().pomodoro;
+  }
+  userPlan = data.plan === 'paid' ? 'paid' : 'free';
+  save('tt_tasks', tasks); save('tt_records', records); save('tt_settings', settings);
+  fbApplyingRemote = false;
+  applyTheme(); render();
+}
+async function fbLoadAndSubscribe(){
+  const f = window.__fb;
+  const ref = fbDocRef();
+  try{
+    const snap = await f.getDoc(ref);
+    if(snap.exists() && snap.data() && (snap.data().tasks || snap.data().records)){
+      fbApplyRemote(snap.data());
+    } else {
+      fbPushNow();
+    }
+  }catch(e){ console.error('firebase initial load failed', e); }
+
+  f.onSnapshot(ref, (snap)=>{
+    if(fbApplyingRemote || snap.metadata.hasPendingWrites) return;
+    if(snap.exists()) fbApplyRemote(snap.data());
+  }, (e)=>console.error('firebase snapshot error', e));
+}
+function fbIsStandalone(){
+  return (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true;
+    }
+
+    function fbSignInGoogle() {
+        const f = window.__fb;
+        if (!f) { console.warn('fbSignInGoogle: Firebase not ready yet'); return; }
+        const provider = new f.GoogleAuthProvider();
+        const cur = f.auth.currentUser;
+
+        console.log('fbSignInGoogle: starting redirect sign-in…');
+
+        // ポップアップを廃止し、すべてリダイレクトに統一
+        (cur && cur.isAnonymous ? f.linkWithRedirect(cur, provider) : f.signInWithRedirect(f.auth, provider))
+            .catch((e) => {
+                console.error('google redirect sign-in failed', e && e.code, e);
+                alert(t('syncErrorAlert') + (e && e.code ? ` (${e.code})` : ''));
+            });
+    }
+/*function fbSignInGoogle(){
+  const f = window.__fb;
+  if(!f){ console.warn('fbSignInGoogle: Firebase not ready yet'); return; }
+  const provider = new f.GoogleAuthProvider();
+  const cur = f.auth.currentUser;
+  const standalone = fbIsStandalone();
+  console.log('fbSignInGoogle: starting', standalone ? 'redirect' : 'popup', 'sign-in…');
+
+  function fallbackToRedirect(reason){
+    console.warn('fbSignInGoogle: falling back to redirect —', reason);
+    (cur && cur.isAnonymous ? f.linkWithRedirect(cur, provider) : f.signInWithRedirect(f.auth, provider))
+      .catch((e)=>{ console.error('google redirect sign-in failed', e && e.code, e); alert(t('syncErrorAlert') + (e && e.code ? ` (${e.code})` : '')); });
+  }
+
+  if(standalone){
+    // Installed/home-screen PWA: no window chrome to host a popup, so redirect is the only option.
+    fallbackToRedirect('standalone display mode');
+    return;
+  }
+
+  // Regular browser tab: prefer popup. This is a known workaround for a Safari 16.1+
+  // bug where signInWithRedirect silently returns with no user and no error.
+  (cur && cur.isAnonymous ? f.linkWithPopup(cur, provider) : f.signInWithPopup(f.auth, provider))
+    .then((result)=>{ console.log('fbSignInGoogle: popup sign-in completed', result && result.user && result.user.uid); })
+    .catch((e)=>{
+      const code = e && e.code;
+      console.error('google popup sign-in failed', code, e);
+      if(code === 'auth/credential-already-in-use'){
+        f.signInWithPopup(f.auth, provider)
+          .then((result)=>{ console.log('fbSignInGoogle: popup sign-in completed (existing account)', result && result.user && result.user.uid); })
+          .catch((e2)=>{ console.error('google popup sign-in failed (retry)', e2 && e2.code, e2); alert(t('syncErrorAlert') + (e2 && e2.code ? ` (${e2.code})` : '')); });
+      } else if(code === 'auth/popup-blocked' || code === 'auth/popup-closed-by-user' || code === 'auth/operation-not-supported-in-this-environment' || code === 'auth/cancelled-popup-request'){
+        fallbackToRedirect(code);
+      } else {
+        alert(t('syncErrorAlert') + (code ? ` (${code})` : ''));
+      }
+    });
+}*/
+
+function fbSignOut(){
+  const f = window.__fb;
+  if(!f) return;
+  f.signOut(f.auth).catch(()=>{});
+}
+
+function fbUpgradeToPaid(btn){
+  const f = window.__fb;
+  if(!f || !f.createCheckoutSession) return;
+  if(btn){ btn.disabled = true; btn.textContent = t('planUpgradeLoading'); }
+  f.createCheckoutSession()
+    .then((result)=>{
+      const url = result && result.data && result.data.url;
+      if(url) window.location.href = url;
+      else throw new Error('no checkout url returned');
+    })
+    .catch((e)=>{
+      console.error('checkout session failed', e);
+      if(btn){ btn.disabled = false; btn.textContent = t('planUpgradeBtn'); }
+      if(e && e.code === 'functions/failed-precondition'){
+        if(confirm(t('planUpgradeLoginRequired'))){ fbSignInGoogle(); }
+        return;
+      }
+      alert(t('planUpgradeError'));
+    });
+}
+window.addEventListener('fb-ready', ()=>{
+  if(window.__fb.user){ fbUser = window.__fb.user; fbLoadAndSubscribe(); }
+  render();
+});
+window.addEventListener('fb-auth', (e)=>{
+  fbUser = e.detail;
+  fbLoadAndSubscribe();
+  render();
+});
+
+// ---------- backup export / import ----------
+function exportData(){
+  const payload = { tasks, records, settings, exportedAt: new Date().toISOString() };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `timecard-backup-${fmtDate(new Date())}.json`;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(url), 3000);
+}
+function importDataFile(event){
+  const file = event.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = ()=>{
+    try{
+      const payload = JSON.parse(reader.result);
+      if(!confirm(t('importConfirm'))) { event.target.value=''; return; }
+      tasks = payload.tasks || [];
+      records = payload.records || {};
+      settings = payload.settings || defaultSettings();
+      if(!PIXEL_ART_GRIDS[settings.pixelArt]) settings.pixelArt=Object.keys(PIXEL_ART_GRIDS)[0];
+      if(!settings.theme || !THEME_NAMES[settings.theme]) settings.theme='original';
+      if(!settings.pomodoro || !settings.pomodoro.templates || !settings.pomodoro.templates.length) settings.pomodoro = defaultSettings().pomodoro;
+      Object.keys(records).forEach(date=>{
+        if(!Array.isArray(records[date])){
+          const old = records[date];
+          if(!old.id) old.id = uid();
+          records[date] = [old];
+        }
+      });
+      persistTasks(); persistRecords(); persistSettings();
+      render();
+      alert(t('importSuccess'));
+    }catch(e){
+      alert(t('importFail'));
+    }
+    event.target.value = '';
+  };
+  reader.readAsText(file);
+}
+
+// ---------- actions ----------
+function activeSessionToday(){
+  const arr = records[fmtDate(new Date())] || [];
+  return arr.find(s=> s.status==='working' || s.status==='paused');
+}
+function doStart(){
+  const task = tasks.find(t=>t.id===selectedTaskId);
+  if(!task) return;
+  const todayStr = fmtDate(new Date());
+  const arr = records[todayStr] || [];
+  if(arr.some(s=> s.status==='working' || s.status==='paused')) return; // guard: one active session at a time
+  const now = new Date().toISOString();
+  const session = {
+    id: uid(), date: todayStr, taskId: task.id, taskName: task.name,
+    segments: [], currentStart: now, status:'working', memo:'',
+  };
+  records[todayStr] = [...arr, session];
+  persistRecords();
+  if(settings.pomodoro.autoEnable){
+    const t = settings.pomodoro.templates.find(x=>x.id===settings.pomodoro.activeTemplateId) || settings.pomodoro.templates[0];
+    pomodoroState = {sessionId:session.id, templateId:t.id, phase:'work', remainingMs:t.work*60000, running:true, cycleCount:0};
+  }
+  render();
+}
+function doPause(){
+  const s = activeSessionToday(); if(!s || s.status!=='working') return;
+  const now = new Date().toISOString();
+  s.segments.push({start:s.currentStart, end:now});
+  s.currentStart = null; s.status='paused';
+  if(pomodoroState && pomodoroState.sessionId===s.id) pomodoroState.running=false;
+  persistRecords(); render();
+}
+function doResume(){
+  const s = activeSessionToday(); if(!s || s.status!=='paused') return;
+  s.currentStart = new Date().toISOString(); s.status='working';
+  if(pomodoroState && pomodoroState.sessionId===s.id) pomodoroState.running=true;
+  persistRecords(); render();
+}
+function doEnd(dateKey, sessionId){
+  let s;
+  if(dateKey && sessionId){
+    s = (records[dateKey]||[]).find(x=>x.id===sessionId);
+  } else {
+    dateKey = fmtDate(new Date());
+    s = activeSessionToday();
+  }
+  if(!s || s.status==='done') return;
+  if(s.status==='working' && s.currentStart){
+    s.segments.push({start:s.currentStart, end:new Date().toISOString()});
+  }
+  s.currentStart = null; s.status='done';
+  if(pomodoroState && pomodoroState.sessionId===s.id) pomodoroState=null;
+  persistRecords(); render();
+}
+function deleteSession(date, sessionId){
+  if(!confirm(t('deleteRecordConfirm')(date, (records[date]||[]).find(x=>x.id===sessionId)?.taskName||''))) return;
+  records[date] = (records[date]||[]).filter(x=>x.id!==sessionId);
+  if(records[date].length===0) delete records[date];
+  if(pomodoroState && pomodoroState.sessionId===sessionId) pomodoroState=null;
+  persistRecords(); render();
+}
+
+// ---------- pomodoro ----------
+function playBeep(){
+  try{
+    const ctx = new (window.AudioContext||window.webkitAudioContext)();
+    const o = ctx.createOscillator(); const g = ctx.createGain();
+    o.connect(g); g.connect(ctx.destination);
+    o.type='sine'; o.frequency.value = 880; g.gain.value=0.16;
+    o.start();
+    setTimeout(()=>{ o.frequency.value=1160; }, 120);
+    o.stop(ctx.currentTime+0.28);
+    setTimeout(()=>ctx.close(), 500);
+  }catch(e){}
+}
+function togglePomodoro(sessionId){
+  if(pomodoroState && pomodoroState.sessionId===sessionId){ pomodoroState=null; render(); return; }
+  const s = activeSessionToday();
+  if(!s || s.id!==sessionId) return;
+  const t = settings.pomodoro.templates.find(x=>x.id===settings.pomodoro.activeTemplateId) || settings.pomodoro.templates[0];
+  pomodoroState = {sessionId, templateId:t.id, phase:'work', remainingMs:t.work*60000, running: s.status==='working', cycleCount:0};
+  render();
+}
+function advancePomodoroPhase(){
+  const t = settings.pomodoro.templates.find(x=>x.id===pomodoroState.templateId) || settings.pomodoro.templates[0];
+  playBeep();
+  if(navigator.vibrate) navigator.vibrate([200,100,200]);
+  if(pomodoroState.phase==='work'){
+    pomodoroState.cycleCount++;
+    const useLong = t.longBreakEvery>0 && t.longBreak>0 && pomodoroState.cycleCount % t.longBreakEvery === 0;
+    pomodoroState.phase = useLong ? 'longBreak' : 'break';
+    pomodoroState.remainingMs = (useLong ? t.longBreak : t.break) * 60000;
+  } else {
+    pomodoroState.phase = 'work';
+    pomodoroState.remainingMs = t.work * 60000;
+  }
+}
+function setActiveTemplate(id){ settings.pomodoro.activeTemplateId=id; persistSettings(); render(); }
+function togglePomodoroAutoEnable(){ settings.pomodoro.autoEnable=!settings.pomodoro.autoEnable; persistSettings(); render(); }
+function openPomodoroForm(){ pomodoroDraft = {name:'', work:25, break:5}; showPomodoroForm=true; render(); }
+function closePomodoroForm(){ showPomodoroForm=false; pomodoroDraft=null; render(); }
+function updatePomodoroDraft(key, value, isNum){ pomodoroDraft[key] = isNum ? Number(value) : value; }
+function savePomodoroTemplate(){
+  if(!pomodoroDraft.name.trim()){ alert(t('enterTemplateNameAlert')); return; }
+  if(!pomodoroDraft.work || !pomodoroDraft.break){ alert(t('enterFocusBreakAlert')); return; }
+  settings.pomodoro.templates.push({id:uid(), name:pomodoroDraft.name.trim(), work:Number(pomodoroDraft.work), break:Number(pomodoroDraft.break), longBreakEvery:0, longBreak:0, builtin:false});
+  persistSettings();
+  showPomodoroForm=false; pomodoroDraft=null;
+  render();
+}
+function deletePomodoroTemplate(id){
+  if(!confirm(t('deleteTemplateConfirm'))) return;
+  settings.pomodoro.templates = settings.pomodoro.templates.filter(t=>t.id!==id);
+  if(settings.pomodoro.activeTemplateId===id) settings.pomodoro.activeTemplateId = settings.pomodoro.templates[0]?.id;
+  persistSettings(); render();
+}
+function selectPixelArt(key){ settings.pixelArt=key; persistSettings(); render(); }
+
+function renderPomodoroPanel(session){
+  const templates = settings.pomodoro.templates;
+  const active = templates.find(t=>t.id===settings.pomodoro.activeTemplateId) || templates[0];
+  const ps = (session && pomodoroState && pomodoroState.sessionId===session.id) ? pomodoroState : null;
+  const phaseLabel = {work:t('phaseWork'), break:t('phaseBreak'), longBreak:t('phaseLongBreak')};
+  const phaseColor = ps ? (ps.phase==='work' ? 'var(--brass)' : 'var(--blue)') : 'var(--dim)';
+  return `<div class="panel" style="padding:16px;margin-bottom:16px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;">
+      <div style="font-size:12px;color:var(--dim);">${t('focusTimer')}</div>
+      ${session? `<div class="switch ${ps?'on':''}" onclick="togglePomodoro('${session.id}')"><div class="knob"></div></div>` : ''}
+    </div>
+    ${ps? `
+      <div style="text-align:center;margin-top:10px;">
+        <div class="mono" style="font-size:11px;color:var(--dim);margin-bottom:4px;">${phaseLabel[ps.phase]} ・ ⭐×${ps.cycleCount}</div>
+        <div id="pomoTimer" class="pixnum" style="font-size:20px;color:${phaseColor};">${msToHMS(Math.max(0,ps.remainingMs)).slice(3)}</div>
+      </div>` : `
+      <div class="field" style="margin:10px 0 0;"><label>${t('templateLabel')}</label>
+        <select onchange="setActiveTemplate(this.value)">
+          ${templates.map(tp=>`<option value="${tp.id}" ${active&&tp.id===active.id?'selected':''}>${escapeHtml(tp.name)}${t('templateOption')(tp.work,tp.break)}</option>`).join('')}
+        </select>
+      </div>
+      ${!session? `<div style="font-size:11px;color:var(--faint);margin-top:8px;">${t('focusTimerHint')}</div>` : ''}`}
+  </div>`;
+}
+
+// ---------- render ----------
+function render(){
+  const app = document.getElementById('app');
+  const today = new Date();
+  const todayStr = fmtDate(today);
+  const weekday = today.getDay();
+  const suggested = tasks.filter(t => !t.archived && (t.days||[]).includes(weekday));
+  if(!activeSessionToday() && !selectedTaskId && tasks.length){
+    selectedTaskId = (suggested[0]||tasks[0]).id;
+  }
+  const unfinished = [];
+  Object.entries(records).forEach(([date, arr])=>{
+    if(date===todayStr) return;
+    arr.forEach(s=>{ if(s.status!=='done') unfinished.push(s); });
+  });
+
+  let html = `
+    ${toastMessage? `<div class="toast">${escapeHtml(toastMessage)}</div>` : ''}
+    <header>
+      <div class="eyebrow">TIME CARD</div>
+    </header>`;
+
+  if(unfinished.length){
+    html += `<div class="banner">
+      <div style="display:flex;align-items:flex-start;gap:8px;">
+        <span style="color:var(--rust);flex-shrink:0;">⚠</span>
+        <div style="font-size:13px;">
+          <div style="color:var(--rust);margin-bottom:6px;">${t('unfinishedBanner')}</div>
+          ${unfinished.map(r=>`
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;color:var(--dim);">
+              <span class="mono">${r.date}</span><span>${escapeHtml(r.taskName)}</span>
+              <button onclick="doEnd('${r.date}','${r.id}')" style="margin-left:auto;font-size:12px;color:var(--brass);background:none;border:1px solid var(--brassDim);border-radius:6px;padding:2px 8px;cursor:pointer;">${t('endNow')}</button>
+            </div>`).join('')}
+        </div>
+      </div>
+    </div>`;
+  }
+
+  html += `<nav>
+    <button class="${tab==='punch'?'active':''}" onclick="setTab('punch')">TimeCard</button>
+    <button class="${tab==='tasks'?'active':''}" onclick="setTab('tasks')">Tasks</button>
+    <button class="${tab==='report'?'active':''}" onclick="setTab('report')">Summary</button>
+    <button class="${tab==='settings'?'active':''}" onclick="setTab('settings')">Settings</button>
+  </nav>`;
+
+  html += `<div id="tabcontent"></div>`;
+  app.innerHTML = html;
+
+  const content = document.getElementById('tabcontent');
+  if(tab==='punch') content.innerHTML = renderPunch(today, todayStr, weekday, suggested);
+  else if(tab==='tasks') content.innerHTML = renderTasks();
+  else if(tab==='settings') content.innerHTML = renderSettings();
+  else content.innerHTML = renderReport();
+
+  if(showTaskForm) renderTaskModal();
+  if(editingRecordDate) renderRecordEditModal();
+  if(showAddRecord) renderAddRecordModal();
+  if(showDuplicate) renderDuplicateModal();
+  if(showPomodoroForm) renderPomodoroFormModal();
+  if(editingMemoDate) renderMemoModal();
+}
+
+function taskGoalHoursLabel(hours){
+  if(!hours) return t('noGoalSet');
+  return (hours%1===0 ? `${hours}` : `${hours.toFixed(1)}`) + t('hoursSuffix');
+}
+
+function renderPunch(today, todayStr, weekday, suggested){
+  const todaySessions = records[todayStr] || [];
+  const activeSession = todaySessions.find(s=> s.status==='working' || s.status==='paused');
+  const otherSessions = todaySessions.filter(s=> s !== activeSession);
+  const status = activeSession ? activeSession.status : 'none';
+  const locked = !!activeSession;
+  const ms = activeSession ? computeWorkMs(activeSession) : 0;
+  const selectableTasks = tasks.filter(t=>!t.archived);
+
+  if(selectableTasks.length===0){
+    return `<div class="panel empty">${t('noActiveTasks')}</div>`;
+  }
+
+  if(!locked && (!selectedTaskId || !selectableTasks.some(t=>t.id===selectedTaskId))){
+    selectedTaskId = (suggested[0]||selectableTasks[0]).id;
+  }
+  const currentTaskId = locked ? activeSession.taskId : selectedTaskId;
+  const currentTask = tasks.find(t=>t.id===currentTaskId);
+  const goalHours = taskGoalHours(currentTask);
+  const percent = goalHours>0 ? Math.min(100, (ms/3600000/goalHours)*100) : 0;
+
+  const statusMap = {working:['var(--brass)',t('statusWorking')], paused:['var(--blue)',t('statusPaused')], none:['var(--faint)',t('statusNone')]};
+  const [sColor,sLabel] = statusMap[status];
+
+  const chipTasks = locked && currentTask && currentTask.archived ? [currentTask, ...selectableTasks] : selectableTasks;
+  const chipsHtml = chipTasks.map(t=>{
+    const isCurrent = t.id===currentTaskId;
+    let cls = 'projchip';
+    let style = '';
+    if(locked){
+      cls += isCurrent ? ' running' : ' grayout';
+      if(isCurrent) style = `background:${taskColor(t.id)};border-color:${taskColor(t.id)};`;
+    } else if(isCurrent){
+      cls += ' selected';
+    }
+    const onclick = locked ? '' : `onclick="selectedTaskId='${t.id}'; render();"`;
+    return `<div class="${cls}" style="${style}" ${onclick}>
+      <span class="sq" style="background:${isCurrent&&locked?'rgba(255,255,255,0.85)':taskColor(t.id)};"></span>${escapeHtml(t.name)}
+    </div>`;
+  }).join('');
+
+  let buttonsHtml;
+  if(status==='none'){
+    buttonsHtml = `<div class="btnrow"><button class="bigbtn primary" onclick="doStart()">${t('start')}</button></div>`;
+  } else {
+    const toggleLabel = status==='working' ? t('pauseBtn') : t('resumeBtn');
+    const toggleClass = status==='working' ? 'pale' : 'primary';
+    const toggleOnclick = status==='working' ? 'doPause()' : 'doResume()';
+    buttonsHtml = `<div class="btnrow">
+      <button class="bigbtn ${toggleClass}" style="flex:2;" onclick="${toggleOnclick}">${toggleLabel}</button>
+      <button class="bigbtn secondary" style="flex:1;" onclick="doEnd()">${t('endBtn')}</button>
+    </div>`;
+  }
+
+  let html = `<div class="panel card-punch">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+      <div class="mono" style="font-size:12px;color:var(--faint);">${today.getFullYear()}.${pad(today.getMonth()+1)}.${pad(today.getDate())} (${WEEKDAYS[weekday]})</div>
+      <div class="status-dot"><span class="dot" style="background:${sColor};"></span><span class="mono" style="color:${sColor};font-size:13px;">${sLabel}</span></div>
+    </div>
+    <div id="clockDisplay" class="clock" style="color:${status==='none'?'var(--faint)':sColor};">${msToHMS(ms)}</div>
+    <div class="projlist">${chipsHtml}</div>
+    <div class="progresswrap">
+      <div class="catwalk ${status==='working'?'walking':''}" style="left:${percent}%;">${renderPixelArt(settings.pixelArt, 1.8, status==='working'?'walking':'sitting')}</div>
+      <div class="progresstrack"><div class="progressfill" style="width:${percent}%;"></div></div>
+    </div>
+    <div class="goalline">${hmLabel(ms)} / ${taskGoalHoursLabel(goalHours)}${t('parenWrap')(escapeHtml(currentTask?currentTask.name:''))}</div>
+    ${buttonsHtml}
+  </div>`;
+
+  html += renderPomodoroPanel(activeSession || null);
+
+  if(activeSession){
+    html += renderSessionCard(activeSession, todayStr);
+  }
+  otherSessions.slice().reverse().forEach(s=>{ html += renderSessionCard(s, todayStr); });
+
+  html += renderTodayStackedBar(todaySessions);
+
+  return html;
+}
+
+function renderSessionCard(s, todayStr){
+  return `<div class="panel" style="padding:18px;margin-bottom:16px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:${s.segments.length||s.memo?'10px':'0'};">
+        <div style="font-size:12px;color:var(--dim);display:flex;align-items:center;gap:6px;">
+          <span class="dot-sm" style="background:${taskColor(s.taskId)};"></span>${escapeHtml(s.taskName)}${s.status!=='done'?t('inProgress'):''}
+        </div>
+        <div style="display:flex;gap:6px;">
+          ${s.segments.length? `
+          <button class="icobtn" title="${t('editTime')}" onclick="openRecordEdit('${todayStr}','${s.id}')">✎</button>
+          <button class="icobtn" title="${t('duplicate')}" onclick="openDuplicate('${todayStr}','${s.id}')">⧉</button>` : ''}
+          <button class="icobtn" title="${s.memo? t('editMemo') : t('addMemo')}" style="color:${s.memo?'var(--brassDim)':'var(--dim)'};" onclick="openMemoEdit('${todayStr}','${s.id}')">📝</button>
+          ${s.status==='done'? `<button class="icobtn" title="${t('deleteBtn')}" style="color:var(--rust);" onclick="deleteSession('${todayStr}','${s.id}')">🗑</button>` : ''}
+        </div>
+      </div>
+      ${s.segments.length? `<div>
+        ${s.segments.map(seg=>`<div class="seg mono"><span>${fmtTime(seg.start)} – ${fmtTime(seg.end)}</span><span style="color:var(--faint);">(${msToHMS(new Date(seg.end)-new Date(seg.start))})</span></div>`).join('')}
+      </div>` : ''}
+      ${s.memo? `<div style="margin-top:${s.segments.length?'8px':'0'};padding:8px 10px;background:var(--panel2);border-radius:8px;font-size:12px;color:var(--dim);white-space:pre-wrap;word-break:break-word;">📝 ${escapeHtml(s.memo)}</div>` : ''}
+    </div>`;
+}
+
+function renderTodayStackedBar(todaySessions){
+  const totals = {};
+  todaySessions.forEach(s=>{
+    const ms = computeWorkMs(s);
+    if(!totals[s.taskId]) totals[s.taskId] = {name:s.taskName, id:s.taskId, ms:0};
+    totals[s.taskId].ms += ms;
+  });
+  const arr = Object.values(totals);
+  const totalMs = arr.reduce((a,b)=>a+b.ms,0);
+  if(totalMs<=0) return '';
+  const segmentsHtml = arr.map(v=>`<div style="width:${(v.ms/totalMs*100)}%;background:${taskColor(v.id)};" title="${escapeHtml(v.name)}"></div>`).join('');
+  const legend = arr.map(v=>`<div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--dim);"><span class="dot-sm" style="background:${taskColor(v.id)};"></span>${escapeHtml(v.name)}<span class="mono">${Math.round(v.ms/totalMs*100)}%</span></div>`).join('');
+  return `<div class="panel" style="padding:16px;margin-bottom:16px;">
+    <div style="font-size:12px;color:var(--dim);margin-bottom:10px;">${t('todaysBreakdown')}</div>
+    <div class="stackbar">${segmentsHtml}</div>
+    <div style="display:flex;flex-wrap:wrap;gap:12px;margin-top:10px;">${legend}</div>
+  </div>`;
+}
+
+// ---------- Tasks tab ----------
+function renderTasks(){
+  const active = tasks.filter(t=>!t.archived);
+  const archived = tasks.filter(t=>t.archived);
+
+  let html = `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+    <div style="font-size:13px;color:var(--dim);">${t('tasksIntro')}</div>
+    <button onclick="openTaskForm(null)" style="background:var(--brass);color:#fff;border:2px solid var(--brassDim);border-radius:9px;padding:8px 12px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;box-shadow:2px 2px 0 rgba(255,158,199,0.3);">${t('addBtn')}</button>
+  </div>`;
+
+  if(active.length===0){
+    html += `<div class="panel empty">${t('noActiveTasksShort')}</div>`;
+  }
+  html += active.map((tk)=>`
+    <div class="panel locrow">
+      <div style="display:flex;align-items:center;justify-content:space-between;">
+        <div>
+          <div class="loc-name"><span class="dot-sm" style="background:${taskColor(tk.id)};"></span>${escapeHtml(tk.name)}</div>
+          <div class="mono" style="font-size:12px;color:var(--faint);">${(tk.days||[]).map(d=>WEEKDAYS[d]).join('・')||t('everyDay')}</div>
+          <div class="mono" style="font-size:12px;color:var(--dim);margin-top:4px;">${t('goalLabel')} ${taskGoalHoursLabel(tk.targetHours)}</div>
+        </div>
+        <div style="display:flex;gap:6px;">
+          <button class="icobtn" onclick="openTaskForm('${tk.id}')">✎</button>
+          <button class="icobtn" title="${t('archiveTitle')}" onclick="archiveTask('${tk.id}', true)">🗄</button>
+          <button class="icobtn" style="color:var(--rust);" onclick="removeTask('${tk.id}')">🗑</button>
+        </div>
+      </div>
+    </div>`).join('');
+
+  html += `<button onclick="showArchived=!showArchived; render();" style="width:100%;background:none;border:2px dashed var(--lineS);color:var(--dim);border-radius:10px;padding:10px;cursor:pointer;font-family:inherit;font-size:12px;margin-top:8px;">${showArchived?'▲':'▼'} ${t('archivedCount')(archived.length)}</button>`;
+
+  if(showArchived){
+    if(archived.length===0){
+      html += `<div class="panel empty" style="margin-top:10px;">${t('noArchivedTasks')}</div>`;
+    }
+    html += archived.map((tk)=>`
+      <div class="panel locrow" style="opacity:0.6;margin-top:10px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;">
+          <div>
+            <div class="loc-name"><span class="dot-sm" style="background:${taskColor(tk.id)};"></span>${escapeHtml(tk.name)}</div>
+            <div class="mono" style="font-size:12px;color:var(--faint);">${(tk.days||[]).map(d=>WEEKDAYS[d]).join('・')||t('everyDay')}</div>
+          </div>
+          <div style="display:flex;gap:6px;">
+            <button class="icobtn" title="${t('restoreTitle')}" onclick="archiveTask('${tk.id}', false)">↩</button>
+            <button class="icobtn" style="color:var(--rust);" onclick="removeTask('${tk.id}')">🗑</button>
+          </div>
+        </div>
+      </div>`).join('');
+  }
+  return html;
+}
+function archiveTask(id, value){
+  tasks = tasks.map(t=> t.id===id ? {...t, archived:value} : t);
+  persistTasks();
+  render();
+}
+function openTaskForm(id){
+  editingTask = id ? {...tasks.find(t=>t.id===id)} : {id:uid(), name:'', days:[], targetHours:1, color: TASK_COLORS[tasks.length % TASK_COLORS.length], archived:false};
+  showTaskForm = true;
+  render();
+}
+function closeTaskForm(){ showTaskForm=false; editingTask=null; render(); }
+function toggleDay(idx){
+  const set = new Set(editingTask.days||[]);
+  set.has(idx) ? set.delete(idx) : set.add(idx);
+  editingTask.days = [...set].sort();
+  render();
+}
+function updateEditingField(key, value, isNum){
+  editingTask[key] = isNum ? Number(value) : value;
+}
+function saveTask(){
+  if(!editingTask.name.trim()){ alert(t('enterNameAlert')); return; }
+  const exists = tasks.some(t=>t.id===editingTask.id);
+  tasks = exists ? tasks.map(t=> t.id===editingTask.id ? editingTask : t) : [...tasks, editingTask];
+  persistTasks();
+  showTaskForm=false; editingTask=null;
+  render();
+}
+function removeTask(id){
+  if(!confirm(t('deleteTaskConfirm'))) return;
+  tasks = tasks.filter(t=>t.id!==id);
+  persistTasks(); render();
+}
+function renderTaskModal(){
+  const e = editingTask;
+  const modalHtml = `
+    <div class="modal-bg" onclick="if(event.target===this) closeTaskForm()">
+      <div class="modal" onclick="event.stopPropagation()">
+        <div style="font-weight:700;font-size:15px;margin-bottom:14px;">${tasks.some(t=>t.id===e.id)?t('editTaskTitle'):t('addTaskTitle')}</div>
+        <div class="field"><label>${t('nameLabel')}</label><input id="f_name" value="${escapeHtml(e.name)}" placeholder="${t('namePlaceholder')}" oninput="updateEditingField('name', this.value)"></div>
+        <div class="field"><label>${t('daysLabel')}</label><div class="days-picker">
+          ${WEEKDAYS_JP.map((w,idx)=>`<button type="button" class="day-chip ${(e.days||[]).includes(idx)?'on':''}" onclick="toggleDay(${idx})">${w}</button>`).join('')}
+        </div></div>
+        <div class="field"><label>${t('targetHoursLabel')}</label><input type="number" step="0.25" min="0" value="${e.targetHours}" oninput="updateEditingField('targetHours', this.value, true)"></div>
+        <div class="field"><label>${t('colorLabel')}</label><div class="swatch-picker">
+          ${TASK_COLORS.map(c=>`<div class="swatch ${e.color===c?'on':''}" style="background:${c};" onclick="updateEditingField('color','${c}'); render();">${e.color===c?'✓':''}</div>`).join('')}
+        </div></div>
+        <div style="display:flex;gap:10px;margin-top:16px;">
+          <button class="btn-ghost" onclick="closeTaskForm()">${t('cancel')}</button>
+          <button class="btn-primary" onclick="saveTask()">${t('save')}</button>
+        </div>
+      </div>
+    </div>`;
+  document.getElementById('app').insertAdjacentHTML('beforeend', modalHtml);
+}
+
+// ---------- segment (経過時間) editing ----------
+function localToISO(dateStr, hhmm){
+  const [y,m,d] = dateStr.split('-').map(Number);
+  const [hh,mm] = (hhmm||'00:00').split(':').map(Number);
+  return new Date(y, m-1, d, hh, mm, 0).toISOString();
+}
+function openRecordEdit(date, sessionId){
+  const s = (records[date]||[]).find(x=>x.id===sessionId);
+  if(!s) return;
+  editingRecordDate = date;
+  editingSessionId = sessionId;
+  editingSegmentsDraft = s.segments.map(seg=>({start:fmtTime(seg.start), end:fmtTime(seg.end)}));
+  render();
+}
+function closeRecordEdit(){ editingRecordDate=null; editingSessionId=null; editingSegmentsDraft=null; render(); }
+function updateSegDraft(idx, field, value){ editingSegmentsDraft[idx][field]=value; }
+function addSegDraft(){ editingSegmentsDraft.push({start:'09:00', end:'10:00'}); render(); }
+function removeSegDraft(idx){ editingSegmentsDraft.splice(idx,1); render(); }
+function saveRecordEdit(){
+  const date = editingRecordDate;
+  const arr = records[date]||[];
+  const segments = [];
+  for(const draft of editingSegmentsDraft){
+    const start = localToISO(date, draft.start);
+    const end = localToISO(date, draft.end);
+    if(new Date(end) <= new Date(start)){
+      alert(t('endBeforeStartAlert')(draft.start, draft.end));
+      return;
+    }
+    segments.push({start, end});
+  }
+  if(segments.length===0){
+    // fix: if all elapsed time is removed, delete the whole record instead of leaving an empty item behind
+    records[date] = arr.filter(x=>x.id!==editingSessionId);
+    if(records[date].length===0) delete records[date];
+  } else {
+    const s = arr.find(x=>x.id===editingSessionId);
+    s.segments = segments;
+  }
+  persistRecords();
+  editingRecordDate = null; editingSessionId = null; editingSegmentsDraft = null;
+  render();
+}
+function renderRecordEditModal(){
+  const date = editingRecordDate;
+  const s = (records[date]||[]).find(x=>x.id===editingSessionId);
+  if(!s){ closeRecordEdit(); return; }
+  const modalHtml = `
+    <div class="modal-bg" onclick="if(event.target===this) closeRecordEdit()">
+      <div class="modal" onclick="event.stopPropagation()">
+        <div style="font-weight:700;font-size:15px;margin-bottom:4px;">${t('editElapsedTitle')}</div>
+        <div class="mono" style="font-size:12px;color:var(--faint);margin-bottom:14px;">${date}　${escapeHtml(s.taskName)}</div>
+        ${editingSegmentsDraft.map((seg,idx)=>`
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+            <input type="time" value="${seg.start}" style="flex:1;" oninput="updateSegDraft(${idx},'start',this.value)">
+            <span style="color:var(--faint);">–</span>
+            <input type="time" value="${seg.end}" style="flex:1;" oninput="updateSegDraft(${idx},'end',this.value)">
+            <button class="icobtn" style="color:var(--rust);" onclick="removeSegDraft(${idx})">🗑</button>
+          </div>`).join('')}
+        ${editingSegmentsDraft.length===0? `<div style="font-size:12px;color:var(--faint);margin-bottom:10px;">${t('noSegments')}</div>` : ''}
+        <button onclick="addSegDraft()" style="background:none;border:1px dashed var(--lineS);color:var(--dim);border-radius:8px;padding:8px;width:100%;cursor:pointer;font-family:inherit;font-size:13px;margin-bottom:16px;">${t('addSegment')}</button>
+        <div style="display:flex;gap:10px;">
+          <button class="btn-ghost" onclick="closeRecordEdit()">${t('cancel')}</button>
+          <button class="btn-primary" onclick="saveRecordEdit()">${t('save')}</button>
+        </div>
+      </div>
+    </div>`;
+  document.getElementById('app').insertAdjacentHTML('beforeend', modalHtml);
+}
+
+// ---------- memo on a task log ----------
+function openMemoEdit(date, sessionId){
+  const s = (records[date]||[]).find(x=>x.id===sessionId);
+  if(!s) return;
+  editingMemoDate = date;
+  editingMemoSessionId = sessionId;
+  editingMemoDraft = s.memo || '';
+  render();
+}
+function closeMemoEdit(){ editingMemoDate=null; editingMemoSessionId=null; editingMemoDraft=''; render(); }
+function updateMemoDraft(value){ editingMemoDraft = value; }
+function saveMemoEdit(){
+  const s = (records[editingMemoDate]||[]).find(x=>x.id===editingMemoSessionId);
+  if(s) s.memo = editingMemoDraft.trim();
+  persistRecords();
+  editingMemoDate=null; editingMemoSessionId=null; editingMemoDraft='';
+  render();
+}
+function renderMemoModal(){
+  const s = (records[editingMemoDate]||[]).find(x=>x.id===editingMemoSessionId);
+  if(!s){ closeMemoEdit(); return; }
+  const modalHtml = `
+    <div class="modal-bg" onclick="if(event.target===this) closeMemoEdit()">
+      <div class="modal" onclick="event.stopPropagation()">
+        <div style="font-weight:700;font-size:15px;margin-bottom:4px;">${t('memoTitle')}</div>
+        <div class="mono" style="font-size:12px;color:var(--faint);margin-bottom:14px;">${editingMemoDate}　${escapeHtml(s.taskName)}</div>
+        <textarea oninput="updateMemoDraft(this.value)" placeholder="${t('memoPlaceholder')}" style="width:100%;min-height:110px;background:var(--panel2);border:2px solid var(--lineS);border-radius:9px;color:var(--text);padding:10px;font-size:14px;font-family:inherit;resize:vertical;">${escapeHtml(editingMemoDraft)}</textarea>
+        <div style="display:flex;gap:10px;margin-top:16px;">
+          <button class="btn-ghost" onclick="closeMemoEdit()">${t('cancel')}</button>
+          <button class="btn-primary" onclick="saveMemoEdit()">${t('save')}</button>
+        </div>
+      </div>
+    </div>`;
+  document.getElementById('app').insertAdjacentHTML('beforeend', modalHtml);
+}
+
+// ---------- add record for arbitrary date (後日記録) ----------
+function openAddRecord(){
+  if(tasks.length===0){ alert(t('addTaskFirstAlert')); return; }
+  const task = tasks.find(t=>!t.archived) || tasks[0];
+  addDraft = {
+    date: fmtDate(new Date()), taskId: task.id,
+    segments: [{start:'09:00', end:'10:00'}],
+  };
+  showAddRecord = true;
+  render();
+}
+function closeAddRecord(){ showAddRecord=false; addDraft=null; render(); }
+function updateAddDraft(key, value){ addDraft[key] = value; }
+function onAddDraftTaskChange(taskId){ addDraft.taskId = taskId; render(); }
+function addDraftSegAdd(){ addDraft.segments.push({start:'09:00', end:'10:00'}); render(); }
+function addDraftSegRemove(idx){ addDraft.segments.splice(idx,1); render(); }
+function addDraftSegUpdate(idx, field, value){ addDraft.segments[idx][field] = value; }
+function saveAddRecord(){
+  const task = tasks.find(t=>t.id===addDraft.taskId);
+  if(!task){ alert(t('selectTaskAlert')); return; }
+  if(!addDraft.date){ alert(t('enterDateAlert')); return; }
+  const segments = [];
+  for(const seg of addDraft.segments){
+    const start = localToISO(addDraft.date, seg.start);
+    const end = localToISO(addDraft.date, seg.end);
+    if(new Date(end) <= new Date(start)){
+      alert(t('endBeforeStartAlert')(seg.start, seg.end));
+      return;
+    }
+    segments.push({start, end});
+  }
+  if(segments.length===0){ alert(t('atLeastOneSegmentAlert')); return; }
+  const session = {
+    id: uid(), date: addDraft.date, taskId: task.id, taskName: task.name,
+    segments, currentStart:null, status:'done', memo:'',
+  };
+  records[addDraft.date] = [...(records[addDraft.date]||[]), session];
+  persistRecords();
+  reportMonth = addDraft.date.slice(0,7);
+  selectedReportDate = addDraft.date;
+  showAddRecord = false; addDraft = null;
+  render();
+}
+function renderAddRecordModal(){
+  const d = addDraft;
+  const modalHtml = `
+    <div class="modal-bg" onclick="if(event.target===this) closeAddRecord()">
+      <div class="modal" onclick="event.stopPropagation()">
+        <div style="font-weight:700;font-size:15px;margin-bottom:14px;">${t('addRecordTitle')}</div>
+        <div class="field"><label>${t('dateLabel')}</label><input type="date" value="${d.date}" oninput="updateAddDraft('date', this.value)"></div>
+        <div class="field"><label>${t('taskLabel')}</label>
+          <select onchange="onAddDraftTaskChange(this.value)">
+            ${tasks.map(tk=>`<option value="${tk.id}" ${tk.id===d.taskId?'selected':''}>${escapeHtml(tk.name)}${tk.archived?t('archivedSuffix'):''}</option>`).join('')}
+          </select>
+        </div>
+        <div class="field"><label>${t('segmentsLabel')}</label>
+          ${d.segments.map((seg,idx)=>`
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+              <input type="time" value="${seg.start}" style="flex:1;" oninput="addDraftSegUpdate(${idx},'start',this.value)">
+              <span style="color:var(--faint);">–</span>
+              <input type="time" value="${seg.end}" style="flex:1;" oninput="addDraftSegUpdate(${idx},'end',this.value)">
+              <button class="icobtn" style="color:var(--rust);" onclick="addDraftSegRemove(${idx})">🗑</button>
+            </div>`).join('')}
+          <button onclick="addDraftSegAdd()" style="background:none;border:1px dashed var(--lineS);color:var(--dim);border-radius:8px;padding:8px;width:100%;cursor:pointer;font-family:inherit;font-size:13px;">${t('addSegment')}</button>
+        </div>
+        <div style="display:flex;gap:10px;margin-top:8px;">
+          <button class="btn-ghost" onclick="closeAddRecord()">${t('cancel')}</button>
+          <button class="btn-primary" onclick="saveAddRecord()">${t('addAction')}</button>
+        </div>
+      </div>
+    </div>`;
+  document.getElementById('app').insertAdjacentHTML('beforeend', modalHtml);
+}
+
+// ---------- duplicate a record onto another date ----------
+function openDuplicate(date, sessionId){
+  const s = (records[date]||[]).find(x=>x.id===sessionId);
+  if(!s) return;
+  duplicateSource = {
+    taskId: s.taskId, taskName: s.taskName,
+    segmentsTimes: s.segments.map(seg=>({start:fmtTime(seg.start), end:fmtTime(seg.end)})),
+  };
+  const orig = new Date(date); orig.setDate(orig.getDate()+1);
+  duplicateTargetDate = fmtDate(orig);
+  showDuplicate = true;
+  render();
+}
+function closeDuplicate(){ showDuplicate=false; duplicateSource=null; duplicateTargetDate=null; render(); }
+function updateDuplicateDate(value){ duplicateTargetDate = value; }
+function confirmDuplicate(){
+  const src = duplicateSource;
+  const targetDate = duplicateTargetDate;
+  if(!targetDate){ alert(t('selectDateAlert')); return; }
+  const segments = src.segmentsTimes.map(t=>({start: localToISO(targetDate, t.start), end: localToISO(targetDate, t.end)}));
+  const session = {
+    id: uid(), date: targetDate, taskId: src.taskId, taskName: src.taskName,
+    segments, currentStart:null, status:'done', memo:'',
+  };
+  records[targetDate] = [...(records[targetDate]||[]), session];
+  persistRecords();
+  reportMonth = targetDate.slice(0,7);
+  selectedReportDate = targetDate;
+  showDuplicate = false; duplicateSource = null; duplicateTargetDate = null;
+  render();
+}
+function renderDuplicateModal(){
+  const src = duplicateSource;
+  const modalHtml = `
+    <div class="modal-bg" onclick="if(event.target===this) closeDuplicate()">
+      <div class="modal" onclick="event.stopPropagation()">
+        <div style="font-weight:700;font-size:15px;margin-bottom:4px;">${t('duplicateRecordTitle')}</div>
+        <div class="mono" style="font-size:12px;color:var(--faint);margin-bottom:14px;">${escapeHtml(src.taskName)}　${src.segmentsTimes.map(tm=>`${tm.start}–${tm.end}`).join('、')}</div>
+        <div class="field"><label>${t('duplicateTargetLabel')}</label><input type="date" value="${duplicateTargetDate}" oninput="updateDuplicateDate(this.value)"></div>
+        <div style="font-size:12px;color:var(--faint);margin-bottom:8px;">${t('duplicateNote')}</div>
+        <div style="display:flex;gap:10px;margin-top:8px;">
+          <button class="btn-ghost" onclick="closeDuplicate()">${t('cancel')}</button>
+          <button class="btn-primary" onclick="confirmDuplicate()">${t('duplicateAction')}</button>
+        </div>
+      </div>
+    </div>`;
+  document.getElementById('app').insertAdjacentHTML('beforeend', modalHtml);
+}
+
+// ---------- pomodoro template form modal ----------
+function renderPomodoroFormModal(){
+  const d = pomodoroDraft;
+  const modalHtml = `
+    <div class="modal-bg" onclick="if(event.target===this) closePomodoroForm()">
+      <div class="modal" onclick="event.stopPropagation()">
+        <div style="font-weight:700;font-size:15px;margin-bottom:14px;">${t('addPomodoroTemplateTitle')}</div>
+        <div class="field"><label>${t('nameLabel')}</label><input value="${escapeHtml(d.name)}" placeholder="${t('pomodoroNamePlaceholder')}" oninput="updatePomodoroDraft('name', this.value)"></div>
+        <div style="display:flex;gap:10px;">
+          <div class="field" style="flex:1;"><label>${t('focusMinutes')}</label><input type="number" min="1" value="${d.work}" oninput="updatePomodoroDraft('work', this.value, true)"></div>
+          <div class="field" style="flex:1;"><label>${t('breakMinutes')}</label><input type="number" min="1" value="${d.break}" oninput="updatePomodoroDraft('break', this.value, true)"></div>
+        </div>
+        <div style="display:flex;gap:10px;margin-top:8px;">
+          <button class="btn-ghost" onclick="closePomodoroForm()">${t('cancel')}</button>
+          <button class="btn-primary" onclick="savePomodoroTemplate()">${t('addAction')}</button>
+        </div>
+      </div>
+    </div>`;
+  document.getElementById('app').insertAdjacentHTML('beforeend', modalHtml);
+}
+
+// ---------- Settings tab ----------
+function toggleHowTo(){ showHowTo=!showHowTo; render(); }
+function toggleInstall(){ showInstall=!showInstall; render(); }
+
+function renderSyncBar(){
+  if(!window.__fb || !window.__fb.ready){
+    return `<div style="font-size:12px;color:var(--faint);">${t('syncConnecting')}</div>`;
+  }
+  const user = window.__fb.user;
+  const isSignedIn = user && !user.isAnonymous;
+  const label = isSignedIn ? t('syncSignedInGoogle')(user.displayName || user.email || '') : t('syncSignedInAnon');
+
+  if(isSignedIn){
+    return `<div style="display:flex;align-items:center;gap:10px;">
+      <div style="font-size:12px;color:var(--dim);flex:1;">
+        <div>${escapeHtml(label)}</div>
+      </div>
+      <button class="icobtn" style="width:auto;padding:0 10px;" onclick="fbSignOut()">${t('syncSignOutBtn')}</button>
+    </div>`;
+  }
+
+  return `<div>
+    <div style="font-size:12px;color:var(--dim);">${escapeHtml(label)}</div>
+    <div style="font-size:11px;color:var(--faint);margin-top:2px;margin-bottom:10px;">${t('syncNote')}</div>
+    <button class="icobtn" style="width:auto;padding:0 10px;color:var(--brassDim);" onclick="fbSignInGoogle()">${t('syncSignInGoogleBtn')}</button>
+    <div style="font-size:10.5px;color:var(--faint);margin-top:8px;">${t('popupHint')}</div>
+  </div>`;
+}
+
+function renderUpgradeBar(){
+  if(!window.__fb || !window.__fb.ready || !fbUser) return '';
+  if(userPlan === 'paid'){
+    return `<div style="font-size:12px;color:var(--teal);">${t('planPaidLabel')}</div>`;
+  }
+  return `<div style="display:flex;align-items:center;gap:10px;">
+    <div style="font-size:12px;color:var(--dim);flex:1;">
+      <div>${t('planFreeLabel')}</div>
+      <div style="font-size:11px;color:var(--faint);margin-top:2px;">${t('planUpgradeNote')}</div>
+    </div>
+    <button class="icobtn" style="width:auto;padding:0 10px;color:var(--brassDim);" onclick="fbUpgradeToPaid(this)">${t('planUpgradeBtn')}</button>
+  </div>`;
+}
+
+function renderSettings(){
+  let html = `<div style="font-size:13px;color:var(--dim);margin-bottom:16px;">${t('settingsIntro')}</div>`;
+  const upgradeBarHtml = renderUpgradeBar();
+
+  // 1. Focus timer
+  const templates = settings.pomodoro.templates;
+  html += `<div class="panel" style="padding:16px;margin-bottom:16px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+      <div class="settitle" style="margin-bottom:0;">${t('focusTimer')}</div>
+      <div class="switch ${settings.pomodoro.autoEnable?'on':''}" onclick="togglePomodoroAutoEnable()"><div class="knob"></div></div>
+    </div>
+    <div style="font-size:11px;color:var(--faint);margin-bottom:12px;">${t('autoEnableNote')}</div>
+    ${templates.map(tp=>`
+      <div class="tplrow ${settings.pomodoro.activeTemplateId===tp.id?'on':''}" onclick="setActiveTemplate('${tp.id}')">
+        <div style="flex:1;">
+          <div style="font-weight:600;font-size:13px;">${escapeHtml(tp.name)}</div>
+          <div class="mono" style="font-size:11px;color:var(--dim);">${t('templateDetail')(tp.work, tp.break, tp.longBreakEvery, tp.longBreak)}</div>
+        </div>
+        ${settings.pomodoro.activeTemplateId===tp.id? `<span style="color:var(--brassDim);font-size:16px;">✓</span>`:''}
+        ${!tp.builtin? `<button class="icobtn" style="color:var(--rust);" onclick="event.stopPropagation();deletePomodoroTemplate('${tp.id}')">🗑</button>` : ''}
+      </div>`).join('')}
+    <button onclick="openPomodoroForm()" style="width:100%;background:none;border:1px dashed var(--lineS);color:var(--dim);border-radius:8px;padding:8px;cursor:pointer;font-family:inherit;font-size:12px;margin-top:4px;">${t('addTemplate')}</button>
+  </div>`;
+
+  // 2. Pixel art
+  html += `<div class="panel" style="padding:16px;margin-bottom:16px;">
+    <div class="settitle">${t('appearancePixelArt')}</div>
+    <div class="pixrow">
+      ${Object.keys(PIXEL_ART_GRIDS).map((key)=>`
+        <div class="pixcard ${settings.pixelArt===key?'on':''}" onclick="selectPixelArt('${key}')">
+          ${renderPixelArt(key,1.0,'walking')}
+          <div class="name">${escapeHtml(pixelArtName(key))}${settings.pixelArt===key?' ✓':''}</div>
+        </div>`).join('')}
+    </div>
+    <div style="font-size:11px;color:var(--faint);margin-top:10px;">${t('morePixelArtSoon')}</div>
+  </div>`;
+
+  // 3. Theme
+  html += `<div class="panel" style="padding:16px;margin-bottom:16px;">
+    <div class="settitle">${t('appearanceTheme')}</div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;">
+      ${Object.keys(THEME_NAMES).map(key=>`
+        <div class="themecard ${settings.theme===key?'on':''}" onclick="selectTheme('${key}')">
+          <div class="swrow">${THEME_PREVIEW_KEYS[key].map(c=>`<span class="sw" style="background:${c};"></span>`).join('')}</div>
+          <div class="name">${THEME_NAMES[key]}${settings.theme===key?' ✓':''}</div>
+        </div>`).join('')}
+    </div>
+  </div>`;
+
+  // 4. About (collapsible how-to + install instructions grouped together)
+  html += `<div class="panel" style="padding:16px;margin-bottom:16px;">
+    <div class="settitle">${t('aboutSection')}</div>
+
+    ${upgradeBarHtml ? `${upgradeBarHtml}<div style="height:1px;background:var(--line);margin:14px 0;"></div>` : ''}
+
+    <div class="collapsehead" onclick="toggleHowTo()">
+      <div style="font-size:13px;font-weight:600;">${t('howToTitle')}</div>
+      <div class="tri">${showHowTo?'▼':'▶'}</div>
+    </div>
+    ${showHowTo? `<div class="collapsebody">
+      ${t('howToPages').map(p=>`
+        <div class="howto-page">
+          <div class="pname">${escapeHtml(p.name)}</div>
+          <div class="pdesc">${escapeHtml(p.desc)}</div>
+        </div>`).join('')}
+      <div style="font-size:12px;font-weight:700;margin:12px 0 8px;">${t('howToIconsTitle')}</div>
+      ${t('howToIcons').map(ic=>`
+        <div class="howto-icon-row"><span class="ic">${ic.icon}</span><span>${escapeHtml(ic.label)}</span></div>`).join('')}
+    </div>` : ''}
+
+    <div style="height:1px;background:var(--line);margin:14px 0;"></div>
+
+    <div class="collapsehead" onclick="toggleInstall()">
+      <div style="font-size:13px;font-weight:600;">${t('addToHomeScreen')}</div>
+      <div class="tri">${showInstall?'▼':'▶'}</div>
+    </div>
+    ${showInstall? `<div class="collapsebody">
+      <div style="font-size:12px;font-weight:700;margin-bottom:6px;">${t('iphoneCase')}</div>
+      <ol class="installsteps">
+        <li>${t('iphoneStep1')}</li>
+        <li>${t('iphoneStep2')}</li>
+        <li>${t('iphoneStep3')}</li>
+        <li>${t('iphoneStep4')}</li>
+      </ol>
+      <div style="font-size:12px;font-weight:700;margin:14px 0 6px;">${t('androidCase')}</div>
+      <ol class="installsteps">
+        <li>${t('androidStep1')}</li>
+        <li>${t('androidStep2')}</li>
+        <li>${t('androidStep3')}</li>
+        <li>${t('androidStep4')}</li>
+      </ol>
+      <div style="font-size:11px;color:var(--faint);margin-top:10px;">${t('installNote')}</div>
+    </div>` : ''}
+
+    <div style="height:1px;background:var(--line);margin:14px 0;"></div>
+    <a href="./privacy.html" target="_blank" rel="noopener" style="font-size:12px;color:var(--dim);text-decoration:none;display:flex;align-items:center;gap:6px;">📄 ${LANG==='ja'?'プライバシーポリシー':'Privacy Policy'}</a>
+    <div class="mono" style="font-size:10px;color:var(--faint);margin-top:10px;">Build: ${APP_VERSION}</div>
+  </div>`;
+
+  // 5. Backup (two independent methods: Google sign-in sync, and manual export/import)
+  html += `<div class="panel" style="padding:16px;margin-bottom:16px;">
+    <div class="settitle">${t('backupSection')}</div>
+
+    <div style="font-size:12px;font-weight:700;margin-bottom:8px;">${t('backupMethod1Title')}</div>
+    ${renderSyncBar()}
+
+    <div style="height:1px;background:var(--line);margin:14px 0;"></div>
+
+    <div style="font-size:12px;font-weight:700;margin-bottom:4px;">${t('backupMethod2Title')}</div>
+    <div style="font-size:11px;color:var(--faint);margin-bottom:10px;">${t('backupManualNote')}</div>
+    <div style="display:flex;gap:10px;">
+      <button class="btn-ghost" onclick="exportData()">${t('exportBtn')}</button>
+      <label class="btn-ghost" style="text-align:center;cursor:pointer;">${t('importBtn')}<input type="file" accept="application/json" style="display:none;" onchange="importDataFile(event)"></label>
+    </div>
+  </div>`;
+
+  return html;
+}
+
+function setTab(t){ tab=t; save('tt_last_tab', t); render(); }
+
+// ---------- report / summary ----------
+function monthlyGoalMinutes(task, month, todayStr){
+  const [y,m] = month.split('-').map(Number);
+  const daysInMonth = new Date(y,m,0).getDate();
+  const isCurrentMonth = month === todayStr.slice(0,7);
+  const cutoffDay = isCurrentMonth ? new Date(todayStr).getDate() : daysInMonth;
+  const days = task.days && task.days.length ? task.days : null; // null = every day
+  let count = 0;
+  for(let d=1; d<=cutoffDay; d++){
+    const wd = new Date(y, m-1, d).getDay();
+    if(!days || days.includes(wd)) count++;
+  }
+  return count * (task.targetHours||0) * 60;
+}
+
+function polarToCartesian(cx, cy, r, angleDeg){
+  const rad = (angleDeg-90) * Math.PI/180;
+  return { x: cx + r*Math.cos(rad), y: cy + r*Math.sin(rad) };
+}
+function renderCalendar(rows, month, selectedDate){
+  const byDate = {};
+  rows.forEach(r=>{
+    if(!byDate[r.date]) byDate[r.date] = {ms:0, taskIds:new Set()};
+    const d = byDate[r.date];
+    d.ms += r.ms; d.taskIds.add(r.taskId);
+  });
+  const [y,m] = month.split('-').map(Number);
+  const daysInMonth = new Date(y, m, 0).getDate();
+  const startWeekday = new Date(y, m-1, 1).getDay();
+  const todayStr = fmtDate(new Date());
+
+  const cells = [];
+  for(let i=0;i<startWeekday;i++) cells.push(null);
+  for(let d=1; d<=daysInMonth; d++) cells.push(d);
+  while(cells.length % 7 !== 0) cells.push(null);
+
+  const cellHtml = cells.map(d=>{
+    if(d===null) return `<div class="cal-cell blank"></div>`;
+    const dateStr = `${y}-${pad(m)}-${pad(d)}`;
+    const info = byDate[dateStr];
+    const isToday = dateStr === todayStr;
+    const isSelected = dateStr === selectedDate;
+    const cls = `cal-cell${isToday?' today':''}${isSelected?' selected':''}`;
+    if(!info){
+      return `<div class="${cls}" onclick="selectReportDate('${dateStr}')"><div class="cal-day">${d}</div></div>`;
+    }
+    const dots = [...info.taskIds].map(id=>`<span class="cal-dot" style="background:${taskColor(id)};"></span>`).join('');
+    return `<div class="${cls}" onclick="selectReportDate('${dateStr}')">
+      <div class="cal-day">${d}</div>
+      <div class="cal-hrs">${(info.ms/3600000).toFixed(1)}h</div>
+      <div class="cal-dots">${dots}</div>
+    </div>`;
+  }).join('');
+
+  return `<div class="panel" style="padding:16px;margin-bottom:16px;">
+    <div style="font-size:12px;color:var(--faint);margin-bottom:10px;">${t('calendarTitle')}</div>
+    <div class="cal-grid" style="margin-bottom:6px;">
+      ${WEEKDAYS.map(w=>`<div class="cal-head">${w}</div>`).join('')}
+    </div>
+    <div class="cal-grid">${cellHtml}</div>
+  </div>`;
+}
+function selectReportDate(dateStr){
+  selectedReportDate = (selectedReportDate===dateStr) ? null : dateStr;
+  render();
+    }
+
+    function renderReport() {
+        const todayStr = fmtDate(new Date());
+        const allSessions = [];
+        Object.entries(records).forEach(([date, arr]) => arr.forEach(s => allSessions.push(s)));
+        const monthSessions = allSessions.filter(s => s.date.startsWith(reportMonth)).sort((a, b) => a.date.localeCompare(b.date) || (a.currentStart || a.segments[0]?.start || '').localeCompare(b.currentStart || b.segments[0]?.start || ''));
+        const rows = monthSessions.map(r => ({ ...r, ms: computeWorkMs(r) }));
+        const totalMs = rows.reduce((s, r) => s + r.ms, 0);
+
+        // 月全体の目標と実績を計算（月間達成率用）
+        let totalMonthGoalMinutes = 0;
+        tasks.filter(t => !t.archived && t.targetHours > 0).forEach(task => {
+            totalMonthGoalMinutes += monthlyGoalMinutes(task, reportMonth, todayStr);
+        });
+        const totalMonthActualMinutes = totalMs / 60000;
+        const monthAchievementRate = totalMonthGoalMinutes > 0 ? Math.min(100, totalMonthActualMinutes / totalMonthGoalMinutes * 100) : (totalMonthActualMinutes > 0 ? 100 : 0);
+
+        // ターゲット日付を決定（選択日、なければ今日、過去月なら1日）
+        let targetDate = selectedReportDate;
+        if (!targetDate) {
+            targetDate = (reportMonth === todayStr.slice(0, 7)) ? todayStr : `${reportMonth}-01`;
+        }
+        const targetDayOfWeek = new Date(targetDate + 'T00:00:00').getDay();
+
+        // ターゲット日付のタスクごとの実績と目標を集計
+        const targetDaySessions = allSessions.filter(s => s.date === targetDate);
+        let dayGoalMinutes = 0;
+        tasks.filter(tk => !tk.archived && tk.targetHours > 0).forEach(tk => {
+            const days = tk.days && tk.days.length ? tk.days : null;
+            if (!days || days.includes(targetDayOfWeek)) {
+                dayGoalMinutes += Number(tk.targetHours || 0) * 60;
+            }
+        });
+
+        const dayActualMs = targetDaySessions.reduce((s, r) => s + computeWorkMs(r), 0);
+        const dayActualMinutes = dayActualMs / 60000;
+        const dayAchievementRate = dayGoalMinutes > 0 ? Math.min(100, dayActualMinutes / dayGoalMinutes * 100) : (dayActualMinutes > 0 ? 100 : 0);
+        const dayLabel = targetDate === todayStr ? t('todayAchievement') : t('dateAchievement')(targetDate.slice(5).replace('-', '/'));
+
+        let html = `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+    <button class="navbtn" onclick="changeMonth(-1)">‹</button>
+    <div class="mono" style="font-size:16px;font-weight:700;">${reportMonth}</div>
+    <button class="navbtn" onclick="changeMonth(1)">›</button>
+  </div>
+  <button onclick="openAddRecord()" style="width:100%;background:none;border:1px dashed var(--lineS);color:var(--dim);border-radius:10px;padding:10px;cursor:pointer;font-family:inherit;font-size:13px;margin-bottom:16px;">${t('addRecordShort')}</button>`;
+
+        html += `<div class="metrics" style="grid-template-columns:1fr;margin-bottom:10px;">
+    <div class="metric"><div class="lbl">${t('totalTime')}</div><div class="val mono">${hmLabel(totalMs)}</div></div>
+  </div>`;
+
+        html += `<div class="metrics" style="grid-template-columns:1fr 1fr;margin-bottom:16px;">
+    <div class="metric"><div class="lbl">${t('monthAchievement')}</div><div class="val mono">${Math.round(monthAchievementRate)}%</div></div>
+    <div class="metric"><div class="lbl">${dayLabel}</div><div class="val mono">${Math.round(dayAchievementRate)}%</div></div>
+  </div>`;
+
+        // カレンダー描画
+        html += renderCalendar(rows, reportMonth, selectedReportDate);
+
+        // 指定した日（選択日 or 今日）の記録リストをカレンダー下に表示
+        const dayRows = targetDaySessions.map(r => ({ ...r, ms: computeWorkMs(r) }))
+            .sort((a, b) => (a.currentStart || a.segments[0]?.start || '').localeCompare(b.currentStart || b.segments[0]?.start || ''));
+        const wd = WEEKDAYS[targetDayOfWeek];
+        const rowsHtml = dayRows.map((r, i) => {
+            const task = tasks.find(tk => tk.id === r.taskId);
+            const goalMin = task ? (task.targetHours || 0) * 60 : 0;
+            const rate = goalMin > 0 ? Math.min(100, (r.ms / 60000) / goalMin * 100) : null;
+            const isLast = i === dayRows.length - 1;
+
+            return `
+      <div style="padding:12px 0; border-bottom:${isLast ? 'none' : '1px solid var(--line)'};">
+        <div style="display:flex;align-items:center;gap:8px;font-size:13px;margin-bottom:${rate !== null || r.memo ? '8px' : '0'};">
+          <div style="flex:1;display:flex;align-items:center;gap:6px;min-width:0;">
+            <span class="dot-sm" style="background:${taskColor(r.taskId)};flex-shrink:0;"></span>
+            <span style="font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(r.taskName)}</span>
+          </div>
+          <div class="mono" style="color:var(--dim);">${hmLabel(r.ms)}</div>
+          <div class="mono" style="width:40px;text-align:right;color:${rate === null ? 'var(--faint)' : (rate >= 100 ? 'var(--teal)' : 'var(--text)')};font-weight:700;">${rate === null ? '—' : Math.round(rate) + '%'}</div>
+          <div style="display:flex;gap:2px;flex-shrink:0;margin-left:4px;">
+            <button onclick="openRecordEdit('${r.date}','${r.id}')" style="background:none;border:none;color:var(--dim);cursor:pointer;padding:2px;">✎</button>
+            <button onclick="openMemoEdit('${r.date}','${r.id}')" style="background:none;border:none;color:${r.memo ? 'var(--brassDim)' : 'var(--dim)'};cursor:pointer;padding:2px;">📝</button>
+            <button onclick="deleteSession('${r.date}','${r.id}')" style="background:none;border:none;color:var(--dim);cursor:pointer;padding:2px;">🗑</button>
+          </div>
+        </div>
+        ${rate !== null ? `
+        <div class="barwrap" style="height:6px; margin-bottom:${r.memo ? '10px' : '0'}; background:var(--line);">
+          <div class="bar" style="width:${Math.round(rate)}%; background:${taskColor(r.taskId)}; height:100%; border-radius:3px;"></div>
+        </div>
+        ` : ''}
+        ${r.memo ? `<div style="font-size:12px;color:var(--dim);white-space:pre-wrap;word-break:break-word;background:var(--panel2);padding:10px;border-radius:8px;">📝 ${escapeHtml(r.memo)}</div>` : ''}
+      </div>
+    `;
+        }).join('');
+
+        html += `<div class="panel" style="padding:14px;margin-bottom:10px;">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:${dayRows.length ? '8px' : '0'};">
+      <span class="mono" style="font-weight:700;font-size:13px;">${targetDate.slice(5).replace('-', '/')} (${wd})</span>
+      <span class="mono" style="font-size:11px;color:var(--dim);">${t('entriesCount')(dayRows.length)} ・ ${hmLabel(dayActualMs)}</span>
+    </div>
+    ${dayRows.length ? rowsHtml : `<div style="font-size:12px;color:var(--faint);padding:6px 0;">${t('noRecordsThisDay')}</div>`}
+  </div>`;
+
+        return html;
+    }
+
+/*function renderReport(){
+  const todayStr = fmtDate(new Date());
+  const allSessions = [];
+  Object.entries(records).forEach(([date, arr])=> arr.forEach(s=> allSessions.push(s)));
+  const monthSessions = allSessions.filter(s=>s.date.startsWith(reportMonth)).sort((a,b)=> a.date.localeCompare(b.date) || (a.currentStart||a.segments[0]?.start||'').localeCompare(b.currentStart||b.segments[0]?.start||''));
+  const rows = monthSessions.map(r=>({...r, ms:computeWorkMs(r)}));
+  const totalMs = rows.reduce((s,r)=>s+r.ms,0);
+
+  const byTask = {};
+  rows.forEach(r=>{
+    if(!byTask[r.taskId]) byTask[r.taskId] = {id:r.taskId, name:r.taskName, ms:0};
+    byTask[r.taskId].ms += r.ms;
+  });
+  // include tasks with a goal but no records yet this month, so their shortfall still shows
+  tasks.filter(t=>!t.archived && t.targetHours>0).forEach(t=>{
+    if(!byTask[t.id]) byTask[t.id] = {id:t.id, name:t.name, ms:0};
+  });
+  const byTaskArr = Object.values(byTask);
+
+  let totalGoalMinutes = 0, totalUnachievedMinutes = 0, totalActualMinutes = 0;
+  const taskStats = byTaskArr.map(v=>{
+    const task = tasks.find(t=>t.id===v.id);
+    const goalMinutes = task ? monthlyGoalMinutes(task, reportMonth, todayStr) : 0;
+    const actualMinutes = v.ms/60000;
+    const achievementRate = goalMinutes>0 ? Math.min(100, actualMinutes/goalMinutes*100) : (actualMinutes>0?100:0);
+    const unachievedMinutes = Math.max(0, goalMinutes-actualMinutes);
+    const unachievedRate = goalMinutes>0 ? Math.max(0, 100-achievementRate) : 0;
+    totalGoalMinutes += goalMinutes;
+    totalUnachievedMinutes += unachievedMinutes;
+    totalActualMinutes += actualMinutes;
+    return {...v, goalMinutes, actualMinutes, achievementRate, unachievedMinutes, unachievedRate};
+  }).sort((a,b)=> b.actualMinutes - a.actualMinutes);
+
+  // overall achievement rate for the month being viewed
+  const monthAchievementRate = totalGoalMinutes>0 ? Math.min(100, totalActualMinutes/totalGoalMinutes*100) : (totalActualMinutes>0?100:0);
+
+  // overall achievement rate for the currently selected day (defaults to today)
+  let dayAchievementRate = null, dayLabel = '';
+  if(selectedReportDate){
+    const dayOfWeek = new Date(selectedReportDate+'T00:00:00').getDay();
+    let dayGoalMinutes = 0;
+    tasks.filter(tk=>!tk.archived && tk.targetHours>0).forEach(tk=>{
+      const days = tk.days && tk.days.length ? tk.days : null;
+      if(!days || days.includes(dayOfWeek)) dayGoalMinutes += Number(tk.targetHours||0)*60;
+    });
+    const dayActualMs = allSessions.filter(s=>s.date===selectedReportDate).reduce((s,r)=>s+computeWorkMs(r),0);
+    const dayActualMinutes = dayActualMs/60000;
+    dayAchievementRate = dayGoalMinutes>0 ? Math.min(100, dayActualMinutes/dayGoalMinutes*100) : (dayActualMinutes>0?100:0);
+    dayLabel = selectedReportDate===todayStr ? t('todayAchievement') : t('dateAchievement')(selectedReportDate.slice(5).replace('-','/'));
+  }
+
+  let html = `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+    <button class="navbtn" onclick="changeMonth(-1)">‹</button>
+    <div class="mono" style="font-size:16px;font-weight:700;">${reportMonth}</div>
+    <button class="navbtn" onclick="changeMonth(1)">›</button>
+  </div>
+  <button onclick="openAddRecord()" style="width:100%;background:none;border:1px dashed var(--lineS);color:var(--dim);border-radius:10px;padding:10px;cursor:pointer;font-family:inherit;font-size:13px;margin-bottom:16px;">${t('addRecordShort')}</button>`;
+
+  html += `<div class="metrics" style="grid-template-columns:1fr;margin-bottom:10px;">
+    <div class="metric"><div class="lbl">${t('totalTime')}</div><div class="val mono">${hmLabel(totalMs)}</div></div>
+  </div>`;
+
+  html += `<div class="metrics" style="grid-template-columns:1fr 1fr;margin-bottom:16px;">
+    <div class="metric"><div class="lbl">${t('monthAchievement')}</div><div class="val mono">${Math.round(monthAchievementRate)}%</div></div>
+    <div class="metric"><div class="lbl">${dayLabel || t('dayAchievement')}</div><div class="val mono">${dayAchievementRate===null?'—':Math.round(dayAchievementRate)+'%'}</div></div>
+  </div>`;
+
+  if(taskStats.length){
+    html += `<div class="panel" style="padding:16px;margin-bottom:16px;">
+      <div style="font-size:12px;color:var(--faint);margin-bottom:12px;">${t('achievementByTask')}</div>
+      ${taskStats.map(v=>`
+        <div class="barrow">
+          <div class="lbl">${escapeHtml(v.name)}</div>
+          <div class="barwrap"><div class="bar" style="width:${v.achievementRate}%;background:${taskColor(v.id)};"></div></div>
+          <div class="mono" style="width:44px;text-align:right;flex-shrink:0;">${Math.round(v.achievementRate)}%</div>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--faint);margin:-6px 0 10px 98px;">
+          <span>${t('actualGoal')(hmLabel(v.actualMinutes*60000), v.goalMinutes>0?t('goalPart')(hmLabel(v.goalMinutes*60000)):'')}</span>
+          <span style="color:${v.unachievedRate>0?'var(--rust)':'var(--teal)'};">${t('unmetPercent')(Math.round(v.unachievedRate))}</span>
+        </div>`).join('')}
+    </div>`;
+  }
+
+  html += renderCalendar(rows, reportMonth, selectedReportDate);
+
+  // task records for the selected day only, shown right below the calendar
+  if(!selectedReportDate){
+    html += `<div class="panel empty">${t('noDateSelected')}</div>`;
+  } else {
+    const dayRows = allSessions.filter(s=>s.date===selectedReportDate).map(r=>({...r, ms:computeWorkMs(r)}))
+      .sort((a,b)=> (a.currentStart||a.segments[0]?.start||'').localeCompare(b.currentStart||b.segments[0]?.start||''));
+    const dayMs = dayRows.reduce((s,r)=>s+r.ms,0);
+    const wd = WEEKDAYS[new Date(selectedReportDate+'T00:00:00').getDay()];
+    const rowsHtml = dayRows.map(r=>{
+      const task = tasks.find(tk=>tk.id===r.taskId);
+      const goalMin = task ? (task.targetHours||0)*60 : 0;
+      const rate = goalMin>0 ? Math.min(100, (r.ms/60000)/goalMin*100) : null;
+      return `
+        <div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--line);font-size:12px;">
+          <div style="flex:1;display:flex;align-items:center;gap:6px;min-width:0;">
+            <span class="dot-sm" style="background:${taskColor(r.taskId)};flex-shrink:0;"></span>
+            <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(r.taskName)}</span>
+          </div>
+          <div class="mono" style="width:64px;text-align:right;flex-shrink:0;">${hmLabel(r.ms)}</div>
+          <div class="mono" style="width:40px;text-align:right;flex-shrink:0;color:${rate===null?'var(--faint)':(rate>=100?'var(--teal)':'var(--rust)')};">${rate===null?'—':Math.round(rate)+'%'}</div>
+          <div style="display:flex;gap:2px;flex-shrink:0;">
+            <button onclick="openRecordEdit('${r.date}','${r.id}')" style="background:none;border:none;color:var(--dim);cursor:pointer;padding:2px;">✎</button>
+            <button onclick="openMemoEdit('${r.date}','${r.id}')" style="background:none;border:none;color:${r.memo?'var(--brassDim)':'var(--dim)'};cursor:pointer;padding:2px;">📝</button>
+            <button onclick="deleteSession('${r.date}','${r.id}')" style="background:none;border:none;color:var(--dim);cursor:pointer;padding:2px;">🗑</button>
+          </div>
+        </div>
+        ${r.memo? `<div style="padding:6px 0 10px 20px;font-size:11.5px;color:var(--dim);white-space:pre-wrap;word-break:break-word;border-bottom:1px solid var(--line);">📝 ${escapeHtml(r.memo)}</div>` : ''}
+      `;
+    }).join('');
+
+    html += `<div class="panel" style="padding:14px;margin-bottom:10px;">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:${dayRows.length?'8px':'0'};">
+        <span class="mono" style="font-weight:700;font-size:13px;">${selectedReportDate.slice(5).replace('-','/')} (${wd})</span>
+        <span class="mono" style="font-size:11px;color:var(--dim);">${t('entriesCount')(dayRows.length)} ・ ${hmLabel(dayMs)}</span>
+      </div>
+      ${dayRows.length? rowsHtml : `<div style="font-size:12px;color:var(--faint);padding:6px 0;">${t('noRecordsThisDay')}</div>`}
+    </div>`;
+  }
+
+  return html;
+}*/
+function toggleReportDate(date){
+  if(expandedReportDates.has(date)) expandedReportDates.delete(date); else expandedReportDates.add(date);
+  render();
+}
+function changeMonth(delta){
+  const [y,m] = reportMonth.split('-').map(Number);
+  const d = new Date(y, m-1+delta, 1);
+  reportMonth = `${d.getFullYear()}-${pad(d.getMonth()+1)}`;
+  // keep the selection if it still falls in the newly shown month, otherwise clear it
+  if(!selectedReportDate || !selectedReportDate.startsWith(reportMonth)) selectedReportDate = null;
+  render();
+}
+
+// ---------- boot ----------
+function tickClock(){
+  const activeS = activeSessionToday();
+  if(activeS && activeS.status==='working' && pomodoroState && pomodoroState.sessionId===activeS.id && pomodoroState.running){
+    pomodoroState.remainingMs -= 1000;
+    if(pomodoroState.remainingMs <= 0){
+      advancePomodoroPhase();
+      if(tab==='punch') render();
+      return;
+    }
+  }
+  if(tab!=='punch' || showTaskForm || editingRecordDate || showAddRecord || showDuplicate || showPomodoroForm || editingMemoDate) return;
+  if(activeS && activeS.status==='working'){
+    const ms = computeWorkMs(activeS);
+    const el = document.getElementById('clockDisplay');
+    if(el) el.textContent = msToHMS(ms);
+    const task = tasks.find(t=>t.id===activeS.taskId);
+    const goalHours = taskGoalHours(task);
+    const percent = goalHours>0 ? Math.min(100, (ms/3600000/goalHours)*100) : 0;
+    const fill = document.querySelector('.progressfill');
+    if(fill) fill.style.width = percent+'%';
+    const cat = document.querySelector('.catwalk');
+    if(cat) cat.style.left = percent+'%';
+    const gl = document.querySelector('.goalline');
+    if(gl) gl.textContent = `${hmLabel(ms)} / ${taskGoalHoursLabel(goalHours)}${t('parenWrap')(task?task.name:'')}`;
+  }
+  if(pomodoroState && activeS && pomodoroState.sessionId===activeS.id){
+    const pt = document.getElementById('pomoTimer');
+    if(pt) pt.textContent = msToHMS(Math.max(0,pomodoroState.remainingMs)).slice(3);
+  }
+}
+setInterval(tickClock, 1000);
+applyTheme();
+render();
+
+// post-purchase redirect: show a brief thank-you toast, then clean the URL so a reload doesn't repeat it
+(function checkPurchaseRedirect(){
+  const params = new URLSearchParams(window.location.search);
+  if(params.get('purchase') === 'success'){
+    showToast(t('purchaseThanks'), 4000);
+  }
+  if(params.has('purchase')){
+    params.delete('purchase');
+    const qs = params.toString();
+    history.replaceState(null, '', window.location.pathname + (qs? `?${qs}` : ''));
+  }
+})();
+
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=>{
+    navigator.serviceWorker.register('./service-worker.js').catch(()=>{});
+  });
+}
+</script>
+
+<script type="module">
+  import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.15.0/firebase-app.js';
+  import {
+    getAuth, onAuthStateChanged, signInAnonymously,
+    GoogleAuthProvider, signInWithPopup, linkWithPopup, signOut,
+    signInWithRedirect, linkWithRedirect, getRedirectResult
+  } from 'https://www.gstatic.com/firebasejs/12.15.0/firebase-auth.js';
+  import {
+    getFirestore, doc, getDoc, setDoc, onSnapshot, serverTimestamp
+  } from 'https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js';
+  import {
+    getFunctions, httpsCallable
+  } from 'https://www.gstatic.com/firebasejs/12.15.0/firebase-functions.js';
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyCMiihBjCDtVBerTYk1EOQsZ9MpNpo0lEs",
+    authDomain: "auth.timecard.mim-crt.com",
+    projectId: "app-timecard",
+    storageBucket: "app-timecard.firebasestorage.app",
+    messagingSenderId: "162418041467",
+    appId: "1:162418041467:web:cbb9c26b4f3cfe88d0b8de",
+    measurementId: "G-CJ5PKFQ1CN"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+  const functions = getFunctions(app, 'asia-northeast1'); // must match the region the functions were deployed to
+  const createCheckoutSessionCallable = httpsCallable(functions, 'createCheckoutSession');
+
+  window.__fb = {
+    ready: true, user: null,
+    auth, db, doc, getDoc, setDoc, onSnapshot, serverTimestamp,
+    GoogleAuthProvider, signInWithPopup, linkWithPopup, signOut,
+    signInWithRedirect, linkWithRedirect,
+    createCheckoutSession: () => createCheckoutSessionCallable(),
+  };
+  window.dispatchEvent(new Event('fb-ready'));
+
+  // Always redirect for Google sign-in (see fbSignInGoogle) — popups get blocked
+  // by browsers and can't open at all inside an installed/standalone PWA.
+  getRedirectResult(auth)
+    .then((result) => {
+      if (result && result.user) {
+        console.log('Google redirect sign-in completed:', result.user.uid);
+      } else {
+        console.log('No pending Google redirect result (normal on a fresh load).');
+      }
+    })
+    .catch((e) => {
+      console.error('redirect sign-in failed', e && e.code, e);
+      // If this Google account is already linked to a different Firebase user
+      // (e.g. it was used to sign in from another device first), just sign in
+      // as that existing account instead of failing outright.
+      if (e && e.code === 'auth/credential-already-in-use') {
+        signInWithRedirect(auth, new GoogleAuthProvider()).catch((e2) => console.error('fallback redirect sign-in failed', e2 && e2.code, e2));
+      }
+    });
+
+  onAuthStateChanged(auth, (user) => {
+    if (user) {
+      window.__fb.user = user;
+      window.dispatchEvent(new CustomEvent('fb-auth', { detail: user }));
+    } else {
+      signInAnonymously(auth).catch((e) => console.error('anonymous sign-in failed', e && e.code, e));
+    }
+  });
+</script>
+<script>
+// Optional on-screen debug console for phones without access to devtools.
+// Visit the site with ?debug=1 appended to the URL to enable it (tap the
+// floating button that appears in the corner to open the console/network panels).
+// The flag is remembered in sessionStorage so it survives the Google sign-in
+// redirect round-trip, which drops the ?debug=1 query param on return.
+(function(){
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('debug') === '1') { try{ sessionStorage.setItem('debugConsole','1'); }catch(e){} }
+  let debugOn = false;
+  try{ debugOn = sessionStorage.getItem('debugConsole') === '1'; }catch(e){}
+  if (debugOn) {
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/eruda';
+    s.onload = () => { window.eruda && window.eruda.init(); };
+    document.body.appendChild(s);
+  }
+})();
+</script>
+</body>
+</html>

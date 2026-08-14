@@ -1,0 +1,16 @@
+{
+  "name": "MyTimecard",
+  "short_name": "MyTimecard",
+  "description": "学習・運動・タスクなど、毎日の習慣を記録するアプリ",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F3F7FC",
+  "theme_color": "#FBF4F7",
+  "lang": "ja",
+  "icons": [
+    { "src": "./icon.png", "sizes": "128x128", "type": "image/png", "purpose": "any" },
+    { "src": "./icon.png", "sizes": "128x128", "type": "image/png", "purpose": "any" }
+  ]
+}
