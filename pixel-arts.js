@@ -8,6 +8,9 @@ const PIXEL_ART_GRIDS = {
     tuxedo: {
         name: { ja: 'ハチワレ', en: 'Tuxedo' },
         colors: { 1: '#2B2A3A', 4: '#FFFFFF', 18: '#a3c8fb' },
+        // Recolor map for the shared CAT_STRETCH_SHAPE (see bottom of file):
+        // 1=outline, 2=main fur, 3=belly/highlight.
+        stretchColors: { 1: '#2B2A3A', 2: '#a3c8fb', 3: '#FFFFFF' },
         poses: {
             walking: [
                 [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
@@ -50,6 +53,8 @@ const PIXEL_ART_GRIDS = {
     tabby: {
         name: { ja: 'キジトラ', en: 'Tabby' },
         colors: { 1: '#2B2A3A', 21: '#fce0c5', 22: '#d8945f', 24: '#875536' },
+        // Rough placeholder recolor of the shared stretch shape for now.
+        stretchColors: { 1: '#2B2A3A', 2: '#d8945f', 3: '#fce0c5' },
         poses: {
             walking: [
                 [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
@@ -92,6 +97,8 @@ const PIXEL_ART_GRIDS = {
     white: {
         name: { ja: '白猫', en: 'White' },
         colors: { 1: '#2B2A3A', 4: '#FFFFFF' },
+        // Rough placeholder recolor of the shared stretch shape for now.
+        stretchColors: { 1: '#2B2A3A', 2: '#FFFFFF', 3: '#FFFFFF' },
         poses: {
             walking: [
                 [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
@@ -134,6 +141,10 @@ const PIXEL_ART_GRIDS = {
     calico: {
         name: { ja: '三毛猫', en: 'Calico' },
         colors: { 1: '#2B2A3A', 4: '#FFFFFF', 22: '#E08A44', 24: '#875536' },
+        // Calico's colors are more complex than the shared stretch shape can
+        // show well -- painted roughly for now (orange main / white belly)
+        // just to validate the tuxedo version first.
+        stretchColors: { 1: '#2B2A3A', 2: '#E08A44', 3: '#FFFFFF' },
         poses: {
             walking: [
                 [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
@@ -173,4 +184,62 @@ const PIXEL_ART_GRIDS = {
             ]
         }
     }
+};
+
+// ---------------------------------------------------------------------------
+// Shared silhouette for the "stretch" progress bar style (settings > Progress
+// Bar Style > Stretchy). Front stays fixed at the start, back rides the
+// current progress position, and "middle" is a thin, seamlessly-tileable
+// strip stretched between them to fill the gap.
+//
+// Uses its own small palette (1=outline, 2=main fur, 3=belly/highlight),
+// independent of each cat's own poses.colors, so it can be recolored per cat
+// via that cat's `stretchColors` above (see index.html: stretchColorsFor()).
+// Drawn once from the ハチワレ/tuxedo reference art; other cats reuse this
+// same shape with a rough recolor until they get their own custom stretch
+// art.
+// ---------------------------------------------------------------------------
+const CAT_STRETCH_SHAPE = {
+    front: [
+        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 1, 2, 1, 0, 0, 1, 2, 1, 0, 0, 0, 0],
+        [0, 0, 0, 1, 2, 2, 2, 1, 1, 2, 2, 1, 0, 0, 0, 0],
+        [0, 0, 0, 1, 2, 2, 2, 2, 2, 2, 2, 1, 0, 0, 0, 0],
+        [0, 0, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 0, 0, 0],
+        [0, 0, 1, 2, 2, 2, 1, 2, 3, 2, 1, 2, 1, 0, 0, 0],
+        [0, 0, 1, 2, 2, 2, 1, 2, 3, 2, 1, 2, 1, 0, 0, 0],
+        [0, 0, 1, 2, 2, 2, 2, 3, 3, 3, 2, 2, 1, 0, 0, 0],
+        [1, 1, 1, 1, 2, 2, 3, 3, 3, 3, 3, 1, 0, 0, 0, 0],
+        [2, 2, 2, 2, 1, 2, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0],
+        [2, 2, 2, 2, 2, 2, 2, 2, 1, 0, 0, 0, 0, 0, 0, 0],
+        [1, 1, 1, 1, 1, 3, 1, 3, 1, 0, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 1, 1, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    ],
+    middle: [
+        [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+        [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+        [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+        [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+    ],
+    back: [
+        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 1, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 1, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 1, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 1, 1, 1, 1],
+        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 2, 2, 2],
+        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 2, 2, 2, 2],
+        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 3, 1, 3, 1, 1],
+        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 1, 0],
+        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    ]
 };
