@@ -2225,7 +2225,7 @@ function tickClock(){
       if(cat){
         const walkCellActual = 1.8 * 1.5;
         const walkRightExtendPx = (16 * walkCellActual) * 0.7;
-        const walkGoalClearancePx = 15;
+        const walkGoalClearancePx = 25;
         cat.style.left = `min(${percent}%, calc(100% - ${walkRightExtendPx}px - ${walkGoalClearancePx}px))`;
       }
       const goalEl = document.querySelector('.progresswrap .stretchbar-goal');
