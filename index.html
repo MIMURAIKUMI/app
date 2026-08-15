@@ -2252,7 +2252,16 @@ if('serviceWorker' in navigator){
 }
 </script>
 
-<script type="module">
+<script>
+// Firebase (auth + sync) is loaded lazily, after the critical UI has painted
+// and the main render() call has finished, so it doesn't compete for
+// bandwidth/CPU with the initial screen the person actually sees first.
+// Nothing about *what* it does changes -- same anonymous auto sign-in and
+// background sync as before, just scheduled a beat later.
+function __loadFirebaseModule(){
+  const s = document.createElement('script');
+  s.type = 'module';
+  s.textContent = `
   import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.15.0/firebase-app.js';
   import {
     getAuth, onAuthStateChanged, signInAnonymously,
@@ -2319,6 +2328,14 @@ if('serviceWorker' in navigator){
       signInAnonymously(auth).catch((e) => console.error('anonymous sign-in failed', e && e.code, e));
     }
   });
+  `;
+  document.body.appendChild(s);
+}
+if('requestIdleCallback' in window){
+  requestIdleCallback(__loadFirebaseModule, {timeout: 2000});
+} else {
+  setTimeout(__loadFirebaseModule, 300);
+}
 </script>
 <script>
 // Optional on-screen debug console for phones without access to devtools.
