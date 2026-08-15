@@ -707,11 +707,20 @@ function renderStretchProgressBar(key, percent, isWorking, cell){
   const boxWidthPx = movingGrid[0].length * cell;
   const rightMarginPx = boxWidthPx - backAnchorPx;
   const backLeft = `min(calc(${percent}% - ${backAnchorPx}px), calc(100% - ${rightMarginPx}px))`;
-  const midWidth = `min(calc(${percent}% - ${frontRightPx}px + 3px), calc(100% - ${rightMarginPx}px - ${frontRightPx}px + 3px))`;
-  const goal = STRETCH_GOAL_MARKER;
+  // Natural (uncapped) width includes a small +3px buffer so the body still
+  // reaches the head even while the head's idle sway (stretchTug) nudges it
+  // a couple px right. Once capped at the goal, the head stops moving, so
+  // the buffer instead needs to close the exact gap between the body's
+  // anchor point and the head art's own start (backAnchorPx), plus a couple
+  // px for the sway's peak.
+  const midWidthNatural = `calc(${percent}% - ${frontRightPx}px + 3px)`;
+  const midWidthCapped = `calc(100% - ${rightMarginPx}px + ${backAnchorPx + 2}px - ${frontRightPx}px)`;
+  const midWidth = `min(${midWidthNatural}, ${midWidthCapped})`;
+  const reachedGoal = percent>=100;
+  const goal = reachedGoal ? (typeof STRETCH_GOAL_MARKER_DONE!=='undefined'?STRETCH_GOAL_MARKER_DONE:null) : STRETCH_GOAL_MARKER;
   const goalHTML = goal ? renderStretchPart(goal.grid, goal.colors, cell) : '';
   return `<div class="stretchbar" style="height:${wrapH}px;" data-front-right="${frontRightPx}" data-back-anchor="${backAnchorPx}" data-right-margin="${rightMarginPx}">
-    ${goal ? `<div class="stretchbar-goal" style="left:calc(100% - 10px);">${goalHTML}</div>` : ''}
+    ${goal ? `<div class="stretchbar-goal" data-goal-state="${reachedGoal?'done':'fish'}" style="left:calc(100% - 10px);">${goalHTML}</div>` : ''}
     <div class="stretchbar-mid" style="left:${frontRightPx}px; top:${midTop}px; height:${midH}px; width:${midWidth}; background-image:url('${midTileURI}'); background-repeat:repeat-x; background-size:${midTileWidth}px ${midH}px;"></div>
     <div class="stretchbar-front" style="left:0;">${frontHTML}</div>
     <div class="stretchbar-back${workingCls}" style="left:${backLeft};">${backHTML}</div>
@@ -2159,8 +2168,19 @@ function tickClock(){
         const rightMarginPx = parseFloat(sb.dataset.rightMargin)||0;
         const mid = sb.querySelector('.stretchbar-mid');
         const back = sb.querySelector('.stretchbar-back');
-        if(mid) mid.style.width = `min(calc(${displayPercent}% - ${frontRightPx}px + 3px), calc(100% - ${rightMarginPx}px - ${frontRightPx}px + 3px))`;
+        const midWidthNatural = `calc(${displayPercent}% - ${frontRightPx}px + 3px)`;
+        const midWidthCapped = `calc(100% - ${rightMarginPx}px + ${backAnchorPx + 2}px - ${frontRightPx}px)`;
+        if(mid) mid.style.width = `min(${midWidthNatural}, ${midWidthCapped})`;
         if(back) back.style.left = `min(calc(${displayPercent}% - ${backAnchorPx}px), calc(100% - ${rightMarginPx}px))`;
+        const goalEl = sb.querySelector('.stretchbar-goal');
+        if(goalEl){
+          const reachedGoal = percent>=100;
+          const wantState = reachedGoal ? 'done' : 'fish';
+          if(goalEl.dataset.goalState !== wantState){
+            const marker = reachedGoal ? (typeof STRETCH_GOAL_MARKER_DONE!=='undefined'?STRETCH_GOAL_MARKER_DONE:null) : (typeof STRETCH_GOAL_MARKER!=='undefined'?STRETCH_GOAL_MARKER:null);
+            if(marker){ goalEl.innerHTML = renderStretchPart(marker.grid, marker.colors, 2.5); goalEl.dataset.goalState = wantState; }
+          }
+        }
       }
     } else {
       const fill = document.querySelector('.progressfill');
