@@ -259,7 +259,7 @@
 // ---------- language detection ----------
 // Bump this string every time index.html is updated — shown in Settings so it's
 // easy to confirm which build is actually live (helps catch stale-deploy/cache issues).
-const APP_VERSION = 'v15-2026-08-15';
+const APP_VERSION = 'v16-2026-08-15';
 
 const LANG = (function(){
   const langs = (navigator.languages && navigator.languages.length) ? navigator.languages : [navigator.language || 'en'];
@@ -699,11 +699,16 @@ function svgTileDataURI(grid, colorMap){
 function renderStretchProgressBar(key, percent, isWorking, cell, showGoal, paused){
   cell = cell || 2.5;
   if(showGoal===undefined) showGoal = true;
-  // While paused, use the resting/sitting variant of the shape so the cat
-  // visibly settles down instead of staying in its active reaching pose.
-  const shape = (paused && typeof CAT_STRETCH_SHAPE_SIT!=='undefined') ? CAT_STRETCH_SHAPE_SIT : CAT_STRETCH_SHAPE;
+  // Prefer this cat's own custom stretch art (art.stretchShape /
+  // art.stretchShapeSit in pixel-arts.js) if it has one. While paused, use
+  // the resting/sitting variant so the cat visibly settles down instead of
+  // staying in its active reaching pose; if only the active variant was
+  // drawn, fall back to that rather than jumping to the generic shape.
+  const art = PIXEL_ART_GRIDS[key];
+  const customShape = paused ? (art && (art.stretchShapeSit || art.stretchShape)) : (art && art.stretchShape);
+  const shape = customShape || ((paused && typeof CAT_STRETCH_SHAPE_SIT!=='undefined') ? CAT_STRETCH_SHAPE_SIT : CAT_STRETCH_SHAPE);
   if(!shape) return '';
-  const colors = stretchColorsFor(key);
+  const colors = customShape ? customShape.colors : stretchColorsFor(key);
   // The tail stays anchored at the start (.stretchbar-front, fixed at left:0);
   // the head leads and advances with progress (.stretchbar-back, moves via
   // left:calc(...)) -- matching how a cat's head/front leads a stretch while
