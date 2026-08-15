@@ -389,8 +389,10 @@ const PIXEL_ART_GRIDS = {
         name: { ja: '黒猫', en: 'Black' },
         colors: { 1: '#2B2A3A', 2: '#555555', 7: '#ffcc00' },
         // No custom stretch art for this cat yet -- same treatment as white:
-        // falls back to the shared CAT_STRETCH_SHAPE, recolored flat (no
-        // separate belly/highlight tone) via this map.
+        // falls back to the shared CAT_STRETCH_SHAPE, recolored via this map.
+        // 3 (belly/highlight in the shared shape) is mapped to the eye color
+        // rather than the fur color so the eyes still read correctly while
+        // stretching, matching this cat's normal walking/sitting poses.
         stretchColors: { 1: '#2B2A3A', 2: '#555555', 3: '#ffcc00' },
         poses: {
             walking: [
