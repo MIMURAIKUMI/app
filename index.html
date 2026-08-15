@@ -106,10 +106,10 @@
   .progresswrap.stretch{margin:18px 0 18px;}
   .stretchbar{position:relative; width:100%;}
   .stretchbar-front,.stretchbar-back{position:absolute; top:0; filter:drop-shadow(1px 1px 0 var(--lineS));}
-  .stretchbar-back{transition:left .35s cubic-bezier(.34,1.3,.64,1);}
-  .stretchbar-front{animation:stretchTug 1.8s ease-in-out infinite;}
-  .stretchbar-mid{position:absolute; transition:width .35s cubic-bezier(.34,1.3,.64,1); image-rendering:pixelated; transform-origin:left center; animation:stretchBreathe 1.8s ease-in-out infinite;}
-  @keyframes stretchBreathe{ 0%,100%{transform:scaleY(1);} 50%{transform:scaleY(1.2);} }
+  .stretchbar-back{transition:left .35s cubic-bezier(.34,1.3,.64,1); animation:stretchTug 1.8s ease-in-out infinite; z-index:2;}
+  .stretchbar-front{z-index:1;}
+  .stretchbar-mid{position:absolute; transition:width .35s cubic-bezier(.34,1.3,.64,1); image-rendering:pixelated; transform-origin:left center; animation:stretchBreathe 1.8s ease-in-out infinite; z-index:1;}
+  @keyframes stretchBreathe{ 0%,100%{transform:scaleY(1);} 50%{transform:scaleY(1.08);} }
   @keyframes stretchTug{ 0%,100%{transform:translateX(0);} 50%{transform:translateX(2px);} }
   .punchbtn{flex:1; display:flex; flex-direction:column; align-items:center; gap:6px; padding:14px 4px; border-radius:12px; cursor:pointer; background:var(--panel2); border:2px solid var(--lineS); color:var(--dim); font-family:inherit; box-shadow:2px 2px 0 var(--line); transition:transform .08s ease, box-shadow .08s ease;}
   .punchbtn:active{transform:translate(2px,2px); box-shadow:0 0 0 var(--line);}
@@ -1297,11 +1297,13 @@ function renderPunch(today, todayStr, weekday, suggested){
     </div>`;
   }
 
-  const stretchMode = settings.barStyle==='stretch';
+  const stretchMode = settings.barStyle==='stretch' && status!=='none';
   const barHTML = stretchMode
     ? renderStretchProgressBar(settings.pixelArt, percent)
-    : `<div class="catwalk ${status==='working'?'walking':''}" style="left:${percent}%;">${renderPixelArt(settings.pixelArt, 1.8, status==='working'?'walking':'sitting')}</div>
-       <div class="progresstrack"><div class="progressfill" style="width:${percent}%;"></div></div>`;
+    : (settings.barStyle==='stretch'
+        ? `<div class="catwalk" style="left:0%;">${renderPixelArt(settings.pixelArt, 1.8, 'sitting')}</div>`
+        : `<div class="catwalk ${status==='working'?'walking':''}" style="left:${percent}%;">${renderPixelArt(settings.pixelArt, 1.8, status==='working'?'walking':'sitting')}</div>
+       <div class="progresstrack"><div class="progressfill" style="width:${percent}%;"></div></div>`);
 
   let html = `<div class="panel card-punch">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
