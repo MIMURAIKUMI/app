@@ -207,7 +207,7 @@
   input[type=number]::-webkit-inner-spin-button{opacity:.5;}
   ::-webkit-scrollbar{height:6px; width:6px;}
   ::-webkit-scrollbar-thumb{background:var(--lineS); border-radius:4px;}
-  @keyframes catBob{ 0%,100%{transform:translateX(-30%);} 50%{transform:translateX(calc(-30% + 3px));} }
+  @keyframes catBob{ 0%,100%{transform:translateX(-30%) translateY(0);} 50%{transform:translateX(-30%) translateY(-3px);} }
   .pixrow{display:flex; gap:8px; overflow-x:auto; padding-bottom:2px;}
   .pixcard{display:flex; flex-direction:column; align-items:center; gap:6px; padding:10px 4px; border-radius:12px; background:var(--panel); border:2px solid var(--lineS); cursor:pointer; box-shadow:2px 2px 0 var(--line); flex:0 0 auto; width:23%; min-width:70px;}
   .pixcard.on{border-color:var(--brassDim); box-shadow:2px 2px 0 rgba(255,158,199,0.35);}
