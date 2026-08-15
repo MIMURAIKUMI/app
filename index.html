@@ -115,11 +115,12 @@
      elasticity always reads clearly, even when idle. ---- */
   .progresswrap.stretch{margin:18px 0 18px; height:40px;}
   .stretchbar{position:relative; width:100%;}
-  .stretchbar-frontmid,.stretchbar-back{position:absolute; top:0; left:0; filter:drop-shadow(1px 1px 0 var(--lineS)); image-rendering:pixelated;}
+  .stretchbar-front,.stretchbar-back{position:absolute; top:0; filter:drop-shadow(1px 1px 0 var(--lineS));}
   .stretchbar-goal{position:absolute; top:0; transform:translateX(-50%) scale(0.8); transform-origin:center; z-index:0; opacity:0.9;}
   .stretchbar-back{transition:left .35s steps(3); z-index:2;}
   .stretchbar-back.working{animation:stretchTug 1.2s steps(3) infinite;}
-  .stretchbar-frontmid{transition:width .35s steps(3); z-index:1;}
+  .stretchbar-front{z-index:1;}
+  .stretchbar-mid{position:absolute; transition:width .35s steps(3); image-rendering:pixelated; transform-origin:left center; z-index:0;}
   @keyframes stretchTug{ 0%,100%{transform:translateX(0);} 50%{transform:translateX(2px);} }
   .punchbtn{flex:1; display:flex; flex-direction:column; align-items:center; gap:6px; padding:14px 4px; border-radius:12px; cursor:pointer; background:var(--panel2); border:2px solid var(--lineS); color:var(--dim); font-family:inherit; box-shadow:2px 2px 0 var(--line); transition:transform .08s ease, box-shadow .08s ease;}
   .punchbtn:active{transform:translate(2px,2px); box-shadow:0 0 0 var(--line);}
@@ -663,15 +664,12 @@ function gridRowBounds(grid){
   grid.forEach((row,y)=>{ if(row.some(v=>v)){ if(min===null||y<min)min=y; if(max===null||y>max)max=y; } });
   return (min===null) ? {min:0,max:grid.length-1} : {min,max};
 }
-// Renders a sprite as a single scaled SVG background (rather than one DOM
-// div per pixel) -- this avoids a hairline anti-aliasing seam that some
-// browsers introduce between adjacent CSS grid cells when the cell size is
-// fractional (e.g. 2.5px), which showed up as a faint gap where this piece
-// met the tiled "middle" body segment (also SVG-based).
 function renderStretchPart(grid, colorMap, cell){
-  const w = grid[0].length, h = grid.length;
-  const dataURI = svgTileDataURI(grid, colorMap);
-  return `<div style="width:${w*cell}px;height:${h*cell}px;background-image:url('${dataURI}');background-size:${w*cell}px ${h*cell}px;background-repeat:no-repeat;image-rendering:pixelated;"></div>`;
+  const cellsHtml = grid.map(row=>row.map(v=>{
+    const bg = colorMap[v] || 'transparent';
+    return `<div style="width:${cell}px;height:${cell}px;background:${bg};"></div>`;
+  }).join('')).join('');
+  return `<div style="display:grid;grid-template-columns:repeat(${grid[0].length},${cell}px);grid-template-rows:repeat(${grid.length},${cell}px);">${cellsHtml}</div>`;
 }
 // Tiny inline SVG so the "middle" body segment can be tiled seamlessly across
 // any width via a CSS background, instead of generating many DOM nodes.
@@ -707,19 +705,12 @@ function renderStretchProgressBar(key, percent, isWorking, cell, showGoal, pause
   const bB = gridColBoundsInRows(movingGrid, mR.min, mR.max);
   const wrapH = fixedGrid.length * cell;
   const frontRightPx = (fB.max + 1) * cell;
-  const frontBoxW = fixedGrid[0].length * cell;
   const backAnchorPx = bB.min * cell;
   const midTop = mR.min * cell;
   const midH = (mR.max - mR.min + 1) * cell;
   const midCropped = midGrid.slice(mR.min, mR.max + 1);
   const midTileWidth = midGrid[0].length * cell;
-  // The rear piece and the body used to be two separate elements that met
-  // edge-to-edge; browsers can show a hairline seam where two separately
-  // composited layers (each with its own drop-shadow filter) touch without
-  // overlapping. Painting them as two background layers of a *single*
-  // element removes the seam entirely, since there's no boundary between
-  // two elements for the compositor to anti-alias independently.
-  const frontDataURI = svgTileDataURI(fixedGrid, colors);
+  const frontHTML = renderStretchPart(fixedGrid, colors, cell);
   const backHTML = renderStretchPart(movingGrid, colors, cell);
   const midTileURI = svgTileDataURI(midCropped, colors);
   const workingCls = isWorking ? ' working' : '';
@@ -743,13 +734,13 @@ function renderStretchProgressBar(key, percent, isWorking, cell, showGoal, pause
   const midWidthNatural = `calc(${percent}% - ${frontRightPx}px + 3px)`;
   const midWidthCapped = `calc(100% - ${rightMarginPx}px + ${backAnchorPx + 2}px - ${frontRightPx}px)`;
   const midWidth = `min(${midWidthNatural}, ${midWidthCapped})`;
-  const frontMidWidth = `calc(${frontBoxW}px + ${midWidth})`;
   const reachedGoal = percent>=100;
   const goal = showGoal ? (reachedGoal ? (typeof STRETCH_GOAL_MARKER_DONE!=='undefined'?STRETCH_GOAL_MARKER_DONE:null) : STRETCH_GOAL_MARKER) : null;
   const goalHTML = goal ? renderStretchPart(goal.grid, goal.colors, cell) : '';
-  return `<div class="stretchbar" style="height:${wrapH}px;" data-front-right="${frontRightPx}" data-front-box-w="${frontBoxW}" data-back-anchor="${backAnchorPx}" data-right-margin="${rightMarginPx}">
+  return `<div class="stretchbar" style="height:${wrapH}px;" data-front-right="${frontRightPx}" data-back-anchor="${backAnchorPx}" data-right-margin="${rightMarginPx}">
     ${goal ? `<div class="stretchbar-goal" data-goal-state="${reachedGoal?'done':'fish'}" style="left:calc(100% - 10px);">${goalHTML}</div>` : ''}
-    <div class="stretchbar-frontmid" style="width:${frontMidWidth}; height:${wrapH}px; background-image:url('${frontDataURI}'), url('${midTileURI}'); background-position:0 0, ${frontRightPx}px ${midTop}px; background-size:${frontBoxW}px ${wrapH}px, ${midTileWidth}px ${midH}px; background-repeat:no-repeat, repeat-x;"></div>
+    <div class="stretchbar-mid" style="left:${frontRightPx}px; top:${midTop}px; height:${midH}px; width:${midWidth}; background-image:url('${midTileURI}'); background-repeat:repeat-x; background-size:${midTileWidth}px ${midH}px;"></div>
+    <div class="stretchbar-front" style="left:0;">${frontHTML}</div>
     <div class="stretchbar-back${workingCls}" style="left:${backLeft};">${backHTML}</div>
   </div>`;
 }
@@ -2209,15 +2200,13 @@ function tickClock(){
       if(sb){
         const displayPercent = Math.max(percent, 2);
         const frontRightPx = parseFloat(sb.dataset.frontRight)||0;
-        const frontBoxW = parseFloat(sb.dataset.frontBoxW)||0;
         const backAnchorPx = parseFloat(sb.dataset.backAnchor)||0;
         const rightMarginPx = parseFloat(sb.dataset.rightMargin)||0;
-        const frontMid = sb.querySelector('.stretchbar-frontmid');
+        const mid = sb.querySelector('.stretchbar-mid');
         const back = sb.querySelector('.stretchbar-back');
         const midWidthNatural = `calc(${displayPercent}% - ${frontRightPx}px + 3px)`;
         const midWidthCapped = `calc(100% - ${rightMarginPx}px + ${backAnchorPx + 2}px - ${frontRightPx}px)`;
-        const midWidth = `min(${midWidthNatural}, ${midWidthCapped})`;
-        if(frontMid) frontMid.style.width = `calc(${frontBoxW}px + ${midWidth})`;
+        if(mid) mid.style.width = `min(${midWidthNatural}, ${midWidthCapped})`;
         if(back) back.style.left = `min(calc(${displayPercent}% - ${backAnchorPx}px), calc(100% - ${rightMarginPx}px))`;
         const goalEl = sb.querySelector('.stretchbar-goal');
         if(goalEl){
