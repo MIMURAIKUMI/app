@@ -391,7 +391,7 @@ const PIXEL_ART_GRIDS = {
         // No custom stretch art for this cat yet -- same treatment as white:
         // falls back to the shared CAT_STRETCH_SHAPE, recolored flat (no
         // separate belly/highlight tone) via this map.
-        stretchColors: { 1: '#2B2A3A', 2: '#555555', 3: '#555555' },
+        stretchColors: { 1: '#2B2A3A', 2: '#555555', 3: '#ffcc00' },
         poses: {
             walking: [
                 [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
