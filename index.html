@@ -1307,7 +1307,7 @@ function renderPunch(today, todayStr, weekday, suggested){
   // At literal 0% the moving head sits almost exactly on top of the fixed
   // tail, which reads as a messy overlap. Give the head a small head start
   // visually (the actual elapsed-time text below is unaffected).
-  const stretchDisplayPercent = Math.max(percent, 3);
+  const stretchDisplayPercent = Math.max(percent, 2);
   const barHTML = stretchMode
     ? renderStretchProgressBar(settings.pixelArt, stretchDisplayPercent, status==='working')
     : (barStyleIsStretch
@@ -2142,7 +2142,7 @@ function tickClock(){
     if(settings.barStyle==='stretch'){
       const sb = document.querySelector('.stretchbar');
       if(sb){
-        const displayPercent = Math.max(percent, 3);
+        const displayPercent = Math.max(percent, 2);
         const frontRightPx = parseFloat(sb.dataset.frontRight)||0;
         const backAnchorPx = parseFloat(sb.dataset.backAnchor)||0;
         const mid = sb.querySelector('.stretchbar-mid');
