@@ -97,6 +97,7 @@
   .progresstrack{height:14px; background:var(--panel2); border-radius:999px; border:2px solid var(--lineS); overflow:hidden;}
   .progressfill{height:100%; background:var(--brass); border-radius:999px; transition:width .3s ease;}
   .catwalk{position:absolute; top:-37px; transform:translateX(-30%); transition:left .3s ease;}
+  .catwalk.stretch-idle{top:0; transform:translateX(-8%);}
   .catwalk.walking{animation:catBob 1.2s ease-in-out infinite;}
   /* ---- "stretch" bar style: cat's rear stays anchored at the start, its
      head leads and advances with progress, and the body between them
@@ -1303,10 +1304,14 @@ function renderPunch(today, todayStr, weekday, suggested){
 
   const barStyleIsStretch = settings.barStyle==='stretch';
   const stretchMode = barStyleIsStretch && status!=='none';
+  // At literal 0% the moving head sits almost exactly on top of the fixed
+  // tail, which reads as a messy overlap. Give the head a small head start
+  // visually (the actual elapsed-time text below is unaffected).
+  const stretchDisplayPercent = Math.max(percent, 6);
   const barHTML = stretchMode
-    ? renderStretchProgressBar(settings.pixelArt, percent, status==='working')
+    ? renderStretchProgressBar(settings.pixelArt, stretchDisplayPercent, status==='working')
     : (barStyleIsStretch
-        ? `<div class="catwalk" style="left:0%;">${renderPixelArt(settings.pixelArt, 1.8, 'sitting')}</div>`
+        ? `<div class="catwalk stretch-idle" style="left:0%;">${renderPixelArt(settings.pixelArt, 1.8, 'sitting')}</div>`
         : `<div class="catwalk ${status==='working'?'walking':''}" style="left:${percent}%;">${renderPixelArt(settings.pixelArt, 1.8, status==='working'?'walking':'sitting')}</div>
        <div class="progresstrack"><div class="progressfill" style="width:${percent}%;"></div></div>`);
 
@@ -2137,12 +2142,13 @@ function tickClock(){
     if(settings.barStyle==='stretch'){
       const sb = document.querySelector('.stretchbar');
       if(sb){
+        const displayPercent = Math.max(percent, 6);
         const frontRightPx = parseFloat(sb.dataset.frontRight)||0;
         const backAnchorPx = parseFloat(sb.dataset.backAnchor)||0;
         const mid = sb.querySelector('.stretchbar-mid');
         const back = sb.querySelector('.stretchbar-back');
-        if(mid) mid.style.width = `calc(${percent}% - ${frontRightPx}px)`;
-        if(back) back.style.left = `calc(${percent}% - ${backAnchorPx}px)`;
+        if(mid) mid.style.width = `calc(${displayPercent}% - ${frontRightPx}px)`;
+        if(back) back.style.left = `calc(${displayPercent}% - ${backAnchorPx}px)`;
       }
     } else {
       const fill = document.querySelector('.progressfill');
