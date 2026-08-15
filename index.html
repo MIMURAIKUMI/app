@@ -322,7 +322,7 @@ const I18N = {
     appearancePixelArt: '🎨 ピクセルアート',
         morePixelArtSoon: 'ピクセルアートは今後追加予定です<br>ピクセル素材参考：kohacu (https://kohacu.com/)',
     appearanceBarStyle: '📊 進捗バーのスタイル',
-    barStyleNames: {normal:'通常（歩くねこ）', stretch:'のびのび（伸びるねこ）'},
+    barStyleNames: {normal:'あるくねこ', stretch:'のびるねこ'},
     appearanceTheme: '🌈 カラーテーマ',
     autoEnableNote: 'スイッチON：タスク開始時に自動で集中タイマーを開始します',
     templateDetail: (w,b,every,lb) => `集中${w}分 ／ 休憩${b}分${every>0?` ／ ${every}回ごとにロング休憩${lb}分`:''}`,
@@ -684,8 +684,9 @@ function svgTileDataURI(grid, colorMap){
 // a back piece riding the current progress position, and a tiled middle
 // segment that stretches to fill the gap between them -- so the cat's body
 // itself reads as the progress bar, instead of a separate track underneath.
-function renderStretchProgressBar(key, percent, isWorking, cell){
+function renderStretchProgressBar(key, percent, isWorking, cell, showGoal){
   cell = cell || 2.5;
+  if(showGoal===undefined) showGoal = true;
   const shape = CAT_STRETCH_SHAPE;
   if(!shape) return '';
   const colors = stretchColorsFor(key);
@@ -732,7 +733,7 @@ function renderStretchProgressBar(key, percent, isWorking, cell){
   const midWidthCapped = `calc(100% - ${rightMarginPx}px + ${backAnchorPx + 2}px - ${frontRightPx}px)`;
   const midWidth = `min(${midWidthNatural}, ${midWidthCapped})`;
   const reachedGoal = percent>=100;
-  const goal = reachedGoal ? (typeof STRETCH_GOAL_MARKER_DONE!=='undefined'?STRETCH_GOAL_MARKER_DONE:null) : STRETCH_GOAL_MARKER;
+  const goal = showGoal ? (reachedGoal ? (typeof STRETCH_GOAL_MARKER_DONE!=='undefined'?STRETCH_GOAL_MARKER_DONE:null) : STRETCH_GOAL_MARKER) : null;
   const goalHTML = goal ? renderStretchPart(goal.grid, goal.colors, cell) : '';
   return `<div class="stretchbar" style="height:${wrapH}px;" data-front-right="${frontRightPx}" data-back-anchor="${backAnchorPx}" data-right-margin="${rightMarginPx}">
     ${goal ? `<div class="stretchbar-goal" data-goal-state="${reachedGoal?'done':'fish'}" style="left:calc(100% - 10px);">${goalHTML}</div>` : ''}
@@ -1353,7 +1354,10 @@ function renderPunch(today, todayStr, weekday, suggested){
   const walkGoalClearancePx = 15;
   const walkCappedLeft = `min(${percent}%, calc(100% - ${walkRightExtendPx}px - ${walkGoalClearancePx}px))`;
   const walkReachedGoal = percent>=100;
-  const walkGoal = walkReachedGoal ? (typeof STRETCH_GOAL_MARKER_DONE!=='undefined'?STRETCH_GOAL_MARKER_DONE:null) : (typeof STRETCH_GOAL_MARKER!=='undefined'?STRETCH_GOAL_MARKER:null);
+  // Match stretch mode: the fish/bone only appears once a session has
+  // actually started (はじめる pressed), not before.
+  const walkShowGoal = status!=='none';
+  const walkGoal = !walkShowGoal ? null : (walkReachedGoal ? (typeof STRETCH_GOAL_MARKER_DONE!=='undefined'?STRETCH_GOAL_MARKER_DONE:null) : (typeof STRETCH_GOAL_MARKER!=='undefined'?STRETCH_GOAL_MARKER:null));
   const walkGoalHTML = walkGoal ? renderStretchPart(walkGoal.grid, walkGoal.colors, 2.5) : '';
   const barHTML = stretchMode
     ? renderStretchProgressBar(settings.pixelArt, stretchDisplayPercent, status==='working')
@@ -1885,8 +1889,8 @@ function renderSettings(){
     <div style="display:flex;gap:10px;flex-wrap:wrap;">
       ${Object.keys(BAR_STYLE_NAMES).map(key=>{
         const preview = key==='stretch'
-          ? `<div style="width:100%;">${renderStretchProgressBar(settings.pixelArt, 55, 1.4)}</div>`
-          : `<div style="display:flex;align-items:center;justify-content:center;">${renderPixelArt(settings.pixelArt,0.85,'walking')}</div>`;
+          ? `<div style="width:100%;">${renderStretchProgressBar(settings.pixelArt, 55, false, 2.0, false)}</div>`
+          : `<div style="display:flex;align-items:center;justify-content:center;">${renderPixelArt(settings.pixelArt,1.33,'walking')}</div>`;
         return `
         <div class="themecard ${settings.barStyle===key?'on':''}" onclick="selectBarStyle('${key}')" style="flex:1;min-width:130px;">
           <div style="height:34px;display:flex;align-items:center;justify-content:center;">${preview}</div>
