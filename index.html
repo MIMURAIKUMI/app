@@ -97,7 +97,7 @@
   .progresstrack{height:14px; background:var(--panel2); border-radius:999px; border:2px solid var(--lineS); overflow:hidden;}
   .progressfill{height:100%; background:var(--brass); border-radius:999px; transition:width .3s ease;}
   .catwalk{position:absolute; top:-37px; transform:translateX(-30%); transition:left .3s ease;}
-  .catwalk.walking{animation:catBob 0.5s steps(2) infinite;}
+  .catwalk.walking{animation:catBob 1.2s steps(2) infinite;}
   /* ---- "stretch" bar style: cat's rear stays anchored at the start, its
      head leads and advances with progress, and the body between them
      stretches to fill the gap -- no separate pill-shaped track underneath.
@@ -1305,7 +1305,7 @@ function renderPunch(today, todayStr, weekday, suggested){
   // of the fixed tail piece (their boxes overlap), which looks messy since
   // the tail's art pokes out past the head's edges. Fall back to the normal
   // walking cat until there's enough progress for them to visibly separate.
-  const stretchMode = settings.barStyle==='stretch' && status!=='none' && percent>=5;
+  const stretchMode = settings.barStyle==='stretch' && status!=='none' && percent>=3;
   const barHTML = stretchMode
     ? renderStretchProgressBar(settings.pixelArt, percent, status==='working')
     : (settings.barStyle==='stretch'
@@ -2139,14 +2139,14 @@ function tickClock(){
     const percent = goalHours>0 ? Math.min(100, (ms/3600000/goalHours)*100) : 0;
     if(settings.barStyle==='stretch'){
       const sb = document.querySelector('.stretchbar');
-      if(sb && percent>=5){
+      if(sb && percent>=3){
         const frontRightPx = parseFloat(sb.dataset.frontRight)||0;
         const backAnchorPx = parseFloat(sb.dataset.backAnchor)||0;
         const mid = sb.querySelector('.stretchbar-mid');
         const back = sb.querySelector('.stretchbar-back');
         if(mid) mid.style.width = `calc(${percent}% - ${frontRightPx}px)`;
         if(back) back.style.left = `calc(${percent}% - ${backAnchorPx}px)`;
-      } else if(!!sb !== (percent>=5)){
+      } else if(!!sb !== (percent>=3)){
         // Crossed the sitting-pose/stretch-bar threshold since the last full
         // render (e.g. .stretchbar exists but we've dropped back below 3%,
         // or vice versa) -- rebuild so the right markup is shown.
