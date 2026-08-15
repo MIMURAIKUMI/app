@@ -250,7 +250,7 @@
 // ---------- language detection ----------
 // Bump this string every time index.html is updated — shown in Settings so it's
 // easy to confirm which build is actually live (helps catch stale-deploy/cache issues).
-const APP_VERSION = 'v13-2026-08-15';
+const APP_VERSION = 'v14-2026-08-15';
 
 const LANG = (function(){
   const langs = (navigator.languages && navigator.languages.length) ? navigator.languages : [navigator.language || 'en'];
@@ -1999,13 +1999,20 @@ function setTab(t){ tab=t; save('tt_last_tab', t); render(); }
 // ---------- swipe navigation between tabs (mobile) ----------
 // PC操作では使われない見込みだが、スマホでの片手操作を想定して
 // Timecard / Tasks / Summary / Settings を左右スワイプで切り替えられるようにする。
+//
+// タッチ開始直後は「横スワイプ」か「縦スクロール」かまだ分からないので、
+// 一定距離動くまでは判定を保留し（direction lock）、横方向だと確定した時点で
+// 初めて preventDefault してページの縦スクロールを止める。こうすることで、
+// 縦スクロールのつもりの操作がタブ切り替えと同時に発生してしまう「共存」を防ぐ。
 (function(){
   const TAB_ORDER = ['punch','tasks','report','settings'];
-  const SWIPE_MIN_DIST = 60;      // px: これ以上動いたらスワイプとみなす
-  const SWIPE_MAX_OFF_AXIS = 60;  // px: 縦方向のブレの許容量
-  const SWIPE_MAX_TIME = 700;     // ms: これより遅い動きはスワイプとみなさない
+  const SWIPE_MIN_DIST = 60;        // px: これ以上動いたらタブ切り替えとみなす
+  const DIRECTION_LOCK_DIST = 10;   // px: 最初にこれだけ動いたら横/縦どちらのジェスチャーか確定する
+  const SWIPE_MAX_TIME = 700;       // ms: これより遅い動きはスワイプとみなさない
 
-  let touchStartX = 0, touchStartY = 0, touchStartTime = 0, swipeIgnored = false;
+  let touchStartX = 0, touchStartY = 0, touchStartTime = 0;
+  let swipeIgnored = false;     // モーダル表示中・横スクロール領域内など、そもそも対象外
+  let gestureDirection = null;  // 'horizontal' | 'vertical' | null(未確定)
 
   function isModalOpen(){
     // 各種モーダル（タスク編集・記録追加・メモなど）表示中はスワイプでタブを切り替えない
@@ -2017,29 +2024,55 @@ function setTab(t){ tab=t; save('tt_last_tab', t); render(); }
     if(!hs) return false;
     return hs.scrollWidth > hs.clientWidth + 1;
   }
+  function resetGesture(){
+    swipeIgnored = false;
+    gestureDirection = null;
+  }
 
   document.addEventListener('touchstart', (e)=>{
     if(e.touches.length !== 1 || isModalOpen() || isInsideHScroll(e.target)){
       swipeIgnored = true;
+      gestureDirection = null;
       return;
     }
-    swipeIgnored = false;
+    resetGesture();
     touchStartX = e.touches[0].clientX;
     touchStartY = e.touches[0].clientY;
     touchStartTime = Date.now();
   }, {passive:true});
 
-  document.addEventListener('touchend', (e)=>{
+  document.addEventListener('touchmove', (e)=>{
     if(swipeIgnored) return;
-    const touch = e.changedTouches[0];
+    const touch = e.touches[0];
     if(!touch) return;
     const dx = touch.clientX - touchStartX;
     const dy = touch.clientY - touchStartY;
+
+    if(gestureDirection === null){
+      if(Math.abs(dx) < DIRECTION_LOCK_DIST && Math.abs(dy) < DIRECTION_LOCK_DIST) return; // まだ判定できるほど動いていない
+      // 横方向の動きが縦方向よりはっきり大きい場合だけスワイプ操作として扱う
+      gestureDirection = (Math.abs(dx) > Math.abs(dy) * 1.5) ? 'horizontal' : 'vertical';
+      if(gestureDirection === 'vertical'){
+        swipeIgnored = true; // 以降は通常の縦スクロールに任せる
+        return;
+      }
+    }
+    if(gestureDirection === 'horizontal' && e.cancelable){
+      // 横スワイプ確定後は、ページの縦スクロールと同時に走らないよう止める
+      e.preventDefault();
+    }
+  }, {passive:false});
+
+  document.addEventListener('touchend', (e)=>{
+    const wasHorizontal = !swipeIgnored && gestureDirection === 'horizontal';
+    gestureDirection = null;
+    if(!wasHorizontal) return;
+    const touch = e.changedTouches[0];
+    if(!touch) return;
+    const dx = touch.clientX - touchStartX;
     const dt = Date.now() - touchStartTime;
     if(dt > SWIPE_MAX_TIME) return;
     if(Math.abs(dx) < SWIPE_MIN_DIST) return;
-    if(Math.abs(dy) > SWIPE_MAX_OFF_AXIS) return;
-    if(Math.abs(dx) < Math.abs(dy)) return;
 
     const idx = TAB_ORDER.indexOf(tab);
     if(idx === -1) return;
@@ -2048,6 +2081,11 @@ function setTab(t){ tab=t; save('tt_last_tab', t); render(); }
     } else if(dx > 0 && idx > 0){
       setTab(TAB_ORDER[idx - 1]);   // 右スワイプ → 前のタブ
     }
+  }, {passive:true});
+
+  document.addEventListener('touchcancel', ()=>{
+    swipeIgnored = true;
+    gestureDirection = null;
   }, {passive:true});
 })();
 
