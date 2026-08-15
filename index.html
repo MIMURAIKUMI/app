@@ -97,7 +97,7 @@
   .progresstrack{height:14px; background:var(--panel2); border-radius:999px; border:2px solid var(--lineS); overflow:hidden;}
   .progressfill{height:100%; background:var(--brass); border-radius:999px; transition:width .3s ease;}
   .catwalk{position:absolute; top:-37px; transform:translateX(-30%); transition:left .3s ease;}
-  .catwalk.stretch-idle{top:0; transform:translateX(-6%);}
+  .catwalk.stretch-idle{top:0; transform:translateX(-8%);}
   .catwalk.walking{animation:catBob 1.2s ease-in-out infinite;}
   /* ---- "stretch" bar style: cat's rear stays anchored at the start, its
      head leads and advances with progress, and the body between them
@@ -1307,7 +1307,7 @@ function renderPunch(today, todayStr, weekday, suggested){
   // At literal 0% the moving head sits almost exactly on top of the fixed
   // tail, which reads as a messy overlap. Give the head a small head start
   // visually (the actual elapsed-time text below is unaffected).
-  const stretchDisplayPercent = Math.max(percent, 6);
+  const stretchDisplayPercent = Math.max(percent, 3);
   const barHTML = stretchMode
     ? renderStretchProgressBar(settings.pixelArt, stretchDisplayPercent, status==='working')
     : (barStyleIsStretch
