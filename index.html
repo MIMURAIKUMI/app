@@ -707,7 +707,7 @@ function renderStretchProgressBar(key, percent, isWorking, cell){
   const boxWidthPx = movingGrid[0].length * cell;
   // Extra 15px so the head stops well clear of the goal marker at 100%,
   // instead of overlapping it, so the bone/fish sits clearly beside the cat.
-  const goalClearancePx = 30;
+  const goalClearancePx = 25;
   const rightMarginPx = boxWidthPx - backAnchorPx + goalClearancePx;
   const backLeft = `min(calc(${percent}% - ${backAnchorPx}px), calc(100% - ${rightMarginPx}px))`;
   // Natural (uncapped) width includes a small +3px buffer so the body still
@@ -1331,12 +1331,25 @@ function renderPunch(today, todayStr, weekday, suggested){
   // tail, which reads as a messy overlap. Give the head a small head start
   // visually (the actual elapsed-time text below is unaffected).
   const stretchDisplayPercent = Math.max(percent, 2);
+  // Normal mode: the walking cat sprite is anchored via translateX(-30%), so
+  // its own right edge extends ~70% of its width past the "left:percent%"
+  // point -- left uncapped, it overflows past the track at 100%. Cap it the
+  // same way as stretch mode, and show the same fish/bone goal marker.
+  const walkCellActual = 1.8 * 1.5;
+  const walkSpriteWidthPx = 16 * walkCellActual;
+  const walkRightExtendPx = walkSpriteWidthPx * 0.7;
+  const walkGoalClearancePx = 15;
+  const walkCappedLeft = `min(${percent}%, calc(100% - ${walkRightExtendPx}px - ${walkGoalClearancePx}px))`;
+  const walkReachedGoal = percent>=100;
+  const walkGoal = walkReachedGoal ? (typeof STRETCH_GOAL_MARKER_DONE!=='undefined'?STRETCH_GOAL_MARKER_DONE:null) : (typeof STRETCH_GOAL_MARKER!=='undefined'?STRETCH_GOAL_MARKER:null);
+  const walkGoalHTML = walkGoal ? renderStretchPart(walkGoal.grid, walkGoal.colors, 2.5) : '';
   const barHTML = stretchMode
     ? renderStretchProgressBar(settings.pixelArt, stretchDisplayPercent, status==='working')
     : (barStyleIsStretch
         ? `<div class="catwalk stretch-idle" style="left:0%;">${renderPixelArt(settings.pixelArt, 1.8, 'sitting')}</div>`
-        : `<div class="catwalk ${status==='working'?'walking':''}" style="left:${percent}%;">${renderPixelArt(settings.pixelArt, 1.8, status==='working'?'walking':'sitting')}</div>
-       <div class="progresstrack"><div class="progressfill" style="width:${percent}%;"></div></div>`);
+        : `<div class="catwalk ${status==='working'?'walking':''}" style="left:${walkCappedLeft};">${renderPixelArt(settings.pixelArt, 1.8, status==='working'?'walking':'sitting')}</div>
+       <div class="progresstrack"><div class="progressfill" style="width:${percent}%;"></div></div>
+       ${walkGoal ? `<div class="stretchbar-goal" data-goal-state="${walkReachedGoal?'done':'fish'}" style="left:calc(100% - 10px); top:-37px;">${walkGoalHTML}</div>` : ''}`);
 
   let html = `<div class="panel card-punch">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
@@ -2189,7 +2202,21 @@ function tickClock(){
       const fill = document.querySelector('.progressfill');
       if(fill) fill.style.width = percent+'%';
       const cat = document.querySelector('.catwalk');
-      if(cat) cat.style.left = percent+'%';
+      if(cat){
+        const walkCellActual = 1.8 * 1.5;
+        const walkRightExtendPx = (16 * walkCellActual) * 0.7;
+        const walkGoalClearancePx = 15;
+        cat.style.left = `min(${percent}%, calc(100% - ${walkRightExtendPx}px - ${walkGoalClearancePx}px))`;
+      }
+      const goalEl = document.querySelector('.progresswrap .stretchbar-goal');
+      if(goalEl){
+        const reachedGoal = percent>=100;
+        const wantState = reachedGoal ? 'done' : 'fish';
+        if(goalEl.dataset.goalState !== wantState){
+          const marker = reachedGoal ? (typeof STRETCH_GOAL_MARKER_DONE!=='undefined'?STRETCH_GOAL_MARKER_DONE:null) : (typeof STRETCH_GOAL_MARKER!=='undefined'?STRETCH_GOAL_MARKER:null);
+          if(marker){ goalEl.innerHTML = renderStretchPart(marker.grid, marker.colors, 2.5); goalEl.dataset.goalState = wantState; }
+        }
+      }
     }
     const gl = document.querySelector('.goalline');
     if(gl) gl.textContent = `${hmLabel(ms)} / ${taskGoalHoursLabel(goalHours)}${t('parenWrap')(task?task.name:'')}`;
