@@ -12,7 +12,14 @@
 <link rel="manifest" href="./manifest.json">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DotGothic16&family=Press+Start+2P&family=JetBrains+Mono:wght@400;500;700&display=swap">
+<!-- Loaded as non-render-blocking: the browser won't paint anything until a
+     normal <link rel="stylesheet"> finishes loading, which was holding up
+     first paint (and thus the loading placeholder below) behind a
+     third-party font fetch. Loading it as "print" media first (so it
+     doesn't block) then switching to "all" once it arrives keeps the font
+     but stops it from gating when the page can first show something. -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DotGothic16&family=Press+Start+2P&family=JetBrains+Mono:wght@400;500;700&display=swap" media="print" onload="this.media='all'">
+<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DotGothic16&family=Press+Start+2P&family=JetBrains+Mono:wght@400;500;700&display=swap"></noscript>
 <style>
   :root, [data-theme="original"]{
     --bg:#F3F7FC; --panel:#FFFFFF; --panel2:#EEF5FB;
