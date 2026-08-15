@@ -107,6 +107,7 @@
   .progresswrap.stretch{margin:18px 0 18px; height:40px;}
   .stretchbar{position:relative; width:100%;}
   .stretchbar-front,.stretchbar-back{position:absolute; top:0; filter:drop-shadow(1px 1px 0 var(--lineS));}
+  .stretchbar-goal{position:absolute; top:0; transform:translateX(-50%); z-index:0; opacity:0.9;}
   .stretchbar-back{transition:left .35s steps(3); z-index:2;}
   .stretchbar-back.working{animation:stretchTug 1.2s steps(3) infinite;}
   .stretchbar-front{z-index:1;}
@@ -698,10 +699,22 @@ function renderStretchProgressBar(key, percent, isWorking, cell){
   const backHTML = renderStretchPart(movingGrid, colors, cell);
   const midTileURI = svgTileDataURI(midCropped, colors);
   const workingCls = isWorking ? ' working' : '';
-  return `<div class="stretchbar" style="height:${wrapH}px;" data-front-right="${frontRightPx}" data-back-anchor="${backAnchorPx}">
-    <div class="stretchbar-mid" style="left:${frontRightPx}px; top:${midTop}px; height:${midH}px; width:calc(${percent}% - ${frontRightPx}px + 3px); background-image:url('${midTileURI}'); background-repeat:repeat-x; background-size:${midTileWidth}px ${midH}px;"></div>
+  // The moving (head) box is `boxWidthPx` wide and its art sits to the right
+  // of its own anchor point (backAnchorPx) by `rightMarginPx`. Left uncapped,
+  // at percent=100 the head's art would poke out past the bar's right edge.
+  // Cap its position (and the body's width to match) so the art's own right
+  // edge never passes 100%.
+  const boxWidthPx = movingGrid[0].length * cell;
+  const rightMarginPx = boxWidthPx - backAnchorPx;
+  const backLeft = `min(calc(${percent}% - ${backAnchorPx}px), calc(100% - ${rightMarginPx}px))`;
+  const midWidth = `min(calc(${percent}% - ${frontRightPx}px + 3px), calc(100% - ${rightMarginPx}px - ${frontRightPx}px + 3px))`;
+  const goal = STRETCH_GOAL_MARKER;
+  const goalHTML = goal ? renderStretchPart(goal.grid, goal.colors, cell) : '';
+  return `<div class="stretchbar" style="height:${wrapH}px;" data-front-right="${frontRightPx}" data-back-anchor="${backAnchorPx}" data-right-margin="${rightMarginPx}">
+    ${goal ? `<div class="stretchbar-goal" style="left:100%;">${goalHTML}</div>` : ''}
+    <div class="stretchbar-mid" style="left:${frontRightPx}px; top:${midTop}px; height:${midH}px; width:${midWidth}; background-image:url('${midTileURI}'); background-repeat:repeat-x; background-size:${midTileWidth}px ${midH}px;"></div>
     <div class="stretchbar-front" style="left:0;">${frontHTML}</div>
-    <div class="stretchbar-back${workingCls}" style="left:calc(${percent}% - ${backAnchorPx}px);">${backHTML}</div>
+    <div class="stretchbar-back${workingCls}" style="left:${backLeft};">${backHTML}</div>
   </div>`;
 }
 
@@ -2143,10 +2156,11 @@ function tickClock(){
         const displayPercent = Math.max(percent, 2);
         const frontRightPx = parseFloat(sb.dataset.frontRight)||0;
         const backAnchorPx = parseFloat(sb.dataset.backAnchor)||0;
+        const rightMarginPx = parseFloat(sb.dataset.rightMargin)||0;
         const mid = sb.querySelector('.stretchbar-mid');
         const back = sb.querySelector('.stretchbar-back');
-        if(mid) mid.style.width = `calc(${displayPercent}% - ${frontRightPx}px + 3px)`;
-        if(back) back.style.left = `calc(${displayPercent}% - ${backAnchorPx}px)`;
+        if(mid) mid.style.width = `min(calc(${displayPercent}% - ${frontRightPx}px + 3px), calc(100% - ${rightMarginPx}px - ${frontRightPx}px + 3px))`;
+        if(back) back.style.left = `min(calc(${displayPercent}% - ${backAnchorPx}px), calc(100% - ${rightMarginPx}px))`;
       }
     } else {
       const fill = document.querySelector('.progressfill');
