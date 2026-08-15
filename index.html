@@ -103,7 +103,7 @@
      stretches to fill the gap -- no separate pill-shaped track underneath.
      The mid segment has a gentle continuous "breathing" pulse so the
      elasticity always reads clearly, even when idle. ---- */
-  .progresswrap.stretch{margin:18px 0 18px;}
+  .progresswrap.stretch{margin:18px 0 18px; height:40px;}
   .stretchbar{position:relative; width:100%;}
   .stretchbar-front,.stretchbar-back{position:absolute; top:0; filter:drop-shadow(1px 1px 0 var(--lineS));}
   .stretchbar-back{transition:left .35s cubic-bezier(.34,1.3,.64,1); z-index:2;}
@@ -1301,15 +1301,12 @@ function renderPunch(today, todayStr, weekday, suggested){
     </div>`;
   }
 
-  // Below a small threshold the moving head piece sits almost exactly on top
-  // of the fixed tail piece (their boxes overlap), which looks messy since
-  // the tail's art pokes out past the head's edges. Fall back to the normal
-  // walking cat until there's enough progress for them to visibly separate.
-  const stretchMode = settings.barStyle==='stretch' && status!=='none' && percent>=3;
+  const barStyleIsStretch = settings.barStyle==='stretch';
+  const stretchMode = barStyleIsStretch && status!=='none';
   const barHTML = stretchMode
     ? renderStretchProgressBar(settings.pixelArt, percent, status==='working')
-    : (settings.barStyle==='stretch'
-        ? `<div class="catwalk ${status==='working'?'walking':''}" style="left:0%;">${renderPixelArt(settings.pixelArt, 1.8, status==='working'?'walking':'sitting')}</div>`
+    : (barStyleIsStretch
+        ? `<div class="catwalk" style="left:0%;">${renderPixelArt(settings.pixelArt, 1.8, 'sitting')}</div>`
         : `<div class="catwalk ${status==='working'?'walking':''}" style="left:${percent}%;">${renderPixelArt(settings.pixelArt, 1.8, status==='working'?'walking':'sitting')}</div>
        <div class="progresstrack"><div class="progressfill" style="width:${percent}%;"></div></div>`);
 
@@ -1320,7 +1317,7 @@ function renderPunch(today, todayStr, weekday, suggested){
     </div>
     <div id="clockDisplay" class="clock" style="color:${status==='none'?'var(--faint)':sColor};">${msToHMS(ms)}</div>
     <div class="projlist">${chipsHtml}</div>
-    <div class="progresswrap${stretchMode?' stretch':''}">${barHTML}</div>
+    <div class="progresswrap${barStyleIsStretch?' stretch':''}">${barHTML}</div>
     <div class="goalline">${hmLabel(ms)} / ${taskGoalHoursLabel(goalHours)}${t('parenWrap')(escapeHtml(currentTask?currentTask.name:''))}</div>
     ${buttonsHtml}
   </div>`;
@@ -2139,18 +2136,13 @@ function tickClock(){
     const percent = goalHours>0 ? Math.min(100, (ms/3600000/goalHours)*100) : 0;
     if(settings.barStyle==='stretch'){
       const sb = document.querySelector('.stretchbar');
-      if(sb && percent>=3){
+      if(sb){
         const frontRightPx = parseFloat(sb.dataset.frontRight)||0;
         const backAnchorPx = parseFloat(sb.dataset.backAnchor)||0;
         const mid = sb.querySelector('.stretchbar-mid');
         const back = sb.querySelector('.stretchbar-back');
         if(mid) mid.style.width = `calc(${percent}% - ${frontRightPx}px)`;
         if(back) back.style.left = `calc(${percent}% - ${backAnchorPx}px)`;
-      } else if(!!sb !== (percent>=3)){
-        // Crossed the sitting-pose/stretch-bar threshold since the last full
-        // render (e.g. .stretchbar exists but we've dropped back below 3%,
-        // or vice versa) -- rebuild so the right markup is shown.
-        render();
       }
     } else {
       const fill = document.querySelector('.progressfill');
