@@ -1889,10 +1889,10 @@ function renderSettings(){
     <div style="display:flex;gap:18px;justify-content:center;flex-wrap:wrap;">
       ${Object.keys(BAR_STYLE_NAMES).map(key=>{
         const preview = key==='stretch'
-          ? `<div style="width:56px;overflow:hidden;">${renderStretchProgressBar(settings.pixelArt, 55, false, 1.4, false)}</div>`
+          ? `<div style="width:70px;overflow:hidden;">${renderStretchProgressBar(settings.pixelArt, 55, false, 1.8, false)}</div>`
           : `<div style="display:flex;align-items:center;justify-content:center;">${renderPixelArt(settings.pixelArt,1.1,'walking')}</div>`;
         return `
-        <div class="themecard ${settings.barStyle===key?'on':''}" onclick="selectBarStyle('${key}')" style="flex:0 0 35%;min-width:100px;">
+        <div class="themecard ${settings.barStyle===key?'on':''}" onclick="selectBarStyle('${key}')" style="flex:0 0 44%;min-width:120px;">
           <div style="display:flex;align-items:center;justify-content:center;gap:8px;">
             <div style="flex-shrink:0;height:28px;display:flex;align-items:center;">${preview}</div>
             <div class="name" style="margin:0;word-break:keep-all;">${BAR_STYLE_NAMES[key]}${settings.barStyle===key?' ✓':''}</div>
