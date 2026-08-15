@@ -107,7 +107,7 @@
   .progresswrap.stretch{margin:18px 0 18px; height:40px;}
   .stretchbar{position:relative; width:100%;}
   .stretchbar-front,.stretchbar-back{position:absolute; top:0; filter:drop-shadow(1px 1px 0 var(--lineS));}
-  .stretchbar-goal{position:absolute; top:0; transform:translateX(-50%); z-index:0; opacity:0.9;}
+  .stretchbar-goal{position:absolute; top:0; transform:translateX(-50%) scale(0.8); transform-origin:center; z-index:0; opacity:0.9;}
   .stretchbar-back{transition:left .35s steps(3); z-index:2;}
   .stretchbar-back.working{animation:stretchTug 1.2s steps(3) infinite;}
   .stretchbar-front{z-index:1;}
@@ -711,7 +711,7 @@ function renderStretchProgressBar(key, percent, isWorking, cell){
   const goal = STRETCH_GOAL_MARKER;
   const goalHTML = goal ? renderStretchPart(goal.grid, goal.colors, cell) : '';
   return `<div class="stretchbar" style="height:${wrapH}px;" data-front-right="${frontRightPx}" data-back-anchor="${backAnchorPx}" data-right-margin="${rightMarginPx}">
-    ${goal ? `<div class="stretchbar-goal" style="left:100%;">${goalHTML}</div>` : ''}
+    ${goal ? `<div class="stretchbar-goal" style="left:calc(100% - 10px);">${goalHTML}</div>` : ''}
     <div class="stretchbar-mid" style="left:${frontRightPx}px; top:${midTop}px; height:${midH}px; width:${midWidth}; background-image:url('${midTileURI}'); background-repeat:repeat-x; background-size:${midTileWidth}px ${midH}px;"></div>
     <div class="stretchbar-front" style="left:0;">${frontHTML}</div>
     <div class="stretchbar-back${workingCls}" style="left:${backLeft};">${backHTML}</div>
