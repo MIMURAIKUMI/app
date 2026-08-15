@@ -109,8 +109,10 @@
   .stretchbar-back{transition:left .35s cubic-bezier(.34,1.3,.64,1); z-index:2;}
   .stretchbar-back.working{animation:stretchTug 1.2s ease-in-out infinite;}
   .stretchbar-front{z-index:1;}
-  .stretchbar-mid{position:absolute; transition:width .35s cubic-bezier(.34,1.3,.64,1); image-rendering:pixelated; z-index:1;}
-  @keyframes stretchTug{ 0%,100%{transform:translateY(0);} 50%{transform:translateY(-2px);} }
+  .stretchbar-mid{position:absolute; transition:width .35s cubic-bezier(.34,1.3,.64,1); image-rendering:pixelated; transform-origin:left center; z-index:1;}
+  .stretchbar-mid.working{animation:stretchBreathe 1.2s ease-in-out infinite;}
+  @keyframes stretchBreathe{ 0%,100%{transform:scaleY(1);} 50%{transform:scaleY(1.08);} }
+  @keyframes stretchTug{ 0%,100%{transform:translateX(0);} 50%{transform:translateX(2px);} }
   .punchbtn{flex:1; display:flex; flex-direction:column; align-items:center; gap:6px; padding:14px 4px; border-radius:12px; cursor:pointer; background:var(--panel2); border:2px solid var(--lineS); color:var(--dim); font-family:inherit; box-shadow:2px 2px 0 var(--line); transition:transform .08s ease, box-shadow .08s ease;}
   .punchbtn:active{transform:translate(2px,2px); box-shadow:0 0 0 var(--line);}
   .punchbtn.active{background:var(--c,var(--brass)); background:color-mix(in srgb, var(--c,var(--brass)) 20%, var(--panel)); border-color:var(--c,var(--brass)); color:var(--c,var(--brass));}
@@ -698,7 +700,7 @@ function renderStretchProgressBar(key, percent, isWorking, cell){
   const midTileURI = svgTileDataURI(midCropped, colors);
   const workingCls = isWorking ? ' working' : '';
   return `<div class="stretchbar" style="height:${wrapH}px;" data-front-right="${frontRightPx}" data-back-anchor="${backAnchorPx}">
-    <div class="stretchbar-mid" style="left:${frontRightPx}px; top:${midTop}px; height:${midH}px; width:calc(${percent}% - ${frontRightPx}px); background-image:url('${midTileURI}'); background-repeat:repeat-x; background-size:${midTileWidth}px ${midH}px;"></div>
+    <div class="stretchbar-mid${workingCls}" style="left:${frontRightPx}px; top:${midTop}px; height:${midH}px; width:calc(${percent}% - ${frontRightPx}px); background-image:url('${midTileURI}'); background-repeat:repeat-x; background-size:${midTileWidth}px ${midH}px;"></div>
     <div class="stretchbar-front" style="left:0;">${frontHTML}</div>
     <div class="stretchbar-back${workingCls}" style="left:calc(${percent}% - ${backAnchorPx}px);">${backHTML}</div>
   </div>`;
@@ -1303,7 +1305,7 @@ function renderPunch(today, todayStr, weekday, suggested){
   // of the fixed tail piece (their boxes overlap), which looks messy since
   // the tail's art pokes out past the head's edges. Fall back to the normal
   // walking cat until there's enough progress for them to visibly separate.
-  const stretchMode = settings.barStyle==='stretch' && status!=='none' && percent>=15;
+  const stretchMode = settings.barStyle==='stretch' && status!=='none' && percent>=5;
   const barHTML = stretchMode
     ? renderStretchProgressBar(settings.pixelArt, percent, status==='working')
     : (settings.barStyle==='stretch'
@@ -2137,14 +2139,14 @@ function tickClock(){
     const percent = goalHours>0 ? Math.min(100, (ms/3600000/goalHours)*100) : 0;
     if(settings.barStyle==='stretch'){
       const sb = document.querySelector('.stretchbar');
-      if(sb && percent>=15){
+      if(sb && percent>=5){
         const frontRightPx = parseFloat(sb.dataset.frontRight)||0;
         const backAnchorPx = parseFloat(sb.dataset.backAnchor)||0;
         const mid = sb.querySelector('.stretchbar-mid');
         const back = sb.querySelector('.stretchbar-back');
         if(mid) mid.style.width = `calc(${percent}% - ${frontRightPx}px)`;
         if(back) back.style.left = `calc(${percent}% - ${backAnchorPx}px)`;
-      } else if(!!sb !== (percent>=15)){
+      } else if(!!sb !== (percent>=5)){
         // Crossed the sitting-pose/stretch-bar threshold since the last full
         // render (e.g. .stretchbar exists but we've dropped back below 3%,
         // or vice versa) -- rebuild so the right markup is shown.
