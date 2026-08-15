@@ -250,7 +250,7 @@
 // ---------- language detection ----------
 // Bump this string every time index.html is updated — shown in Settings so it's
 // easy to confirm which build is actually live (helps catch stale-deploy/cache issues).
-const APP_VERSION = 'v12-2026-08-08';
+const APP_VERSION = 'v13-2026-08-15';
 
 const LANG = (function(){
   const langs = (navigator.languages && navigator.languages.length) ? navigator.languages : [navigator.language || 'en'];
@@ -476,7 +476,7 @@ const I18N = {
     appearancePixelArt: '🎨 Pixel Art',
     morePixelArtSoon: 'More pixel art coming soon<br>Pixel art reference: kohacu (https://kohacu.com/)',
     appearanceBarStyle: '📊 Progress Bar Style',
-    barStyleNames: {normal:'Walking cat', stretch:'Long cat'},
+    barStyleNames: {normal:'Walking cat', stretch:'Growing cat'},
     appearanceTheme: '🌈  Color Theme',
     autoEnableNote: 'When ON: automatically start the focus timer when a task begins',
     templateDetail: (w,b,every,lb) => `Focus ${w}m / Break ${b}m${every>0?` / long break ${lb}m every ${every}`:''}`,
@@ -1995,6 +1995,61 @@ function renderSettings(){
 }
 
 function setTab(t){ tab=t; save('tt_last_tab', t); render(); }
+
+// ---------- swipe navigation between tabs (mobile) ----------
+// PC操作では使われない見込みだが、スマホでの片手操作を想定して
+// Timecard / Tasks / Summary / Settings を左右スワイプで切り替えられるようにする。
+(function(){
+  const TAB_ORDER = ['punch','tasks','report','settings'];
+  const SWIPE_MIN_DIST = 60;      // px: これ以上動いたらスワイプとみなす
+  const SWIPE_MAX_OFF_AXIS = 60;  // px: 縦方向のブレの許容量
+  const SWIPE_MAX_TIME = 700;     // ms: これより遅い動きはスワイプとみなさない
+
+  let touchStartX = 0, touchStartY = 0, touchStartTime = 0, swipeIgnored = false;
+
+  function isModalOpen(){
+    // 各種モーダル（タスク編集・記録追加・メモなど）表示中はスワイプでタブを切り替えない
+    return !!document.querySelector('.modal-bg');
+  }
+  function isInsideHScroll(el){
+    // テーブルの横スクロールやピクセルアート選択の横スクロールと競合しないようにする
+    const hs = el.closest && el.closest('.tbl-wrap, .pixrow');
+    if(!hs) return false;
+    return hs.scrollWidth > hs.clientWidth + 1;
+  }
+
+  document.addEventListener('touchstart', (e)=>{
+    if(e.touches.length !== 1 || isModalOpen() || isInsideHScroll(e.target)){
+      swipeIgnored = true;
+      return;
+    }
+    swipeIgnored = false;
+    touchStartX = e.touches[0].clientX;
+    touchStartY = e.touches[0].clientY;
+    touchStartTime = Date.now();
+  }, {passive:true});
+
+  document.addEventListener('touchend', (e)=>{
+    if(swipeIgnored) return;
+    const touch = e.changedTouches[0];
+    if(!touch) return;
+    const dx = touch.clientX - touchStartX;
+    const dy = touch.clientY - touchStartY;
+    const dt = Date.now() - touchStartTime;
+    if(dt > SWIPE_MAX_TIME) return;
+    if(Math.abs(dx) < SWIPE_MIN_DIST) return;
+    if(Math.abs(dy) > SWIPE_MAX_OFF_AXIS) return;
+    if(Math.abs(dx) < Math.abs(dy)) return;
+
+    const idx = TAB_ORDER.indexOf(tab);
+    if(idx === -1) return;
+    if(dx < 0 && idx < TAB_ORDER.length - 1){
+      setTab(TAB_ORDER[idx + 1]);   // 左スワイプ → 次のタブ
+    } else if(dx > 0 && idx > 0){
+      setTab(TAB_ORDER[idx - 1]);   // 右スワイプ → 前のタブ
+    }
+  }, {passive:true});
+})();
 
 // ---------- report / summary ----------
 function monthlyGoalMinutes(task, month, todayStr){
