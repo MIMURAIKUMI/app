@@ -84,6 +84,15 @@
   nav button{padding:9px 6px; background:var(--panel2); cursor:pointer; color:var(--dim); font-size:11px; font-weight:600; font-family:inherit; display:flex; align-items:center; justify-content:center; gap:5px; border:2px solid var(--lineS); border-radius:10px; box-shadow:2px 2px 0 var(--line); transition:transform .08s ease, box-shadow .08s ease; flex:1;}
   nav button.active{color:#fff; background:var(--brass); border-color:var(--brassDim);}
   nav button:active{transform:translate(2px,2px); box-shadow:0 0 0 var(--line);}
+  /* タブ切り替え時の軽量な演出。transform/opacityのみのCSSアニメーションなので
+     毎フレームのJS計算は発生せず、起動速度やスクロール性能への影響はごく小さい。 */
+  @keyframes tabSlideFwd{ from{opacity:0; transform:translateX(14px);} to{opacity:1; transform:translateX(0);} }
+  @keyframes tabSlideBack{ from{opacity:0; transform:translateX(-14px);} to{opacity:1; transform:translateX(0);} }
+  #tabcontent.tab-slide-fwd{ animation:tabSlideFwd .2s cubic-bezier(.22,.61,.36,1); }
+  #tabcontent.tab-slide-back{ animation:tabSlideBack .2s cubic-bezier(.22,.61,.36,1); }
+  @media (prefers-reduced-motion: reduce){
+    #tabcontent.tab-slide-fwd, #tabcontent.tab-slide-back{ animation:none; }
+  }
   .status-dot{display:inline-flex; align-items:center; gap:8px;}
   .status-dot .dot{width:9px; height:9px; border-radius:3px;}
   select,input{width:100%; background:var(--panel2); border:2px solid var(--lineS); border-radius:9px; color:var(--text); padding:9px 10px; font-size:14px; font-family:inherit;}
@@ -250,7 +259,7 @@
 // ---------- language detection ----------
 // Bump this string every time index.html is updated — shown in Settings so it's
 // easy to confirm which build is actually live (helps catch stale-deploy/cache issues).
-const APP_VERSION = 'v14-2026-08-15';
+const APP_VERSION = 'v15-2026-08-15';
 
 const LANG = (function(){
   const langs = (navigator.languages && navigator.languages.length) ? navigator.languages : [navigator.language || 'en'];
@@ -828,6 +837,8 @@ Object.keys(records).forEach(date=>{
 });
 
 let tab = load('tt_last_tab', 'punch');
+const TAB_ORDER = ['punch','tasks','report','settings']; // nav / スワイプ共通のタブ順序
+let tabSlideDir = null; // 直前の setTab() が生んだ向き: 'fwd' | 'back' | null（render() で一度だけ消費する）
 let selectedTaskId = null;
 let reportMonth = (()=>{ const d=new Date(); return `${d.getFullYear()}-${pad(d.getMonth()+1)}`; })();
 let editingTask = null; // for modal
@@ -1267,7 +1278,10 @@ function render(){
     <button class="${tab==='settings'?'active':''}" onclick="setTab('settings')">Settings</button>
   </nav>`;
 
-  html += `<div id="tabcontent"></div>`;
+  // タブ切り替え直後だけ軽いスライド演出をつける（CSSアニメーションのみ・毎フレームのJS計算なし）
+  const slideClass = tabSlideDir==='fwd' ? 'tab-slide-fwd' : (tabSlideDir==='back' ? 'tab-slide-back' : '');
+  tabSlideDir = null; // 一度使ったら消費する（タブ切り替え以外のrender()で毎回再生されないように）
+  html += `<div id="tabcontent" class="${slideClass}"></div>`;
   app.innerHTML = html;
 
   const content = document.getElementById('tabcontent');
@@ -1994,7 +2008,15 @@ function renderSettings(){
   return html;
 }
 
-function setTab(t){ tab=t; save('tt_last_tab', t); render(); }
+function setTab(t){
+  if(t !== tab){
+    const oldIdx = TAB_ORDER.indexOf(tab), newIdx = TAB_ORDER.indexOf(t);
+    tabSlideDir = (oldIdx!==-1 && newIdx!==-1) ? (newIdx > oldIdx ? 'fwd' : 'back') : null;
+  } else {
+    tabSlideDir = null;
+  }
+  tab=t; save('tt_last_tab', t); render();
+}
 
 // ---------- swipe navigation between tabs (mobile) ----------
 // PC操作では使われない見込みだが、スマホでの片手操作を想定して
@@ -2005,7 +2027,7 @@ function setTab(t){ tab=t; save('tt_last_tab', t); render(); }
 // 初めて preventDefault してページの縦スクロールを止める。こうすることで、
 // 縦スクロールのつもりの操作がタブ切り替えと同時に発生してしまう「共存」を防ぐ。
 (function(){
-  const TAB_ORDER = ['punch','tasks','report','settings'];
+  // TAB_ORDER はnav/setTab側で定義済みのものを共用する
   const SWIPE_MIN_DIST = 60;        // px: これ以上動いたらタブ切り替えとみなす
   const DIRECTION_LOCK_DIST = 10;   // px: 最初にこれだけ動いたら横/縦どちらのジェスチャーか確定する
   const SWIPE_MAX_TIME = 700;       // ms: これより遅い動きはスワイプとみなさない
