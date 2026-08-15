@@ -111,8 +111,6 @@
   .stretchbar-back.working{animation:stretchTug 1.2s steps(3) infinite;}
   .stretchbar-front{z-index:1;}
   .stretchbar-mid{position:absolute; transition:width .35s steps(3); image-rendering:pixelated; transform-origin:left center; z-index:0;}
-  .stretchbar-mid.working{animation:stretchBreathe 1.2s steps(3) infinite;}
-  @keyframes stretchBreathe{ 0%,100%{transform:scaleY(1);} 50%{transform:scaleY(1.08);} }
   @keyframes stretchTug{ 0%,100%{transform:translateX(0);} 50%{transform:translateX(2px);} }
   .punchbtn{flex:1; display:flex; flex-direction:column; align-items:center; gap:6px; padding:14px 4px; border-radius:12px; cursor:pointer; background:var(--panel2); border:2px solid var(--lineS); color:var(--dim); font-family:inherit; box-shadow:2px 2px 0 var(--line); transition:transform .08s ease, box-shadow .08s ease;}
   .punchbtn:active{transform:translate(2px,2px); box-shadow:0 0 0 var(--line);}
@@ -701,7 +699,7 @@ function renderStretchProgressBar(key, percent, isWorking, cell){
   const midTileURI = svgTileDataURI(midCropped, colors);
   const workingCls = isWorking ? ' working' : '';
   return `<div class="stretchbar" style="height:${wrapH}px;" data-front-right="${frontRightPx}" data-back-anchor="${backAnchorPx}">
-    <div class="stretchbar-mid${workingCls}" style="left:${frontRightPx}px; top:${midTop}px; height:${midH}px; width:calc(${percent}% - ${frontRightPx}px + 3px); background-image:url('${midTileURI}'); background-repeat:repeat-x; background-size:${midTileWidth}px ${midH}px;"></div>
+    <div class="stretchbar-mid" style="left:${frontRightPx}px; top:${midTop}px; height:${midH}px; width:calc(${percent}% - ${frontRightPx}px + 3px); background-image:url('${midTileURI}'); background-repeat:repeat-x; background-size:${midTileWidth}px ${midH}px;"></div>
     <div class="stretchbar-front" style="left:0;">${frontHTML}</div>
     <div class="stretchbar-back${workingCls}" style="left:calc(${percent}% - ${backAnchorPx}px);">${backHTML}</div>
   </div>`;
