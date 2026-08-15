@@ -699,8 +699,6 @@ function renderStretchProgressBar(key, percent, isWorking, cell){
   const backHTML = renderStretchPart(movingGrid, colors, cell);
   const midTileURI = svgTileDataURI(midCropped, colors);
   const workingCls = isWorking ? ' working' : '';
-  // ▼ 追加：頭が左に寄りすぎてお尻と重なりすぎないための最低位置
-  const minHeadLeftPx = Math.max(0, frontRightPx - cell * 3);
   return `<div class="stretchbar" style="height:${wrapH}px;" data-front-right="${frontRightPx}" data-back-anchor="${backAnchorPx}">
     <div class="stretchbar-mid${workingCls}" style="left:${frontRightPx}px; top:${midTop}px; height:${midH}px; width:calc(${percent}% - ${frontRightPx}px); background-image:url('${midTileURI}'); background-repeat:repeat-x; background-size:${midTileWidth}px ${midH}px;"></div>
     <div class="stretchbar-front" style="left:0;">${frontHTML}</div>
@@ -1304,16 +1302,13 @@ function renderPunch(today, todayStr, weekday, suggested){
   }
 
 const barStyleIsStretch = settings.barStyle === 'stretch';
-  // ▼ 変更：始まる前はSitting、始まったら(none以外なら)のび猫
-  const stretchMode = barStyleIsStretch && status !== 'none';
+  // 未開始(none) または 作業中(working) の時に揺らす
+  const isAnimated = status === 'none' || status === 'working';
   
-  const barHTML = stretchMode
-    ? renderStretchProgressBar(settings.pixelArt, percent, status==='working')
-    : (barStyleIsStretch
-        // ▼ 変更：未開始の時は、めり込まないコンテナに入れてSittingを表示
-        ? `<div class="stretchbar-pre" style="position:relative; width:100%; height:40px;"><div style="position:absolute; top:0; left:0; z-index:2;">${renderPixelArt(settings.pixelArt, 1.666, 'sitting')}</div></div>`
-        : `<div class="catwalk ${status==='working'?'walking':''}" style="left:${percent}%;">${renderPixelArt(settings.pixelArt, 1.8, status==='working'?'walking':'sitting')}</div>
-       <div class="progresstrack"><div class="progressfill" style="width:${percent}%;"></div></div>`);
+  const barHTML = barStyleIsStretch
+    ? renderStretchProgressBar(settings.pixelArt, percent, isAnimated)
+    : `<div class="catwalk ${status==='working'?'walking':''}" style="left:${percent}%;">${renderPixelArt(settings.pixelArt, 1.8, status==='working'?'walking':'sitting')}</div>
+       <div class="progresstrack"><div class="progressfill" style="width:${percent}%;"></div></div>`;
        
   let html = `<div class="panel card-punch">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
@@ -2144,14 +2139,13 @@ function tickClock(){
       if(sb){
         const frontRightPx = parseFloat(sb.dataset.frontRight)||0;
         const backAnchorPx = parseFloat(sb.dataset.backAnchor)||0;
-        const minHeadLeftPx = parseFloat(sb.dataset.minHead)||0; // ▼ 追加
         const mid = sb.querySelector('.stretchbar-mid');
         const back = sb.querySelector('.stretchbar-back');
-        // ▼ 変更：calc(max(...)) を使用
-        if(mid) mid.style.width = `calc(max(0px, ${percent}% - ${frontRightPx}px))`;
-        if(back) back.style.left = `calc(max(${minHeadLeftPx}px, ${percent}% - ${backAnchorPx}px))`;
+        if(mid) mid.style.width = `calc(${percent}% - ${frontRightPx}px)`;
+        if(back) back.style.left = `calc(${percent}% - ${backAnchorPx}px)`;
       }
-    } else {      const fill = document.querySelector('.progressfill');
+    } else {
+      const fill = document.querySelector('.progressfill');
       if(fill) fill.style.width = percent+'%';
       const cat = document.querySelector('.catwalk');
       if(cat) cat.style.left = percent+'%';
