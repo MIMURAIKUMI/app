@@ -98,14 +98,19 @@
   .progressfill{height:100%; background:var(--brass); border-radius:999px; transition:width .3s ease;}
   .catwalk{position:absolute; top:-37px; transform:translateX(-30%); transition:left .3s ease;}
   .catwalk.walking{animation:catBob 0.5s steps(2) infinite;}
-  /* ---- "stretch" bar style: cat's front half stays put, back half rides the
-     current progress position, and the body between them stretches to fill
-     the gap -- no separate pill-shaped track underneath. ---- */
+  /* ---- "stretch" bar style: cat's rear stays anchored at the start, its
+     head leads and advances with progress, and the body between them
+     stretches to fill the gap -- no separate pill-shaped track underneath.
+     The mid segment has a gentle continuous "breathing" pulse so the
+     elasticity always reads clearly, even when idle. ---- */
   .progresswrap.stretch{margin:18px 0 18px;}
   .stretchbar{position:relative; width:100%;}
   .stretchbar-front,.stretchbar-back{position:absolute; top:0; filter:drop-shadow(1px 1px 0 var(--lineS));}
   .stretchbar-back{transition:left .35s cubic-bezier(.34,1.3,.64,1);}
-  .stretchbar-mid{position:absolute; transition:width .35s cubic-bezier(.34,1.3,.64,1); image-rendering:pixelated;}
+  .stretchbar-front{animation:stretchTug 1.8s ease-in-out infinite;}
+  .stretchbar-mid{position:absolute; transition:width .35s cubic-bezier(.34,1.3,.64,1); image-rendering:pixelated; transform-origin:left center; animation:stretchBreathe 1.8s ease-in-out infinite;}
+  @keyframes stretchBreathe{ 0%,100%{transform:scaleY(1);} 50%{transform:scaleY(1.2);} }
+  @keyframes stretchTug{ 0%,100%{transform:translateX(0);} 50%{transform:translateX(2px);} }
   .punchbtn{flex:1; display:flex; flex-direction:column; align-items:center; gap:6px; padding:14px 4px; border-radius:12px; cursor:pointer; background:var(--panel2); border:2px solid var(--lineS); color:var(--dim); font-family:inherit; box-shadow:2px 2px 0 var(--line); transition:transform .08s ease, box-shadow .08s ease;}
   .punchbtn:active{transform:translate(2px,2px); box-shadow:0 0 0 var(--line);}
   .punchbtn.active{background:var(--c,var(--brass)); background:color-mix(in srgb, var(--c,var(--brass)) 20%, var(--panel)); border-color:var(--c,var(--brass)); color:var(--c,var(--brass));}
@@ -511,7 +516,7 @@ const I18N = {
     appTitleHint: 'What you type + "TIMECARD" appears in the top left of the screen',
     aboutSection: '📖 About This App',
     appConcept: 'MyTimecard is your personal time-tracking system for recording daily tasks and habits.',
-    howToTitle: 'How to Use',
+    howToTitle: '🐱 How to Use',
     howToPages: [
       {name:'Timecard', desc:'Pick a task and time it here. "Start" begins tracking, "Take a break / Resume" pauses and resumes, and "Finish" ends the session.'},
       {name:'Tasks', desc:'Register the tasks you want to track (study, exercise, etc.) along with their days of the week and target time.'},
@@ -627,6 +632,19 @@ function gridColBounds(grid){
   grid.forEach(row=>row.forEach((v,x)=>{ if(v){ if(min===null||x<min)min=x; if(max===null||x>max)max=x; } }));
   return (min===null) ? {min:0,max:grid[0].length-1} : {min,max};
 }
+// Like gridColBounds, but only looks within a row band -- used so the
+// front/back attachment point lines up with the exact rows the "middle"
+// segment occupies, instead of picking up a column from some other part of
+// the silhouette (e.g. an ear or a raised paw) that happens to stick out
+// further but sits at a different height.
+function gridColBoundsInRows(grid, rowMin, rowMax){
+  let min=null, max=null;
+  for(let y=rowMin;y<=rowMax;y++){
+    const row = grid[y] || [];
+    row.forEach((v,x)=>{ if(v){ if(min===null||x<min)min=x; if(max===null||x>max)max=x; } });
+  }
+  return (min===null) ? gridColBounds(grid) : {min,max};
+}
 function gridRowBounds(grid){
   let min=null, max=null;
   grid.forEach((row,y)=>{ if(row.some(v=>v)){ if(min===null||y<min)min=y; if(max===null||y>max)max=y; } });
@@ -657,19 +675,26 @@ function renderStretchProgressBar(key, percent, cell){
   const shape = CAT_STRETCH_SHAPE;
   if(!shape) return '';
   const colors = stretchColorsFor(key);
-  const frontGrid = shape.front, backGrid = shape.back, midGrid = shape.middle;
-  const fB = gridColBounds(frontGrid);
-  const bB = gridColBounds(backGrid);
+  // The tail stays anchored at the start (.stretchbar-front, fixed at left:0);
+  // the head leads and advances with progress (.stretchbar-back, moves via
+  // left:calc(...)) -- matching how a cat's head/front leads a stretch while
+  // its rear stays put. (Class names describe *position role*, i.e. fixed vs
+  // moving, not head vs tail anatomy.)
+  const fixedGrid = shape.back;
+  const movingGrid = shape.front;
+  const midGrid = shape.middle;
   const mR = gridRowBounds(midGrid);
-  const wrapH = frontGrid.length * cell;
+  const fB = gridColBoundsInRows(fixedGrid, mR.min, mR.max);
+  const bB = gridColBoundsInRows(movingGrid, mR.min, mR.max);
+  const wrapH = fixedGrid.length * cell;
   const frontRightPx = (fB.max + 1) * cell;
   const backAnchorPx = bB.min * cell;
   const midTop = mR.min * cell;
   const midH = (mR.max - mR.min + 1) * cell;
   const midCropped = midGrid.slice(mR.min, mR.max + 1);
   const midTileWidth = midGrid[0].length * cell;
-  const frontHTML = renderStretchPart(frontGrid, colors, cell);
-  const backHTML = renderStretchPart(backGrid, colors, cell);
+  const frontHTML = renderStretchPart(fixedGrid, colors, cell);
+  const backHTML = renderStretchPart(movingGrid, colors, cell);
   const midTileURI = svgTileDataURI(midCropped, colors);
   return `<div class="stretchbar" style="height:${wrapH}px;" data-front-right="${frontRightPx}" data-back-anchor="${backAnchorPx}">
     <div class="stretchbar-mid" style="left:${frontRightPx}px; top:${midTop}px; height:${midH}px; width:calc(${percent}% - ${frontRightPx}px); background-image:url('${midTileURI}'); background-repeat:repeat-x; background-size:${midTileWidth}px ${midH}px;"></div>
@@ -1360,7 +1385,7 @@ function renderTasks(){
       <div style="display:flex;align-items:center;justify-content:space-between;">
         <div>
           <div class="loc-name"><span class="dot-sm" style="background:${taskColor(tk.id)};"></span>${escapeHtml(tk.name)}</div>
-          <div class="mono" style="font-size:12px;color:var(--faint);">${(tk.days||[]).map(d=>WEEKDAYS[d]).join('・')||t('everyDay')}</div>
+          <div class="mono" style="font-size:12px;color:var(--faint);">${(tk.days||[]).map(d=>WEEKDAYS_JP[d]).join('・')||t('everyDay')}</div>
           <div class="mono" style="font-size:12px;color:var(--dim);margin-top:4px;">${t('goalLabel')} ${taskGoalHoursLabel(tk.targetHours)}</div>
         </div>
         <div style="display:flex;gap:6px;">
@@ -1382,7 +1407,7 @@ function renderTasks(){
         <div style="display:flex;align-items:center;justify-content:space-between;">
           <div>
             <div class="loc-name"><span class="dot-sm" style="background:${taskColor(tk.id)};"></span>${escapeHtml(tk.name)}</div>
-            <div class="mono" style="font-size:12px;color:var(--faint);">${(tk.days||[]).map(d=>WEEKDAYS[d]).join('・')||t('everyDay')}</div>
+            <div class="mono" style="font-size:12px;color:var(--faint);">${(tk.days||[]).map(d=>WEEKDAYS_JP[d]).join('・')||t('everyDay')}</div>
           </div>
           <div style="display:flex;gap:6px;">
             <button class="icobtn" title="${t('restoreTitle')}" onclick="archiveTask('${tk.id}', false)">↩</button>
