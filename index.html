@@ -1886,15 +1886,17 @@ function renderSettings(){
   // 2b. Progress bar style
   html += `<div class="panel" style="padding:16px;margin-bottom:16px;">
     <div class="settitle">${t('appearanceBarStyle')}</div>
-    <div style="display:flex;gap:10px;flex-wrap:wrap;">
+    <div style="display:flex;gap:18px;justify-content:center;flex-wrap:wrap;">
       ${Object.keys(BAR_STYLE_NAMES).map(key=>{
         const preview = key==='stretch'
-          ? `<div style="width:100%;">${renderStretchProgressBar(settings.pixelArt, 55, false, 2.0, false)}</div>`
-          : `<div style="display:flex;align-items:center;justify-content:center;">${renderPixelArt(settings.pixelArt,1.33,'walking')}</div>`;
+          ? `<div style="width:56px;overflow:hidden;">${renderStretchProgressBar(settings.pixelArt, 55, false, 1.4, false)}</div>`
+          : `<div style="display:flex;align-items:center;justify-content:center;">${renderPixelArt(settings.pixelArt,1.1,'walking')}</div>`;
         return `
         <div class="themecard ${settings.barStyle===key?'on':''}" onclick="selectBarStyle('${key}')" style="flex:0 0 35%;min-width:100px;">
-          <div style="height:34px;display:flex;align-items:center;justify-content:center;">${preview}</div>
-          <div class="name">${BAR_STYLE_NAMES[key]}${settings.barStyle===key?' ✓':''}</div>
+          <div style="display:flex;align-items:center;justify-content:center;gap:8px;">
+            <div style="flex-shrink:0;height:28px;display:flex;align-items:center;">${preview}</div>
+            <div class="name" style="margin:0;word-break:keep-all;">${BAR_STYLE_NAMES[key]}${settings.barStyle===key?' ✓':''}</div>
+          </div>
         </div>`;
       }).join('')}
     </div>
