@@ -95,10 +95,10 @@
   .projchip.grayout{opacity:0.4;}
   .progresswrap{position:relative; margin:45px 0 7px;}
   .progresstrack{height:14px; background:var(--panel2); border-radius:999px; border:2px solid var(--lineS); overflow:hidden;}
-  .progressfill{height:100%; background:var(--brass); border-radius:999px; transition:width .3s steps(6);}
-  .catwalk{position:absolute; top:-37px; transform:translateX(-30%); transition:left .3s steps(6);}
+  .progressfill{height:100%; background:var(--brass); border-radius:999px; transition:width .3s steps(3);}
+  .catwalk{position:absolute; top:-37px; transform:translateX(-30%); transition:left .3s steps(3);}
   .catwalk.stretch-idle{top:0; transform:translateX(-8%);}
-  .catwalk.walking{animation:catBob 1.2s steps(2) infinite;}
+  .catwalk.walking{animation:catBob 1.2s steps(3) infinite;}
   /* ---- "stretch" bar style: cat's rear stays anchored at the start, its
      head leads and advances with progress, and the body between them
      stretches to fill the gap -- no separate pill-shaped track underneath.
@@ -107,11 +107,11 @@
   .progresswrap.stretch{margin:18px 0 18px; height:40px;}
   .stretchbar{position:relative; width:100%;}
   .stretchbar-front,.stretchbar-back{position:absolute; top:0; filter:drop-shadow(1px 1px 0 var(--lineS));}
-  .stretchbar-back{transition:left .35s steps(6); z-index:2;}
-  .stretchbar-back.working{animation:stretchTug 1.2s steps(2) infinite;}
+  .stretchbar-back{transition:left .35s steps(3); z-index:2;}
+  .stretchbar-back.working{animation:stretchTug 1.2s steps(3) infinite;}
   .stretchbar-front{z-index:1;}
-  .stretchbar-mid{position:absolute; transition:width .35s steps(6); image-rendering:pixelated; transform-origin:left center; z-index:0;}
-  .stretchbar-mid.working{animation:stretchBreathe 1.2s steps(2) infinite;}
+  .stretchbar-mid{position:absolute; transition:width .35s steps(3); image-rendering:pixelated; transform-origin:left center; z-index:0;}
+  .stretchbar-mid.working{animation:stretchBreathe 1.2s steps(3) infinite;}
   @keyframes stretchBreathe{ 0%,100%{transform:scaleY(1);} 50%{transform:scaleY(1.08);} }
   @keyframes stretchTug{ 0%,100%{transform:translateX(0);} 50%{transform:translateX(2px);} }
   .punchbtn{flex:1; display:flex; flex-direction:column; align-items:center; gap:6px; padding:14px 4px; border-radius:12px; cursor:pointer; background:var(--panel2); border:2px solid var(--lineS); color:var(--dim); font-family:inherit; box-shadow:2px 2px 0 var(--line); transition:transform .08s ease, box-shadow .08s ease;}
@@ -701,7 +701,7 @@ function renderStretchProgressBar(key, percent, isWorking, cell){
   const midTileURI = svgTileDataURI(midCropped, colors);
   const workingCls = isWorking ? ' working' : '';
   return `<div class="stretchbar" style="height:${wrapH}px;" data-front-right="${frontRightPx}" data-back-anchor="${backAnchorPx}">
-    <div class="stretchbar-mid${workingCls}" style="left:${frontRightPx}px; top:${midTop}px; height:${midH}px; width:calc(${percent}% - ${frontRightPx}px); background-image:url('${midTileURI}'); background-repeat:repeat-x; background-size:${midTileWidth}px ${midH}px;"></div>
+    <div class="stretchbar-mid${workingCls}" style="left:${frontRightPx}px; top:${midTop}px; height:${midH}px; width:calc(${percent}% - ${frontRightPx}px + 3px); background-image:url('${midTileURI}'); background-repeat:repeat-x; background-size:${midTileWidth}px ${midH}px;"></div>
     <div class="stretchbar-front" style="left:0;">${frontHTML}</div>
     <div class="stretchbar-back${workingCls}" style="left:calc(${percent}% - ${backAnchorPx}px);">${backHTML}</div>
   </div>`;
@@ -2147,7 +2147,7 @@ function tickClock(){
         const backAnchorPx = parseFloat(sb.dataset.backAnchor)||0;
         const mid = sb.querySelector('.stretchbar-mid');
         const back = sb.querySelector('.stretchbar-back');
-        if(mid) mid.style.width = `calc(${displayPercent}% - ${frontRightPx}px)`;
+        if(mid) mid.style.width = `calc(${displayPercent}% - ${frontRightPx}px + 3px)`;
         if(back) back.style.left = `calc(${displayPercent}% - ${backAnchorPx}px)`;
       }
     } else {
