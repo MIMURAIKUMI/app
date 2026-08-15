@@ -259,7 +259,7 @@
 // ---------- language detection ----------
 // Bump this string every time index.html is updated — shown in Settings so it's
 // easy to confirm which build is actually live (helps catch stale-deploy/cache issues).
-const APP_VERSION = 'v16-2026-08-15';
+const APP_VERSION = 'v17-2026-08-15';
 
 const LANG = (function(){
   const langs = (navigator.languages && navigator.languages.length) ? navigator.languages : [navigator.language || 'en'];
@@ -739,7 +739,14 @@ function renderStretchProgressBar(key, percent, isWorking, cell, showGoal, pause
   const boxWidthPx = movingGrid[0].length * cell;
   // Extra 15px so the head stops well clear of the goal marker at 100%,
   // instead of overlapping it, so the bone/fish sits clearly beside the cat.
-  const goalClearancePx = 20;
+  // Only reserved when a goal marker is actually being drawn -- otherwise
+  // (e.g. the small Settings > Bar Style preview, which passes
+  // showGoal=false) this clearance has nothing to avoid overlapping and was
+  // just eating into the available width, capping the visible stretch early.
+  // That capping was most noticeable on cats whose own head/tail art has a
+  // small backAnchorPx (e.g. tuxedo), making their "のびるねこ" preview look
+  // shorter than the others at the same percent.
+  const goalClearancePx = showGoal ? 20 : 0;
   const rightMarginPx = boxWidthPx - backAnchorPx + goalClearancePx;
   const backLeft = `min(calc(${percent}% - ${backAnchorPx}px), calc(100% - ${rightMarginPx}px))`;
   // Natural (uncapped) width includes a small +3px buffer so the body still
@@ -1901,7 +1908,7 @@ function renderSettings(){
       ${Object.keys(PIXEL_ART_GRIDS).map((key)=>`
         <div class="pixcard ${settings.pixelArt===key?'on':''}" onclick="selectPixelArt('${key}')">
           ${renderPixelArt(key,1.0,'walking')}
-          <div class="name">${escapeHtml(pixelArtName(key))}${settings.pixelArt===key?' ✓':''}</div>
+          <div class="name">${escapeHtml(pixelArtName(key))}</div>
         </div>`).join('')}
     </div>
     <div style="font-size:11px;color:var(--faint);margin-top:10px;">${t('morePixelArtSoon')}</div>
@@ -1919,7 +1926,7 @@ function renderSettings(){
         <div class="themecard ${settings.barStyle===key?'on':''}" onclick="selectBarStyle('${key}')" style="flex:0 0 47%;min-width:140px;">
           <div style="display:flex;align-items:center;justify-content:center;gap:8px;">
             <div style="flex-shrink:0;height:28px;display:flex;align-items:center;">${preview}</div>
-            <div class="name" style="margin:0;word-break:keep-all;">${BAR_STYLE_NAMES[key]}${settings.barStyle===key?' ✓':''}</div>
+            <div class="name" style="margin:0;word-break:keep-all;">${BAR_STYLE_NAMES[key]}</div>
           </div>
         </div>`;
       }).join('')}
