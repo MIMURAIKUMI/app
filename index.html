@@ -707,7 +707,7 @@ function renderStretchProgressBar(key, percent, isWorking, cell){
   const boxWidthPx = movingGrid[0].length * cell;
   // Extra 15px so the head stops well clear of the goal marker at 100%,
   // instead of overlapping it, so the bone/fish sits clearly beside the cat.
-  const goalClearancePx = 15;
+  const goalClearancePx = 30;
   const rightMarginPx = boxWidthPx - backAnchorPx + goalClearancePx;
   const backLeft = `min(calc(${percent}% - ${backAnchorPx}px), calc(100% - ${rightMarginPx}px))`;
   // Natural (uncapped) width includes a small +3px buffer so the body still
