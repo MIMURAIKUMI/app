@@ -262,7 +262,8 @@ const CAT_STRETCH_SHAPE = {
 // (not recolored per-cat, unlike CAT_STRETCH_SHAPE).
 // ---------------------------------------------------------------------------
 const STRETCH_GOAL_MARKER = {
-    colors: { 1: '#000000', 7: '#ffcc00' },
+    colors: { 1: '#000000', 15: '#fff3a0', 14: '#ffcb8e'
+     },
     grid: [
             [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
             [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0],
