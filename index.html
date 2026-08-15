@@ -2142,7 +2142,7 @@ function tickClock(){
     if(settings.barStyle==='stretch'){
       const sb = document.querySelector('.stretchbar');
       if(sb){
-        const displayPercent = Math.max(percent, 6);
+        const displayPercent = Math.max(percent, 3);
         const frontRightPx = parseFloat(sb.dataset.frontRight)||0;
         const backAnchorPx = parseFloat(sb.dataset.backAnchor)||0;
         const mid = sb.querySelector('.stretchbar-mid');
