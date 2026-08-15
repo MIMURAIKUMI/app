@@ -95,17 +95,9 @@
   .projchip.grayout{opacity:0.4;}
   .progresswrap{position:relative; margin:45px 0 7px;}
   .progresstrack{height:14px; background:var(--panel2); border-radius:999px; border:2px solid var(--lineS); overflow:hidden;}
-  .progressfill{height:100%; background:var(--brass); border-radius:999px; transition:width .3s ease;}
+  .progressfill{height:100%; background:var(--brass); border-radius:999px;}
   .catwalk{position:absolute; top:-37px; transform:translateX(-30%); transition:left .3s ease;}
   .catwalk.walking{animation:catBob 0.5s steps(2) infinite;}
-  /* ---- "stretch" bar style: cat's front half stays put, back half rides the
-     current progress position, and the body between them stretches to fill
-     the gap -- no separate pill-shaped track underneath. ---- */
-  .progresswrap.stretch{margin:18px 0 18px;}
-  .stretchbar{position:relative; width:100%;}
-  .stretchbar-front,.stretchbar-back{position:absolute; top:0; filter:drop-shadow(1px 1px 0 var(--lineS));}
-  .stretchbar-back{transition:left .35s cubic-bezier(.34,1.3,.64,1);}
-  .stretchbar-mid{position:absolute; transition:width .35s cubic-bezier(.34,1.3,.64,1); image-rendering:pixelated;}
   .punchbtn{flex:1; display:flex; flex-direction:column; align-items:center; gap:6px; padding:14px 4px; border-radius:12px; cursor:pointer; background:var(--panel2); border:2px solid var(--lineS); color:var(--dim); font-family:inherit; box-shadow:2px 2px 0 var(--line); transition:transform .08s ease, box-shadow .08s ease;}
   .punchbtn:active{transform:translate(2px,2px); box-shadow:0 0 0 var(--line);}
   .punchbtn.active{background:var(--c,var(--brass)); background:color-mix(in srgb, var(--c,var(--brass)) 20%, var(--panel)); border-color:var(--c,var(--brass)); color:var(--c,var(--brass));}
@@ -302,8 +294,6 @@ const I18N = {
     settingsIntro: 'アプリの見た目や機能を項目別に調整します',
     appearancePixelArt: '🎨 ピクセルアート',
         morePixelArtSoon: 'ピクセルアートは今後追加予定です<br>ピクセル素材参考：kohacu (https://kohacu.com/)',
-    appearanceBarStyle: '📊 進捗バーのスタイル',
-    barStyleNames: {normal:'通常（歩くねこ）', stretch:'のびのび（伸びるねこ）'},
     appearanceTheme: '🌈 カラーテーマ',
     autoEnableNote: 'スイッチON：タスク開始時に自動で集中タイマーを開始します',
     templateDetail: (w,b,every,lb) => `集中${w}分 ／ 休憩${b}分${every>0?` ／ ${every}回ごとにロング休憩${lb}分`:''}`,
@@ -454,11 +444,9 @@ const I18N = {
     focusTimerHint: 'The timer becomes active once you press Start',
     purchaseThanks: '🎉 Thanks for your purchase!',
     settingsIntro: "Adjust the app's look and features",
-    appearancePixelArt: '🎨 Pixel Art',
+    appearancePixelArt: '🎨 Appearance · Pixel Art',
     morePixelArtSoon: 'More pixel art coming soon<br>Pixel art reference: kohacu (https://kohacu.com/)',
-    appearanceBarStyle: '📊 Progress Bar Style',
-    barStyleNames: {normal:'Normal (walking cat)', stretch:'Stretchy (growing cat)'},
-    appearanceTheme: '🌈 Color Theme',
+    appearanceTheme: '🌈 Appearance · Color Theme',
     autoEnableNote: 'When ON: automatically start the focus timer when a task begins',
     templateDetail: (w,b,every,lb) => `Focus ${w}m / Break ${b}m${every>0?` / long break ${lb}m every ${every}`:''}`,
     addTemplate: '＋ Add template',
@@ -511,7 +499,7 @@ const I18N = {
     appTitleHint: 'What you type + "TIMECARD" appears in the top left of the screen',
     aboutSection: '📖 About This App',
     appConcept: 'MyTimecard is your personal time-tracking system for recording daily tasks and habits.',
-    howToTitle: '🐱 How to Use',
+    howToTitle: 'How to Use',
     howToPages: [
       {name:'Timecard', desc:'Pick a task and time it here. "Start" begins tracking, "Take a break / Resume" pauses and resumes, and "Finish" ends the session.'},
       {name:'Tasks', desc:'Register the tasks you want to track (study, exercise, etc.) along with their days of the week and target time.'},
@@ -586,97 +574,6 @@ function pixelArtName(key){
   if(!art) return key;
   return (art.name && (art.name[LANG] || art.name.en)) || key;
 }
-// ---- helpers for the "stretch" progress bar style ----
-// Auto-detect each cat's main fur color (most-used non-outline color in its
-// sitting pose), used as a fallback recolor for any cat that doesn't define
-// its own `stretchColors` in pixel-arts.js.
-const _catMainColorCache = {};
-function catMainColor(key){
-  if(_catMainColorCache[key]) return _catMainColorCache[key];
-  const art = PIXEL_ART_GRIDS[key];
-  let color = '#FF9EC7';
-  if(art){
-    const grid = (art.poses && (art.poses.sitting || art.poses.walking)) || [];
-    const freq = {};
-    grid.forEach(row=>row.forEach(v=>{ if(v && v!==1) freq[v]=(freq[v]||0)+1; }));
-    let best=null, bestCount=-1;
-    Object.keys(freq).forEach(k=>{ if(freq[k]>bestCount){ bestCount=freq[k]; best=k; } });
-    if(best!==null && art.colors[best]) color = art.colors[best];
-    else { const vals=Object.values(art.colors||{}); if(vals.length) color=vals[0]; }
-  }
-  _catMainColorCache[key] = color;
-  return color;
-}
-function catOutlineColor(key){
-  const art = PIXEL_ART_GRIDS[key];
-  return (art && art.colors && art.colors[1]) || '#2B2A3A';
-}
-// Palette (1=outline, 2=main fur, 3=belly/highlight) to recolor the shared
-// CAT_STRETCH_SHAPE with for a given cat. Cats can supply their own exact
-// `stretchColors` in pixel-arts.js (e.g. tuxedo); anything else falls back
-// to an auto-derived rough recolor so it "just works" for now.
-function stretchColorsFor(key){
-  const art = PIXEL_ART_GRIDS[key];
-  if(art && art.stretchColors) return art.stretchColors;
-  return {1: catOutlineColor(key), 2: catMainColor(key), 3: '#FFFFFF'};
-}
-// ---- bounding-box helpers so the stretch pieces line up automatically,
-// however each cat's shape/art happens to be drawn ----
-function gridColBounds(grid){
-  let min=null, max=null;
-  grid.forEach(row=>row.forEach((v,x)=>{ if(v){ if(min===null||x<min)min=x; if(max===null||x>max)max=x; } }));
-  return (min===null) ? {min:0,max:grid[0].length-1} : {min,max};
-}
-function gridRowBounds(grid){
-  let min=null, max=null;
-  grid.forEach((row,y)=>{ if(row.some(v=>v)){ if(min===null||y<min)min=y; if(max===null||y>max)max=y; } });
-  return (min===null) ? {min:0,max:grid.length-1} : {min,max};
-}
-function renderStretchPart(grid, colorMap, cell){
-  const cellsHtml = grid.map(row=>row.map(v=>{
-    const bg = colorMap[v] || 'transparent';
-    return `<div style="width:${cell}px;height:${cell}px;background:${bg};"></div>`;
-  }).join('')).join('');
-  return `<div style="display:grid;grid-template-columns:repeat(${grid[0].length},${cell}px);grid-template-rows:repeat(${grid.length},${cell}px);">${cellsHtml}</div>`;
-}
-// Tiny inline SVG so the "middle" body segment can be tiled seamlessly across
-// any width via a CSS background, instead of generating many DOM nodes.
-function svgTileDataURI(grid, colorMap){
-  const w = grid[0].length, h = grid.length;
-  let rects = '';
-  grid.forEach((row,y)=>row.forEach((v,x)=>{ const c=colorMap[v]; if(c) rects += `<rect x="${x}" y="${y}" width="1" height="1" fill="${c}"/>`; }));
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" shape-rendering="crispEdges">${rects}</svg>`;
-  return `data:image/svg+xml,${encodeURIComponent(svg)}`;
-}
-// Builds the full "stretch" progress bar: a front piece fixed at the start,
-// a back piece riding the current progress position, and a tiled middle
-// segment that stretches to fill the gap between them -- so the cat's body
-// itself reads as the progress bar, instead of a separate track underneath.
-function renderStretchProgressBar(key, percent, cell){
-  cell = cell || 2.5;
-  const shape = CAT_STRETCH_SHAPE;
-  if(!shape) return '';
-  const colors = stretchColorsFor(key);
-  const frontGrid = shape.front, backGrid = shape.back, midGrid = shape.middle;
-  const fB = gridColBounds(frontGrid);
-  const bB = gridColBounds(backGrid);
-  const mR = gridRowBounds(midGrid);
-  const wrapH = frontGrid.length * cell;
-  const frontRightPx = (fB.max + 1) * cell;
-  const backAnchorPx = bB.min * cell;
-  const midTop = mR.min * cell;
-  const midH = (mR.max - mR.min + 1) * cell;
-  const midCropped = midGrid.slice(mR.min, mR.max + 1);
-  const midTileWidth = midGrid[0].length * cell;
-  const frontHTML = renderStretchPart(frontGrid, colors, cell);
-  const backHTML = renderStretchPart(backGrid, colors, cell);
-  const midTileURI = svgTileDataURI(midCropped, colors);
-  return `<div class="stretchbar" style="height:${wrapH}px;" data-front-right="${frontRightPx}" data-back-anchor="${backAnchorPx}">
-    <div class="stretchbar-mid" style="left:${frontRightPx}px; top:${midTop}px; height:${midH}px; width:calc(${percent}% - ${frontRightPx}px); background-image:url('${midTileURI}'); background-repeat:repeat-x; background-size:${midTileWidth}px ${midH}px;"></div>
-    <div class="stretchbar-front" style="left:0;">${frontHTML}</div>
-    <div class="stretchbar-back" style="left:calc(${percent}% - ${backAnchorPx}px);">${backHTML}</div>
-  </div>`;
-}
 
 const POMODORO_DEFAULT_TEMPLATES = [
   {id:'std', name:t('tplStandard'), work:25, break:5, longBreakEvery:4, longBreak:15, builtin:true},
@@ -692,12 +589,10 @@ function defaultSettings(){
   return {
     pixelArt: Object.keys(PIXEL_ART_GRIDS)[0],
     theme:'original',
-    barStyle:'normal',
     pomodoro:{ templates: POMODORO_DEFAULT_TEMPLATES.map(t=>({...t})), activeTemplateId:'std', autoEnable:false }
   };
 }
 const THEME_NAMES = t('themeNames');
-const BAR_STYLE_NAMES = t('barStyleNames');
 const THEME_PREVIEW_KEYS = {
   original: ['#F3F7FC','#FF9EC7','#7FB3DC'],
   mono: ['#F1F1F1','#4B4B4B','#8C8C8C'],
@@ -707,7 +602,6 @@ function applyTheme(){
   document.documentElement.setAttribute('data-theme', settings.theme || 'original');
 }
 function selectTheme(key){ settings.theme=key; persistSettings(); applyTheme(); render(); }
-function selectBarStyle(key){ settings.barStyle=key; persistSettings(); render(); }
 
 let tasks = load('tt_tasks', null);
 let records = load('tt_records', {});
@@ -735,7 +629,6 @@ if(tasks.length === 0 && Object.keys(load('tt_records', {})).length === 0){
 }
 if(settings === null){ settings = defaultSettings(); }
 if(!settings.theme || !THEME_NAMES[settings.theme]) settings.theme = 'original';
-if(!settings.barStyle || !BAR_STYLE_NAMES[settings.barStyle]) settings.barStyle = 'normal';
 if(!settings.pomodoro) settings.pomodoro = defaultSettings().pomodoro;
 if(!settings.pomodoro.templates || !settings.pomodoro.templates.length) settings.pomodoro.templates = POMODORO_DEFAULT_TEMPLATES.map(t=>({...t}));
 if(!PIXEL_ART_GRIDS[settings.pixelArt]) settings.pixelArt = Object.keys(PIXEL_ART_GRIDS)[0];
@@ -1272,12 +1165,6 @@ function renderPunch(today, todayStr, weekday, suggested){
     </div>`;
   }
 
-  const stretchMode = settings.barStyle==='stretch';
-  const barHTML = stretchMode
-    ? renderStretchProgressBar(settings.pixelArt, percent)
-    : `<div class="catwalk ${status==='working'?'walking':''}" style="left:${percent}%;">${renderPixelArt(settings.pixelArt, 1.8, status==='working'?'walking':'sitting')}</div>
-       <div class="progresstrack"><div class="progressfill" style="width:${percent}%;"></div></div>`;
-
   let html = `<div class="panel card-punch">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
       <div class="mono" style="font-size:12px;color:var(--faint);">${today.getFullYear()}.${pad(today.getMonth()+1)}.${pad(today.getDate())} (${WEEKDAYS[weekday]})</div>
@@ -1285,7 +1172,10 @@ function renderPunch(today, todayStr, weekday, suggested){
     </div>
     <div id="clockDisplay" class="clock" style="color:${status==='none'?'var(--faint)':sColor};">${msToHMS(ms)}</div>
     <div class="projlist">${chipsHtml}</div>
-    <div class="progresswrap${stretchMode?' stretch':''}">${barHTML}</div>
+    <div class="progresswrap">
+      <div class="catwalk ${status==='working'?'walking':''}" style="left:${percent}%;">${renderPixelArt(settings.pixelArt, 1.8, status==='working'?'walking':'sitting')}</div>
+      <div class="progresstrack"><div class="progressfill" style="width:${percent}%;"></div></div>
+    </div>
     <div class="goalline">${hmLabel(ms)} / ${taskGoalHoursLabel(goalHours)}${t('parenWrap')(escapeHtml(currentTask?currentTask.name:''))}</div>
     ${buttonsHtml}
   </div>`;
@@ -1794,23 +1684,6 @@ function renderSettings(){
     <div style="font-size:11px;color:var(--faint);margin-top:10px;">${t('morePixelArtSoon')}</div>
   </div>`;
 
-  // 2b. Progress bar style
-  html += `<div class="panel" style="padding:16px;margin-bottom:16px;">
-    <div class="settitle">${t('appearanceBarStyle')}</div>
-    <div style="display:flex;gap:10px;flex-wrap:wrap;">
-      ${Object.keys(BAR_STYLE_NAMES).map(key=>{
-        const preview = key==='stretch'
-          ? `<div style="width:100%;">${renderStretchProgressBar(settings.pixelArt, 55, 1.4)}</div>`
-          : `<div style="display:flex;align-items:center;justify-content:center;">${renderPixelArt(settings.pixelArt,0.85,'walking')}</div>`;
-        return `
-        <div class="themecard ${settings.barStyle===key?'on':''}" onclick="selectBarStyle('${key}')" style="flex:1;min-width:130px;">
-          <div style="height:34px;display:flex;align-items:center;justify-content:center;">${preview}</div>
-          <div class="name">${BAR_STYLE_NAMES[key]}${settings.barStyle===key?' ✓':''}</div>
-        </div>`;
-      }).join('')}
-    </div>
-  </div>`;
-
   // 3. Theme
   html += `<div class="panel" style="padding:16px;margin-bottom:16px;">
     <div class="settitle">${t('appearanceTheme')}</div>
@@ -2102,22 +1975,10 @@ function tickClock(){
     const task = tasks.find(t=>t.id===activeS.taskId);
     const goalHours = taskGoalHours(task);
     const percent = goalHours>0 ? Math.min(100, (ms/3600000/goalHours)*100) : 0;
-    if(settings.barStyle==='stretch'){
-      const sb = document.querySelector('.stretchbar');
-      if(sb){
-        const frontRightPx = parseFloat(sb.dataset.frontRight)||0;
-        const backAnchorPx = parseFloat(sb.dataset.backAnchor)||0;
-        const mid = sb.querySelector('.stretchbar-mid');
-        const back = sb.querySelector('.stretchbar-back');
-        if(mid) mid.style.width = `calc(${percent}% - ${frontRightPx}px)`;
-        if(back) back.style.left = `calc(${percent}% - ${backAnchorPx}px)`;
-      }
-    } else {
-      const fill = document.querySelector('.progressfill');
-      if(fill) fill.style.width = percent+'%';
-      const cat = document.querySelector('.catwalk');
-      if(cat) cat.style.left = percent+'%';
-    }
+    const fill = document.querySelector('.progressfill');
+    if(fill) fill.style.width = percent+'%';
+    const cat = document.querySelector('.catwalk');
+    if(cat) cat.style.left = percent+'%';
     const gl = document.querySelector('.goalline');
     if(gl) gl.textContent = `${hmLabel(ms)} / ${taskGoalHoursLabel(goalHours)}${t('parenWrap')(task?task.name:'')}`;
   }
