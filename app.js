@@ -85,10 +85,11 @@ const I18N = {
     pixelArtRowLegendary: '伝説のねこ',
     outfitNoneOption: 'なし',
     countSuffix: n => `（${n}）`,
-    rewardCountdown: (name,h) => `プレゼントゲットまで"${name}"をあと${h}時間`,
+    rewardCountdown: (name,h) => `今日の達成まで「${name}」をあと${h}時間`,
+    giftProgressCountdown: d => `プレゼントまであと${d}日`,
     legendaryCountdown: d => `1カ月達成まであと${d}日`,
     rewardUnlockedToast: name => `🎁「${name}」を手に入れました！`,
-    legendaryUnlockedToast: '💎 伝説のねこが仲間になりました！',
+    legendaryUnlockedToast: '🌈 伝説のねこが仲間になりました！',
     giftReadyBanner: 'プレゼントがあるよ',
     giftReadyCta: 'Settingsへ',
     giftChoicePrompt: 'おめかしとえさ、どっちのピクセルを解禁する？',
@@ -257,7 +258,8 @@ const I18N = {
     pixelArtRowLegendary: 'Legendary Cat',
     outfitNoneOption: 'None',
     countSuffix: n => ` (${n})`,
-    rewardCountdown: (name,h) => `${h}h left until "${name}" unlocks a new look`,
+    rewardCountdown: (name,h) => `${h}h left to hit today's goal for "${name}"`,
+    giftProgressCountdown: d => `${d} more successful day${d===1?'':'s'} until your next present`,
     legendaryCountdown: d => `${d} days left until you reach a full month`,
     rewardUnlockedToast: name => `🎁 You got "${name}"!`,
     legendaryUnlockedToast: '🌈 The Legendary Cat has joined you!',
@@ -631,19 +633,18 @@ function defaultSettings(){
     pomodoro:{ templates: POMODORO_DEFAULT_TEMPLATES.map(t=>({...t})), activeTemplateId:'std', autoEnable:false }
   };
 }
-// ---------- rewards / gamification (weekly おめかし・えさ unlocks, monthly 伝説のねこ) ----------
+// ---------- rewards / gamification (daily おめかし・えさ tally, monthly 伝説のねこ) ----------
 // See evaluateRewards() further down for the actual streak/unlock logic.
 // This is just the persisted shape + its defaults.
 const LEGENDARY_STREAK_DAYS = 30; // consecutive successful days needed to unlock the Legendary Cat
+const GIFT_EVERY_DAYS = 7; // successful days (not necessarily consecutive) needed to bank a おめかし/えさ present
 function defaultRewards(){
   return {
-    weeklyStreak: 0,            // consecutive successful weeks right now (resets to 0 on a missed week)
-    totalSuccessWeeks: 0,       // lifetime successful weeks
+    giftProgressDays: 0,        // successful days banked toward the next present (does NOT reset on a missed day)
     unlocked: [],                // flat "type:key" strings, e.g. "outfit:ribbon", in unlock order
     outfitUnlockedCount: 0,      // how many おめかし items unlocked so far (indexes Object.keys(OUTFIT_ART))
     foodUnlockedCount: 0,        // how many えさ items unlocked so far (indexes Object.keys(FOOD_ART))
-    pendingChoices: 0,           // successful weeks whose "おめかし or えさ?" choice hasn't been made yet
-    lastEvaluatedWeekKey: null, // last fully-elapsed week (its Sunday, as fmtDate()) already scored
+    pendingChoices: 0,           // presents whose "おめかし or えさ?" choice hasn't been made yet
     equippedOutfit: null,       // currently worn おめかし key, or null
     equippedFood: null,         // currently equipped えさ key, or null
     dailyStreak: 0,             // consecutive successful days right now (resets to 0 on a missed day)
@@ -787,24 +788,24 @@ function persistRewards(){ save('tt_rewards', rewards); fbScheduleSave(); }
 // Design notes (placeholder logic -- tune freely once the real content design
 // is locked in; see pixel-arts-outfits.js / pixel-arts-legendary.js for the
 // (currently dummy) art these unlock):
-// - A "week" runs Sun→Sat (WEEKDAYS[0] is SUN). A week only counts once it
-//   has fully elapsed -- we only ever score weeks strictly before the
-//   current one.
-// - A week is "successful" when, summed across every active task that has a
-//   goal set, that week's actual tracked time meets or beats the week's
-//   target time (target = targetHours × the number of that task's scheduled
-//   days that fell within the week). Each successful week banks one
-//   "pending choice" (rewards.pendingChoices) between おめかし and えさ --
-//   the user picks a category in Settings (see chooseReward()), and the
-//   next item in *that* category's own order unlocks (3 おめかし, 4 えさ).
-//   If only one category still has items left, that one unlocks
-//   automatically without prompting; once both are fully unlocked, further
-//   successful weeks don't bank anything more.
-// - A "day" counts toward the Legendary Cat streak once it has fully
-//   elapsed, had at least one task scheduled on it, and the tracked time for
-//   that day's scheduled tasks met the combined daily target.
-//   LEGENDARY_STREAK_DAYS such days (not necessarily calendar-consecutive
-//   weeks -- just consecutive as *counted* days) unlocks 伝説のねこ.
+// - A "day" is scored once it has fully elapsed, had at least one task
+//   scheduled on it, and the tracked time for that day's scheduled tasks
+//   (summed across every active task with a goal set) met the combined
+//   daily target -- see dateDayTotals().
+// - Every successful day banks one toward rewards.giftProgressDays. Days
+//   don't need to be calendar-consecutive for this counter -- a missed day
+//   does NOT reset it, only GIFT_EVERY_DAYS accumulated successful days
+//   (whenever they happen) are needed. Once it reaches GIFT_EVERY_DAYS it
+//   resets to 0 and banks one "pending choice" (rewards.pendingChoices)
+//   between おめかし and えさ -- the user picks a category in Settings (see
+//   chooseReward()), and the next item in *that* category's own order
+//   unlocks (3 おめかし, 4 えさ). If only one category still has items left,
+//   that one unlocks automatically without prompting; once both are fully
+//   unlocked, further successful days don't bank anything more.
+// - A successful day also counts toward rewards.dailyStreak, which -- unlike
+//   giftProgressDays -- DOES reset to 0 on a missed day, since it tracks
+//   calendar-consecutive days. LEGENDARY_STREAK_DAYS consecutive successful
+//   days unlocks 伝説のねこ.
 function activeGoalTasks(){
   return tasks.filter(tk => !tk.archived && Number(tk.targetHours) > 0);
 }
@@ -821,28 +822,10 @@ function dateDayTotals(dateStr){
   });
   return { goalMin, actualMin, hasGoal: goalMin > 0 };
 }
-function weekStartStrFor(dateStr){
-  const d = new Date(dateStr + 'T00:00:00');
-  d.setDate(d.getDate() - d.getDay());
-  return fmtDate(d);
-}
 function addDaysStr(dateStr, n){
   const d = new Date(dateStr + 'T00:00:00');
   d.setDate(d.getDate() + n);
   return fmtDate(d);
-}
-function weekRangeDates(weekStartStr){
-  const out = [];
-  for(let i=0;i<7;i++) out.push(addDaysStr(weekStartStr, i));
-  return out;
-}
-function evaluateWeekSuccess(weekStartStr){
-  let goalMin = 0, actualMin = 0;
-  weekRangeDates(weekStartStr).forEach(ds=>{
-    const totals = dateDayTotals(ds);
-    goalMin += totals.goalMin; actualMin += totals.actualMin;
-  });
-  return goalMin > 0 && actualMin >= goalMin;
 }
 // The unlock order within a category is just that category's own key order
 // in pixel-arts-outfits.js (ribbon→collar→crown, karikari→churu→catgrass→sasami).
@@ -899,47 +882,15 @@ function currentGoalFishArt(){
   if(rewards.equippedFood && typeof FOOD_ART!=='undefined' && FOOD_ART[rewards.equippedFood]) return FOOD_ART[rewards.equippedFood];
   return (typeof STRETCH_GOAL_MARKER!=='undefined') ? STRETCH_GOAL_MARKER : null;
 }
-// Walks forward from the last-evaluated week/day up to (but excluding) the
-// current one, catching up on however many weeks/days elapsed since the app
-// was last opened. Safe to call every time the app boots; it's a no-op once
-// already caught up.
+// Walks forward from the last-evaluated day up to (but excluding) today,
+// catching up on however many days elapsed since the app was last opened.
+// Safe to call every time the app boots; it's a no-op once already caught up.
 function evaluateRewards(){
   const todayStr = fmtDate(new Date());
-  const thisWeekStart = weekStartStrFor(todayStr);
-
-  if(rewards.lastEvaluatedWeekKey === null){
-    // first run ever -- nothing to backfill, just mark everything up to (but
-    // excluding) the current week as "already evaluated".
-    rewards.lastEvaluatedWeekKey = addDaysStr(thisWeekStart, -7);
-  } else {
-    let cursor = addDaysStr(rewards.lastEvaluatedWeekKey, 7);
-    let guard = 0;
-    while(cursor < thisWeekStart && guard < 260){ // ~5 years of catch-up, just as a sanity cap
-      if(evaluateWeekSuccess(cursor)){
-        rewards.weeklyStreak += 1;
-        rewards.totalSuccessWeeks += 1;
-        const outfitRoom = categoryHasRoom('outfit');
-        const foodRoom = categoryHasRoom('food');
-        if(outfitRoom && foodRoom){
-          // both categories still have something left -- bank a choice for
-          // the user to make in Settings instead of picking for them.
-          rewards.pendingChoices += 1;
-        } else if(outfitRoom || foodRoom){
-          // only one category has anything left, so there's no real choice
-          // to make -- just unlock it.
-          const unlocked = unlockFromCategory(outfitRoom ? 'outfit' : 'food');
-          if(unlocked) showToast(t('rewardUnlockedToast')(rewardItemName(unlocked)));
-        } // else: everything already unlocked, nothing more to do this week
-      } else {
-        rewards.weeklyStreak = 0;
-      }
-      rewards.lastEvaluatedWeekKey = cursor;
-      cursor = addDaysStr(cursor, 7);
-      guard++;
-    }
-  }
 
   if(rewards.lastEvaluatedDate === null){
+    // first run ever -- nothing to backfill, just mark everything up to (but
+    // excluding) today as "already evaluated".
     rewards.lastEvaluatedDate = addDaysStr(todayStr, -1);
   } else {
     let cursor = addDaysStr(rewards.lastEvaluatedDate, 1);
@@ -947,8 +898,27 @@ function evaluateRewards(){
     while(cursor < todayStr && guard < 1800){ // ~5 years of catch-up
       const totals = dateDayTotals(cursor);
       if(totals.hasGoal){
-        if(totals.actualMin >= totals.goalMin) rewards.dailyStreak += 1;
-        else rewards.dailyStreak = 0;
+        if(totals.actualMin >= totals.goalMin){
+          rewards.dailyStreak += 1;
+          rewards.giftProgressDays += 1;
+          if(rewards.giftProgressDays >= GIFT_EVERY_DAYS){
+            rewards.giftProgressDays = 0;
+            const outfitRoom = categoryHasRoom('outfit');
+            const foodRoom = categoryHasRoom('food');
+            if(outfitRoom && foodRoom){
+              // both categories still have something left -- bank a choice
+              // for the user to make in Settings instead of picking for them.
+              rewards.pendingChoices += 1;
+            } else if(outfitRoom || foodRoom){
+              // only one category has anything left, so there's no real
+              // choice to make -- just unlock it.
+              const unlocked = unlockFromCategory(outfitRoom ? 'outfit' : 'food');
+              if(unlocked) showToast(t('rewardUnlockedToast')(rewardItemName(unlocked)));
+            } // else: everything already unlocked, nothing more to bank
+          }
+        } else {
+          rewards.dailyStreak = 0;
+        }
       }
       if(!rewards.legendaryUnlocked && rewards.dailyStreak >= LEGENDARY_STREAK_DAYS){
         rewards.legendaryUnlocked = true;
@@ -963,30 +933,33 @@ function evaluateRewards(){
   clampPendingChoices();
   persistRewards();
 }
-// How many hours are left, in the currently in-progress week, until the task
-// closest to hitting its own weekly goal actually gets there -- shown in the
-// startup banner as a little nudge. Only considers days that have already
-// happened this week (not future scheduled days that haven't come up yet
-// this week), and only while there are still rewards left to unlock.
+// How many hours are left, today, until the task closest to hitting its own
+// daily goal actually gets there -- shown in the startup banner as a little
+// nudge toward today's achievement (which is what banks a day toward the
+// next present). Only while there are still rewards left to unlock.
 function nextRewardCountdownInfo(){
   if(!categoryHasRoom('outfit') && !categoryHasRoom('food')) return null; // everything already unlocked
   const todayStr = fmtDate(new Date());
-  const elapsedDates = weekRangeDates(weekStartStrFor(todayStr)).filter(ds => ds <= todayStr);
+  const wd = new Date(todayStr + 'T00:00:00').getDay();
   let bestTask = null, bestRemainingMin = Infinity;
   activeGoalTasks().forEach(tk=>{
-    let goalMin = 0, actualMin = 0;
-    elapsedDates.forEach(ds=>{
-      const wd = new Date(ds + 'T00:00:00').getDay();
-      const days = tk.days && tk.days.length ? tk.days : null;
-      if(days && !days.includes(wd)) return;
-      goalMin += Number(tk.targetHours) * 60;
-      actualMin += (records[ds] || []).filter(s=>s.taskId===tk.id).reduce((sum,s)=>sum + computeWorkMs(s), 0) / 60000;
-    });
+    const days = tk.days && tk.days.length ? tk.days : null;
+    if(days && !days.includes(wd)) return;
+    const goalMin = Number(tk.targetHours) * 60;
+    const actualMin = (records[todayStr] || []).filter(s=>s.taskId===tk.id).reduce((sum,s)=>sum + computeWorkMs(s), 0) / 60000;
     const remaining = goalMin - actualMin;
     if(goalMin > 0 && remaining > 0 && remaining < bestRemainingMin){ bestRemainingMin = remaining; bestTask = tk; }
   });
   if(!bestTask) return null;
   return { taskName: bestTask.name, hoursRemaining: Math.max(1, Math.ceil(bestRemainingMin / 60)) };
+}
+// How many more successful days are needed until the next present banks --
+// shown alongside nextRewardCountdownInfo() as a secondary nudge, since a
+// present no longer arrives from a single day's success.
+function giftProgressCountdownInfo(){
+  if(!categoryHasRoom('outfit') && !categoryHasRoom('food')) return null; // everything already unlocked
+  const daysRemaining = Math.max(0, GIFT_EVERY_DAYS - rewards.giftProgressDays);
+  return { daysRemaining };
 }
 const LEGENDARY_COUNTDOWN_SHOW_WITHIN_DAYS = 5; // only start nudging once this close, not for the whole month
 function legendaryCountdownInfo(){
@@ -1447,22 +1420,25 @@ function render(){
     </div>`;
   }
 
-  // gamification nudges: a "プレゼントがあるよ" notice once a weekly win is
+  // gamification nudges: a "プレゼントがあるよ" notice once a present is
   // waiting to be spent on おめかし/えさ (tap it to jump to Settings), how
-  // close the user is to their *next* win otherwise, and -- only once
-  // within LEGENDARY_COUNTDOWN_SHOW_WITHIN_DAYS days -- a silhouette-teased
+  // close the user is to today's own goal plus how many more successful
+  // days until the *next* present otherwise, and -- only once within
+  // LEGENDARY_COUNTDOWN_SHOW_WITHIN_DAYS days -- a silhouette-teased
   // countdown to the Legendary Cat. Shown on every tab, same as the
   // unfinished-records banner above.
   const hasPendingGift = rewards.pendingChoices > 0;
   const rewardInfo = hasPendingGift ? null : nextRewardCountdownInfo();
+  const giftInfo = hasPendingGift ? null : giftProgressCountdownInfo();
   const legendaryInfo = legendaryCountdownInfo();
-  if(hasPendingGift || rewardInfo || legendaryInfo){
+  if(hasPendingGift || rewardInfo || giftInfo || legendaryInfo){
     html += `<div class="panel" style="padding:12px 14px;margin-bottom:16px;font-size:12px;color:var(--dim);display:flex;flex-direction:column;gap:8px;">
       ${hasPendingGift ? `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;cursor:pointer;" onclick="jumpToSettingsForGift()">
           <span>🎁 ${t('giftReadyBanner')}</span>
           <span style="color:var(--brassDim);font-weight:700;flex-shrink:0;">${t('giftReadyCta')} ›</span>
         </div>` : ''}
       ${rewardInfo ? `<div>🎀 ${t('rewardCountdown')(escapeHtml(rewardInfo.taskName), rewardInfo.hoursRemaining)}</div>` : ''}
+      ${giftInfo ? `<div>🎁 ${t('giftProgressCountdown')(giftInfo.daysRemaining)}</div>` : ''}
       ${legendaryInfo ? `<div style="display:flex;align-items:center;gap:8px;">
           <span style="flex-shrink:0;line-height:0;">${renderPixelArtSilhouette('rainbow', 0.55, 'sitting', 0.3)}</span>
           <span>🌈 ${t('legendaryCountdown')(legendaryInfo.daysRemaining)}</span>
