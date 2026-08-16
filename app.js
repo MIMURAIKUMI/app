@@ -85,7 +85,7 @@ const I18N = {
     pixelArtRowLegendary: '伝説のねこ',
     outfitNoneOption: 'なし',
     countSuffix: n => `（${n}）`,
-    rewardCountdown: (name,h) => `おめかしゲットまで「${name}」をあと${h}時間`,
+    rewardCountdown: (name,h) => `プレゼントゲットまで"${name}"をあと${h}時間`,
     legendaryCountdown: d => `1カ月達成まであと${d}日`,
     rewardUnlockedToast: name => `🎁「${name}」を手に入れました！`,
     legendaryUnlockedToast: '🌈 伝説のねこが仲間になりました！',
