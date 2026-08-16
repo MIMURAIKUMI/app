@@ -930,10 +930,19 @@ function currentGoalFishArt(){
 function evaluateRewards(){
   const todayStr = fmtDate(new Date());
 
-  if(rewards.trackingStartDate === null){
-    // first run ever -- don't retroactively unlock anything for days before
-    // the feature existed; start tracking from today.
-    rewards.trackingStartDate = todayStr;
+  // trackingStartDate always covers at least every date that has any record
+  // at all -- it auto-expands backward (never forward) to the earliest
+  // records key whenever an earlier one shows up. Without this, a date
+  // added via "＋ ○○にタスクを追加" for a day *before* trackingStartDate
+  // (e.g. it was first set to "today" back when rewards.tt_rewards was
+  // created, before that earlier date's record existed) would sit entirely
+  // outside the walk below and could never earn its ⭐, no matter how much
+  // time gets logged for it -- which is exactly the bug: adding a record
+  // for a past date not yet covered silently did nothing.
+  const recordDates = Object.keys(records);
+  const earliestRecordDate = recordDates.length ? recordDates.reduce((min, d) => d < min ? d : min) : todayStr;
+  if(rewards.trackingStartDate === null || earliestRecordDate < rewards.trackingStartDate){
+    rewards.trackingStartDate = earliestRecordDate;
   }
 
   const todayTotals = dateDayTotals(todayStr);
