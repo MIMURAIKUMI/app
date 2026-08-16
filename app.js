@@ -80,11 +80,11 @@ const I18N = {
     settingsIntro: 'アプリの見た目や機能を項目別に調整します',
     appearancePixelArt: '🎨 ピクセルアート',
         morePixelArtSoon: 'あなたのがんばりでピクセルアートが増えます<br>猫のピクセル素材参考：kohacu (https://kohacu.com/)',
-    pixelArtRowDefaultCats: 'デフォルトのねこ5種',
     pixelArtRowOutfit: 'おめかし',
     pixelArtRowFood: 'えさ',
     pixelArtRowLegendary: '伝説のねこ',
     outfitNoneOption: 'なし',
+    countSuffix: n => `（${n}）`,
     rewardCountdown: (name,h) => `おめかしゲットまで「${name}」をあと${h}時間`,
     legendaryCountdown: d => `1カ月達成まであと${d}日`,
     rewardUnlockedToast: name => `🎁「${name}」を手に入れました！`,
@@ -248,11 +248,11 @@ const I18N = {
     settingsIntro: "Adjust the app's look and features",
     appearancePixelArt: '🎨 Pixel Art',
     morePixelArtSoon: 'Your effort unlocks more pixel art<br>Cat pixel art reference: kohacu (https://kohacu.com/)',
-    pixelArtRowDefaultCats: 'Default cats (5)',
     pixelArtRowOutfit: 'Outfits',
     pixelArtRowFood: 'Food',
     pixelArtRowLegendary: 'Legendary Cat',
     outfitNoneOption: 'None',
+    countSuffix: n => ` (${n})`,
     rewardCountdown: (name,h) => `${h}h left until "${name}" unlocks a new look`,
     legendaryCountdown: d => `${d} days left until you reach a full month`,
     rewardUnlockedToast: name => `🎁 You got "${name}"!`,
@@ -427,6 +427,24 @@ function pixelArtName(key){
   const art = getCatArt(key);
   if(!art) return key;
   return (art.name && (art.name[LANG] || art.name.en)) || key;
+}
+// Renders a row of pixcard buttons (same look as the default-cat picker row
+// in Settings) for an おめかし/えさ/伝説のねこ list, instead of a native
+// <select> -- keeps the visual language identical to the cat picker.
+// entries: [{key, iconHtml, name}]. selectFnName is called with the clicked
+// key (quoted) as its only argument, e.g. "selectOutfit". When includeNone
+// is true, a leading "なし" card is shown that calls selectFnName('').
+function rewardPixcardRow(entries, selectedKey, selectFnName, includeNone){
+  const noneCard = includeNone ? `
+    <div class="pixcard ${!selectedKey?'on':''}" onclick="${selectFnName}('')">
+      <div style="width:24px;height:24px;display:flex;align-items:center;justify-content:center;color:var(--faint);font-size:16px;">—</div>
+      <div class="name">${t('outfitNoneOption')}</div>
+    </div>` : '';
+  return `<div class="pixrow">${noneCard}${entries.map(e=>`
+    <div class="pixcard ${selectedKey===e.key?'on':''}" onclick="${selectFnName}('${e.key}')">
+      ${e.iconHtml}
+      <div class="name">${escapeHtml(e.name)}</div>
+    </div>`).join('')}</div>`;
 }
 // ---- helpers for the "stretch" progress bar style ----
 // Auto-detect each cat's main fur color (most-used non-outline color in its
@@ -705,6 +723,9 @@ let showAddRecord = false;
 let showArchived = false;
 let showHowTo = false;
 let showInstall = false;
+let showOutfitPanel = false;
+let showFoodPanel = false;
+let showLegendaryPanel = false;
 let editingMemoDate = null;
 let editingMemoSessionId = null;
 let editingMemoDraft = '';
@@ -1937,6 +1958,9 @@ function renderPomodoroFormModal(){
 // ---------- Settings tab ----------
 function toggleHowTo(){ showHowTo=!showHowTo; render(); }
 function toggleInstall(){ showInstall=!showInstall; render(); }
+function toggleOutfitPanel(){ showOutfitPanel=!showOutfitPanel; render(); }
+function toggleFoodPanel(){ showFoodPanel=!showFoodPanel; render(); }
+function toggleLegendaryPanel(){ showLegendaryPanel=!showLegendaryPanel; render(); }
 
 function renderSyncBar(){
   if(!window.__fb || !window.__fb.ready){
@@ -2016,19 +2040,19 @@ function renderSettings(){
     <button onclick="openPomodoroForm()" style="width:100%;background:none;border:1px dashed var(--lineS);color:var(--dim);border-radius:8px;padding:8px;cursor:pointer;font-family:inherit;font-size:12px;margin-top:4px;">${t('addTemplate')}</button>
   </div>`;
 
-  // 2. Pixel art -- 4 rows: the 5 default cats (grid, as before), then
-  // おめかし / えさ / 伝説のねこ as dropdowns (kept as <select> rather than
-  // another pixrow grid so this panel doesn't get long once a user has
-  // unlocked several items). Each of the 3 reward rows only appears once the
-  // user has actually unlocked something in it.
+  // 2. Pixel art. The 5 default cats keep their original, unlabeled pixrow
+  // grid exactly as before the rewards feature. おめかし／えさ／伝説のねこ
+  // are collapsible sections (same ▶/▼ pattern as "アプリの使い方" /
+  // "ホーム画面に追加" further down in this same tab) so they stay tucked
+  // away until opened, and each one's contents are a pixcard button row --
+  // visually the same as the cat row above -- instead of a native <select>.
+  // Each section only appears at all once the user has unlocked something in it.
   const unlockedOutfitKeys = rewards.unlocked.filter(k=>k.startsWith('outfit:')).map(k=>k.slice(7)).filter(k=>typeof OUTFIT_ART!=='undefined' && OUTFIT_ART[k]);
   const unlockedFoodKeys = rewards.unlocked.filter(k=>k.startsWith('food:')).map(k=>k.slice(5)).filter(k=>typeof FOOD_ART!=='undefined' && FOOD_ART[k]);
   const legendaryKeys = (rewards.legendaryUnlocked && typeof LEGENDARY_ART_GRIDS!=='undefined') ? Object.keys(LEGENDARY_ART_GRIDS) : [];
 
   html += `<div class="panel" style="padding:16px;margin-bottom:16px;">
     <div class="settitle">${t('appearancePixelArt')}</div>
-
-    <div style="font-size:11px;color:var(--dim);font-weight:700;margin-bottom:8px;">${t('pixelArtRowDefaultCats')}</div>
     <div class="pixrow">
       ${Object.keys(PIXEL_ART_GRIDS).map((key)=>`
         <div class="pixcard ${settings.pixelArt===key?'on':''}" onclick="selectPixelArt('${key}')">
@@ -2038,33 +2062,37 @@ function renderSettings(){
     </div>
 
     ${unlockedOutfitKeys.length ? `
-    <div style="font-size:11px;color:var(--dim);font-weight:700;margin:16px 0 8px;">${t('pixelArtRowOutfit')}</div>
-    <div style="display:flex;align-items:center;gap:10px;">
-      <div style="width:30px;height:30px;flex-shrink:0;display:flex;align-items:center;justify-content:center;">${rewards.equippedOutfit && OUTFIT_ART[rewards.equippedOutfit] ? renderIconArt(OUTFIT_ART[rewards.equippedOutfit],1.0) : ''}</div>
-      <select onchange="selectOutfit(this.value)" style="flex:1;">
-        <option value="" ${!rewards.equippedOutfit?'selected':''}>${t('outfitNoneOption')}</option>
-        ${unlockedOutfitKeys.map(k=>`<option value="${k}" ${rewards.equippedOutfit===k?'selected':''}>${escapeHtml(OUTFIT_ART[k].name[LANG]||OUTFIT_ART[k].name.en)}</option>`).join('')}
-      </select>
-    </div>` : ''}
+    <div style="height:1px;background:var(--line);margin:14px 0;"></div>
+    <div class="collapsehead" onclick="toggleOutfitPanel()">
+      <div style="font-size:13px;font-weight:600;">${t('pixelArtRowOutfit')}${t('countSuffix')(unlockedOutfitKeys.length)}</div>
+      <div class="tri">${showOutfitPanel?'▼':'▶'}</div>
+    </div>
+    ${showOutfitPanel ? `<div class="collapsebody">${rewardPixcardRow(
+      unlockedOutfitKeys.map(k=>({ key:k, iconHtml: renderIconArt(OUTFIT_ART[k],1.0), name: OUTFIT_ART[k].name[LANG]||OUTFIT_ART[k].name.en })),
+      rewards.equippedOutfit, 'selectOutfit', true
+    )}</div>` : ''}` : ''}
 
     ${unlockedFoodKeys.length ? `
-    <div style="font-size:11px;color:var(--dim);font-weight:700;margin:16px 0 8px;">${t('pixelArtRowFood')}</div>
-    <div style="display:flex;align-items:center;gap:10px;">
-      <div style="width:30px;height:30px;flex-shrink:0;display:flex;align-items:center;justify-content:center;">${rewards.equippedFood && FOOD_ART[rewards.equippedFood] ? renderIconArt(FOOD_ART[rewards.equippedFood],1.0) : ''}</div>
-      <select onchange="selectFood(this.value)" style="flex:1;">
-        <option value="" ${!rewards.equippedFood?'selected':''}>${t('outfitNoneOption')}</option>
-        ${unlockedFoodKeys.map(k=>`<option value="${k}" ${rewards.equippedFood===k?'selected':''}>${escapeHtml(FOOD_ART[k].name[LANG]||FOOD_ART[k].name.en)}</option>`).join('')}
-      </select>
-    </div>` : ''}
+    <div style="height:1px;background:var(--line);margin:14px 0;"></div>
+    <div class="collapsehead" onclick="toggleFoodPanel()">
+      <div style="font-size:13px;font-weight:600;">${t('pixelArtRowFood')}${t('countSuffix')(unlockedFoodKeys.length)}</div>
+      <div class="tri">${showFoodPanel?'▼':'▶'}</div>
+    </div>
+    ${showFoodPanel ? `<div class="collapsebody">${rewardPixcardRow(
+      unlockedFoodKeys.map(k=>({ key:k, iconHtml: renderIconArt(FOOD_ART[k],1.0), name: FOOD_ART[k].name[LANG]||FOOD_ART[k].name.en })),
+      rewards.equippedFood, 'selectFood', true
+    )}</div>` : ''}` : ''}
 
     ${legendaryKeys.length ? `
-    <div style="font-size:11px;color:var(--dim);font-weight:700;margin:16px 0 8px;">${t('pixelArtRowLegendary')}</div>
-    <div style="display:flex;align-items:center;gap:10px;">
-      <div style="width:30px;height:30px;flex-shrink:0;display:flex;align-items:center;justify-content:center;">${renderPixelArt(settings.pixelArt && LEGENDARY_ART_GRIDS[settings.pixelArt] ? settings.pixelArt : legendaryKeys[0], 0.7, 'sitting')}</div>
-      <select onchange="selectPixelArt(this.value)" style="flex:1;">
-        ${legendaryKeys.map(k=>`<option value="${k}" ${settings.pixelArt===k?'selected':''}>${escapeHtml(LEGENDARY_ART_GRIDS[k].name[LANG]||LEGENDARY_ART_GRIDS[k].name.en)}</option>`).join('')}
-      </select>
-    </div>` : ''}
+    <div style="height:1px;background:var(--line);margin:14px 0;"></div>
+    <div class="collapsehead" onclick="toggleLegendaryPanel()">
+      <div style="font-size:13px;font-weight:600;">${t('pixelArtRowLegendary')}${t('countSuffix')(legendaryKeys.length)}</div>
+      <div class="tri">${showLegendaryPanel?'▼':'▶'}</div>
+    </div>
+    ${showLegendaryPanel ? `<div class="collapsebody">${rewardPixcardRow(
+      legendaryKeys.map(k=>({ key:k, iconHtml: renderPixelArt(k,1.0,'walking'), name: LEGENDARY_ART_GRIDS[k].name[LANG]||LEGENDARY_ART_GRIDS[k].name.en })),
+      settings.pixelArt, 'selectPixelArt', false
+    )}</div>` : ''}` : ''}
 
     <div style="font-size:11px;color:var(--faint);margin-top:14px;">${t('morePixelArtSoon')}</div>
   </div>`;
