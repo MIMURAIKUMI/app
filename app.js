@@ -2118,21 +2118,6 @@ function renderSettings(){
     <button onclick="openPomodoroForm()" style="width:100%;background:none;border:1px dashed var(--lineS);color:var(--dim);border-radius:8px;padding:8px;cursor:pointer;font-family:inherit;font-size:12px;margin-top:4px;">${t('addTemplate')}</button>
   </div>`;
 
-  // 1b. Pending "おめかし or えさ?" choice -- shown right above the pixel
-  // art panel (where the "プレゼントがあるよ" banner sends the user) whenever
-  // a successful week is waiting to be spent. Only offers the categories
-  // that actually still have something left to unlock.
-  if(rewards.pendingChoices > 0 && (categoryHasRoom('outfit') || categoryHasRoom('food'))){
-    html += `<div class="panel" style="padding:16px;margin-bottom:16px;border:2px dashed var(--brassDim);">
-      <div class="settitle" style="margin-bottom:10px;">🎁 ${t('giftChoicePrompt')}</div>
-      <div style="display:flex;gap:10px;">
-        ${categoryHasRoom('outfit') ? `<button class="bigbtn primary" onclick="chooseReward('outfit')">${t('pixelArtRowOutfit')}</button>` : ''}
-        ${categoryHasRoom('food') ? `<button class="bigbtn pale" onclick="chooseReward('food')">${t('pixelArtRowFood')}</button>` : ''}
-      </div>
-      ${rewards.pendingChoices > 1 ? `<div style="font-size:11px;color:var(--faint);margin-top:10px;">${t('giftPendingCount')(rewards.pendingChoices - 1)}</div>` : ''}
-    </div>`;
-  }
-
   // 2. Pixel art. The 5 default cats keep their original, unlabeled pixrow
   // grid exactly as before the rewards feature. おめかし／えさ／伝説のねこ
   // are collapsible sections (same ▶/▼ pattern as "アプリの使い方" /
@@ -2143,9 +2128,25 @@ function renderSettings(){
   const unlockedOutfitKeys = rewards.unlocked.filter(k=>k.startsWith('outfit:')).map(k=>k.slice(7)).filter(k=>typeof OUTFIT_ART!=='undefined' && OUTFIT_ART[k]);
   const unlockedFoodKeys = rewards.unlocked.filter(k=>k.startsWith('food:')).map(k=>k.slice(5)).filter(k=>typeof FOOD_ART!=='undefined' && FOOD_ART[k]);
   const legendaryKeys = (rewards.legendaryUnlocked && typeof LEGENDARY_ART_GRIDS!=='undefined') ? Object.keys(LEGENDARY_ART_GRIDS) : [];
+  const hasPendingChoiceUI = rewards.pendingChoices > 0 && (categoryHasRoom('outfit') || categoryHasRoom('food'));
 
   html += `<div class="panel" style="padding:16px;margin-bottom:16px;">
     <div class="settitle">${t('appearancePixelArt')}</div>
+
+    ${hasPendingChoiceUI ? `
+    <div style="margin-bottom:16px;">
+      <div style="font-size:12px;font-weight:700;margin-bottom:8px;">🎁 ${t('giftChoicePrompt')}</div>
+      <div style="display:flex;gap:10px;">
+        ${categoryHasRoom('outfit') ? `<div class="themecard" style="flex:0 0 47%;min-width:100px;padding:12px 6px;background:var(--paleblue);border-color:#8FCBEA;justify-content:center;" onclick="chooseReward('outfit')">
+          <div class="name" style="margin:0;text-align:center;">${t('pixelArtRowOutfit')}</div>
+        </div>` : ''}
+        ${categoryHasRoom('food') ? `<div class="themecard" style="flex:0 0 47%;min-width:100px;padding:12px 6px;background:var(--paleblue);border-color:#8FCBEA;justify-content:center;" onclick="chooseReward('food')">
+          <div class="name" style="margin:0;text-align:center;">${t('pixelArtRowFood')}</div>
+        </div>` : ''}
+      </div>
+      ${rewards.pendingChoices > 1 ? `<div style="font-size:11px;color:var(--faint);margin-top:8px;">${t('giftPendingCount')(rewards.pendingChoices - 1)}</div>` : ''}
+    </div>` : ''}
+
     <div class="pixrow">
       ${Object.keys(PIXEL_ART_GRIDS).map((key)=>`
         <div class="pixcard ${settings.pixelArt===key?'on':''}" onclick="selectPixelArt('${key}')">
