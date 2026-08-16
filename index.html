@@ -160,13 +160,13 @@
      twitch rule so it wins the tie in specificity while the pop plays. */
   @keyframes goalPop{
     0%{ transform:translateX(-50%) scale(0.8); }
-    30%{ transform:translateX(-50%) scale(1.15); }
-    45%{ transform:translateX(-50%) scale(1.05); }
+    30%{ transform:translateX(-50%) scale(0.9); }
+    45%{ transform:translateX(-50%) scale(0.85); }
     65%{ transform:translateX(-50%) scale(0.8); }
     82%{ transform:translateX(-50%) scale(0.92); }
     100%{ transform:translateX(-50%) scale(0.8); }
   }
-  .stretchbar-goal.goal-pop{ animation:goalPop .3s cubic-bezier(.34,1.56,.64,1); }
+  .stretchbar-goal.goal-pop{ animation:goalPop .5s cubic-bezier(.34,1.56,.64,1); }
   @media (prefers-reduced-motion: reduce){
     .stretchbar-goal[data-goal-state="fish"]{ animation:none; }
     .stretchbar-goal.goal-pop{ animation:none; }
@@ -317,6 +317,7 @@ const I18N = {
     endNow: '今すぐ終了にする',
     noGoalSet: '目標未設定',
     hoursSuffix: '時間',
+    minutesSuffix: '分',
     noActiveTasks: '📍<br>有効なタスクがありません。<br>「Tasks」タブから追加、またはアーカイブを解除してください。',
     noActiveTasksShort: '有効なタスクがありません',
     statusWorking: '作業中', statusPaused: '中断中', statusNone: '未開始',
@@ -339,7 +340,7 @@ const I18N = {
     editTaskTitle: 'タスクを編集', addTaskTitle: 'タスクを追加',
     nameLabel: '名称', namePlaceholder: '例：ランニング、英単語学習',
     daysLabel: '曜日（未設定なら毎日）',
-    targetHoursLabel: '目標時間（1回あたり・時間）',
+    targetHoursLabel: '目標時間（1回あたり）',
     colorLabel: '色',
     cancel: 'キャンセル', save: '保存',
     editElapsedTitle: '経過時間を編集',
@@ -471,6 +472,7 @@ const I18N = {
     endNow: 'End now',
     noGoalSet: 'No goal set',
     hoursSuffix: 'h',
+    minutesSuffix: 'm',
     noActiveTasks: '📍<br>No active tasks.<br>Add one from the "Tasks" tab, or unarchive an existing task.',
     noActiveTasksShort: 'No active tasks',
     statusWorking: 'Working', statusPaused: 'Paused', statusNone: 'Not started',
@@ -493,7 +495,7 @@ const I18N = {
     editTaskTitle: 'Edit task', addTaskTitle: 'Add task',
     nameLabel: 'Name', namePlaceholder: 'e.g. Running, Vocabulary study',
     daysLabel: 'Days (leave unset for every day)',
-    targetHoursLabel: 'Target hours (per session)',
+    targetHoursLabel: 'Target time (per session)',
     colorLabel: 'Color',
     cancel: 'Cancel', save: 'Save',
     editElapsedTitle: 'Edit time',
@@ -1355,7 +1357,10 @@ function render(){
 
 function taskGoalHoursLabel(hours){
   if(!hours) return t('noGoalSet');
-  return (hours%1===0 ? `${hours}` : `${hours.toFixed(1)}`) + t('hoursSuffix');
+  const totalMin = Math.round(hours*60);
+  const h = Math.floor(totalMin/60);
+  const m = totalMin%60;
+  return t('hm')(h,m);
 }
 
 function renderPunch(today, todayStr, weekday, suggested){
@@ -1433,12 +1438,19 @@ function renderPunch(today, todayStr, weekday, suggested){
   const walkShowGoal = status!=='none';
   const walkGoal = !walkShowGoal ? null : (walkReachedGoal ? (typeof STRETCH_GOAL_MARKER_DONE!=='undefined'?STRETCH_GOAL_MARKER_DONE:null) : (typeof STRETCH_GOAL_MARKER!=='undefined'?STRETCH_GOAL_MARKER:null));
   const walkGoalHTML = walkGoal ? renderStretchPart(walkGoal.grid, walkGoal.colors, 2.5) : '';
+  // The fish/bone marker sits at left:calc(100% - 10px) and has some width of
+  // its own, so an uncapped width:percent% fill visually runs in underneath
+  // it once percent nears/hits 100 -- e.g. sitting there for the whole final
+  // minute of a short goal. Cap it the same way the walking cat sprite above
+  // is already capped, leaving clear space before the marker.
+  const walkFillClearancePx = walkShowGoal ? 20 : 0;
+  const walkFillWidth = `min(${percent}%, calc(100% - ${walkFillClearancePx}px))`;
   const barHTML = stretchMode
     ? renderStretchProgressBar(settings.pixelArt, stretchDisplayPercent, status==='working', undefined, undefined, status==='paused')
     : (barStyleIsStretch
         ? `<div class="catwalk stretch-idle" style="left:0%;">${renderPixelArt(settings.pixelArt, 1.8, 'sitting')}</div>`
         : `<div class="catwalk ${status==='working'?'walking':''}" style="left:${walkCappedLeft};">${renderPixelArt(settings.pixelArt, 1.8, status==='working'?'walking':'sitting')}</div>
-       <div class="progresstrack"><div class="progressfill" style="width:${percent}%;"></div></div>
+       <div class="progresstrack"><div class="progressfill" style="width:${walkFillWidth};"></div></div>
        ${walkGoal ? `<div class="stretchbar-goal" data-goal-state="${walkReachedGoal?'done':'fish'}" style="left:calc(100% - 10px); top:-37px;">${walkGoalHTML}</div>` : ''}`);
 
   let html = `<div class="panel card-punch">
@@ -1576,6 +1588,16 @@ function toggleDay(idx){
 function updateEditingField(key, value, isNum){
   editingTask[key] = isNum ? Number(value) : value;
 }
+function updateEditingTargetH(value){
+  const mins = Math.round(((editingTask.targetHours||0)%1)*60);
+  const h = Math.max(0, Number(value)||0);
+  editingTask.targetHours = h + mins/60;
+}
+function updateEditingTargetM(value){
+  const h = Math.floor(editingTask.targetHours||0);
+  let m = Math.max(0, Math.min(59, Number(value)||0));
+  editingTask.targetHours = h + m/60;
+}
 function saveTask(){
   if(!editingTask.name.trim()){ alert(t('enterNameAlert')); return; }
   const exists = tasks.some(t=>t.id===editingTask.id);
@@ -1599,7 +1621,14 @@ function renderTaskModal(){
         <div class="field"><label>${t('daysLabel')}</label><div class="days-picker">
           ${WEEKDAYS_JP.map((w,idx)=>`<button type="button" class="day-chip ${(e.days||[]).includes(idx)?'on':''}" onclick="toggleDay(${idx})">${w}</button>`).join('')}
         </div></div>
-        <div class="field"><label>${t('targetHoursLabel')}</label><input type="number" step="0.25" min="0" value="${e.targetHours}" oninput="updateEditingField('targetHours', this.value, true)"></div>
+        <div class="field"><label>${t('targetHoursLabel')}</label>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <input type="number" step="1" min="0" style="flex:1;" value="${Math.floor(e.targetHours||0)}" oninput="updateEditingTargetH(this.value)">
+            <span class="mono" style="font-size:12px;color:var(--dim);white-space:nowrap;">${t('hoursSuffix')}</span>
+            <input type="number" step="5" min="0" max="59" style="flex:1;" value="${Math.round(((e.targetHours||0)%1)*60)}" oninput="updateEditingTargetM(this.value)">
+            <span class="mono" style="font-size:12px;color:var(--dim);white-space:nowrap;">${t('minutesSuffix')}</span>
+          </div>
+        </div>
         <div class="field"><label>${t('colorLabel')}</label><div class="swatch-picker">
           ${TASK_COLORS.map(c=>`<div class="swatch ${e.color===c?'on':''}" style="background:${c};" onclick="updateEditingField('color','${c}'); render();">${e.color===c?'✓':''}</div>`).join('')}
         </div></div>
@@ -2363,7 +2392,7 @@ function playGoalPop(el, swapToBone){
   el.classList.add('goal-pop');
   let swapped = false;
   const doSwap = () => { if(swapped) return; swapped = true; swapToBone(); };
-  const swapTimer = setTimeout(doSwap, 120);
+  const swapTimer = setTimeout(doSwap, 210);
   const clear = () => { el.classList.remove('goal-pop'); };
   el.addEventListener('animationend', clear, { once: true });
   // Fallback in case animationend doesn't fire (e.g. reduced-motion, tab
@@ -2421,7 +2450,13 @@ function tickClock(){
       }
     } else {
       const fill = document.querySelector('.progressfill');
-      if(fill) fill.style.width = percent+'%';
+      // Cap the fill the same way the cat sprite below is capped: uncapped,
+      // width:percent% runs the pink fill in underneath the fish/bone marker
+      // (which sits at left:calc(100% - 10px)) for however long percent sits
+      // at/near 100, instead of stopping clear of it.
+      const walkFillGoalEl = document.querySelector('.progresswrap .stretchbar-goal');
+      const walkFillClearancePx = walkFillGoalEl ? 20 : 0;
+      if(fill) fill.style.width = `min(${percent}%, calc(100% - ${walkFillClearancePx}px))`;
       const cat = document.querySelector('.catwalk');
       if(cat){
         const walkCellActual = 1.8 * 1.5;
