@@ -640,18 +640,19 @@ const LEGENDARY_STREAK_DAYS = 30; // consecutive successful days needed to unloc
 const GIFT_EVERY_DAYS = 7; // successful days (not necessarily consecutive) needed to bank a おめかし/えさ present
 function defaultRewards(){
   return {
-    giftProgressDays: 0,        // successful days banked toward the next present (does NOT reset on a missed day)
+    trackingStartDate: null,    // first date rewards started tracking (inclusive); set once, on first ever evaluateRewards() call
+    giftProgressDays: 0,        // achievedDates.length % GIFT_EVERY_DAYS -- recomputed every evaluateRewards() call
     unlocked: [],                // flat "type:key" strings, e.g. "outfit:ribbon", in unlock order
     outfitUnlockedCount: 0,      // how many おめかし items unlocked so far (indexes Object.keys(OUTFIT_ART))
     foodUnlockedCount: 0,        // how many えさ items unlocked so far (indexes Object.keys(FOOD_ART))
     pendingChoices: 0,           // presents whose "おめかし or えさ?" choice hasn't been made yet
     equippedOutfit: null,       // currently worn おめかし key, or null
     equippedFood: null,         // currently equipped えさ key, or null
-    dailyStreak: 0,             // consecutive successful days right now (resets to 0 on a missed day)
-    lastEvaluatedDate: null,    // last fully-elapsed day already scored
+    dailyStreak: 0,             // consecutive successful days right now, recomputed backward from the latest scored day every call
+    giftsGrantedCount: 0,       // total presents ever banked/unlocked (monotonic -- never decreases, even if a later edit shrinks achievedDates)
     legendaryUnlocked: false,
-    achievedDates: [],          // fmtDate() strings of every scored day that hit its goal (calendar ⭐)
-    giftEarnedDates: [],        // fmtDate() strings of every day a present banked/unlocked (calendar 🎁)
+    achievedDates: [],          // fmtDate() strings of every day that hit its goal, fully recomputed every evaluateRewards() call (calendar ⭐)
+    giftEarnedDates: [],        // fmtDate() strings of the day each present was banked/unlocked, also recomputed (calendar 🎁)
   };
 }
 // the single "Sample" task a brand-new install starts with -- also what
@@ -795,32 +796,11 @@ function persistSettings(){ save('tt_settings', settings); fbScheduleSave(); }
 function persistRewards(){ save('tt_rewards', rewards); fbScheduleSave(); }
 
 // ---------- rewards / gamification logic ----------
-// Design notes (placeholder logic -- tune freely once the real content design
-// is locked in; see pixel-arts-outfits.js / pixel-arts-legendary.js for the
-// (currently dummy) art these unlock):
-// - A "day" is scored once it has fully elapsed, had at least one task
-//   scheduled on it, and the tracked time for that day's scheduled tasks
-//   (summed across every active task with a goal set) met the combined
-//   daily target -- see dateDayTotals().
-// - Every successful day banks one toward rewards.giftProgressDays. Days
-//   don't need to be calendar-consecutive for this counter -- a missed day
-//   does NOT reset it, only GIFT_EVERY_DAYS accumulated successful days
-//   (whenever they happen) are needed. Once it reaches GIFT_EVERY_DAYS it
-//   resets to 0 and banks one "pending choice" (rewards.pendingChoices)
-//   between おめかし and えさ -- the user picks a category in Settings (see
-//   chooseReward()), and the next item in *that* category's own order
-//   unlocks (3 おめかし, 4 えさ). If only one category still has items left,
-//   that one unlocks automatically without prompting; once both are fully
-//   unlocked, further successful days don't bank anything more.
-// - A successful day also counts toward rewards.dailyStreak, which -- unlike
-//   giftProgressDays -- DOES reset to 0 on a missed day, since it tracks
-//   calendar-consecutive days. LEGENDARY_STREAK_DAYS consecutive successful
-//   days unlocks 伝説のねこ.
-// - Every scored successful day is also appended to rewards.achievedDates,
-//   and every day a present banks/unlocks is appended to
-//   rewards.giftEarnedDates -- both purely for the Report tab's calendar
-//   (⭐ / 🎁 markers, see renderCalendar()), not read by any of the streak
-//   logic above.
+// Placeholder logic -- tune freely once the real content design is locked
+// in; see pixel-arts-outfits.js / pixel-arts-legendary.js for the (currently
+// dummy) art these unlock. See evaluateRewards() further down for the full
+// design notes on how a day is scored, how presents bank, and how
+// 伝説のねこ unlocks.
 function activeGoalTasks(){
   return tasks.filter(tk => !tk.archived && Number(tk.targetHours) > 0);
 }
@@ -911,88 +891,117 @@ function currentGoalFishArt(){
   if(rewards.equippedFood && typeof FOOD_ART!=='undefined' && FOOD_ART[rewards.equippedFood]) return FOOD_ART[rewards.equippedFood];
   return (typeof STRETCH_GOAL_MARKER!=='undefined') ? STRETCH_GOAL_MARKER : null;
 }
-// Walks forward from the last-evaluated day up to (but excluding) today,
-// catching up on however many days elapsed since the app was last opened.
-// Safe to call every time the app boots; it's a no-op once already caught up.
-// Scores a single day (cursor) that has already been decided as either
-// achieved or not: bumps dailyStreak/giftProgressDays, banks/unlocks a
-// present once GIFT_EVERY_DAYS is reached, and unlocks 伝説のねこ once
-// LEGENDARY_STREAK_DAYS is reached. Shared by every day evaluateRewards()
-// walks through below, including today.
-function scoreDay(cursor, achieved, hasGoal){
-  if(hasGoal){
-    if(achieved){
-      rewards.dailyStreak += 1;
-      rewards.giftProgressDays += 1;
-      rewards.achievedDates.push(cursor); // for the calendar's ⭐ marker
-      if(rewards.giftProgressDays >= GIFT_EVERY_DAYS){
-        rewards.giftProgressDays = 0;
-        const outfitRoom = categoryHasRoom('outfit');
-        const foodRoom = categoryHasRoom('food');
-        if(outfitRoom && foodRoom){
-          // both categories still have something left -- bank a choice
-          // for the user to make in Settings instead of picking for them.
-          rewards.pendingChoices += 1;
-          rewards.giftEarnedDates.push(cursor); // for the calendar's 🎁 marker
-        } else if(outfitRoom || foodRoom){
-          // only one category has anything left, so there's no real
-          // choice to make -- just unlock it.
-          const unlocked = unlockFromCategory(outfitRoom ? 'outfit' : 'food');
-          if(unlocked){
-            showToast(t('rewardUnlockedToast')(rewardItemName(unlocked)));
-            rewards.giftEarnedDates.push(cursor);
-          }
-        } // else: everything already unlocked, nothing more to bank
-      }
-    } else {
-      rewards.dailyStreak = 0;
-    }
-  }
-  if(!rewards.legendaryUnlocked && rewards.dailyStreak >= LEGENDARY_STREAK_DAYS){
-    rewards.legendaryUnlocked = true;
-    showToast(t('legendaryUnlockedToast'));
-  }
-}
-// Walks forward from the last-scored day up through TODAY (not just up to
-// yesterday) so that hitting today's goal counts -- and flows through to the
-// ⭐/🎁 calendar markers, the "プレゼントまであと〇日" countdown, and an
-// actual banked/unlocked present -- the moment it happens, instead of only
-// the next time the app is opened. Days strictly before today are final the
-// instant they're walked (they're fully elapsed, nothing about them can
-// still change). Today is special: it only gets locked in (lastEvaluatedDate
-// advanced onto it) once it's actually achieved -- if it isn't yet, the walk
-// stops just short of today and leaves lastEvaluatedDate at yesterday, so
-// the very next call (this function runs after every records change --
-// see persistRecords()) re-checks today from scratch rather than only
-// scoring it once and never again.
+// Fully recomputes achievedDates/dailyStreak/giftProgressDays/legendaryUnlocked
+// -- and banks/unlocks any newly-completed presents -- from scratch, from
+// rewards.trackingStartDate through the latest "final" day, every single
+// time this is called (see persistRecords(), which calls this after every
+// records change, and the app-boot call further down). This is deliberately
+// NOT an incremental walk that locks each day in forever: retroactively
+// adding (or editing/deleting) a record for a PAST date -- e.g. via
+// Report's "＋ ○○にタスクを追加" for a date other than today -- needs that
+// day's ⭐/streak/gift contribution to update too, not just today's. Doing a
+// full recompute is simpler and more correct than trying to patch an
+// incremental cursor for arbitrary retroactive edits.
+//
+// - A "day" counts once it has a goal (dateDayTotals().hasGoal) and its
+//   actual tracked time meets that combined goal. Today is included only
+//   once it's actually achieved right now -- otherwise it's left out of the
+//   walk entirely (not scored as a miss), so it naturally gets included the
+//   moment it qualifies on some later call, without ever "locking in" a
+//   too-early miss for a day that isn't over yet.
+// - rewards.achievedDates ends up holding every achieved day in the tracked
+//   range, in order -- purely the source of truth for the calendar's ⭐ and
+//   for everything below, not itself read anywhere else.
+// - rewards.dailyStreak = how many of the most recent scored days, walking
+//   backward from the latest one, are achieved with no gap (a day with a
+//   goal that wasn't achieved stops the count; a day with no goal at all is
+//   neutral and doesn't affect it either way). LEGENDARY_STREAK_DAYS
+//   consecutive days unlocks 伝説のねこ (sticky -- never re-locks).
+// - Presents: rewards.achievedDates.length divided by GIFT_EVERY_DAYS (7) is
+//   "how many presents should exist by now" in total. That's compared
+//   against rewards.giftsGrantedCount, a monotonic counter of how many have
+//   actually been banked/unlocked so far -- if the former is higher, the
+//   difference gets banked (a pendingChoice if both categories still have
+//   room, otherwise an automatic unlock) right now. giftsGrantedCount only
+//   ever increases, even if a later edit shrinks achievedDates back down, so
+//   already-granted presents never get silently clawed back or re-granted.
+//   rewards.giftProgressDays (for the "プレゼントまであと〇日" countdown) is
+//   just the remainder -- achievedDates.length % GIFT_EVERY_DAYS.
 function evaluateRewards(){
   const todayStr = fmtDate(new Date());
 
-  if(rewards.lastEvaluatedDate === null){
-    // first run ever -- nothing to backfill, just mark everything up to (but
-    // excluding) today as "already evaluated".
-    rewards.lastEvaluatedDate = addDaysStr(todayStr, -1);
+  if(rewards.trackingStartDate === null){
+    // first run ever -- don't retroactively unlock anything for days before
+    // the feature existed; start tracking from today.
+    rewards.trackingStartDate = todayStr;
   }
 
-  let cursor = addDaysStr(rewards.lastEvaluatedDate, 1);
-  let guard = 0;
-  while(cursor <= todayStr && guard < 1800){ // ~5 years of catch-up
-    const isToday = cursor === todayStr;
-    const totals = dateDayTotals(cursor);
-    const achieved = totals.hasGoal && totals.actualMin >= totals.goalMin;
+  const todayTotals = dateDayTotals(todayStr);
+  const todayAchievedNow = todayTotals.hasGoal && todayTotals.actualMin >= todayTotals.goalMin;
+  const latestDate = todayAchievedNow ? todayStr : addDaysStr(todayStr, -1);
 
-    if(isToday && !achieved){
-      // not there yet -- leave lastEvaluatedDate at yesterday so this same
-      // check runs again (and can still succeed) the next time something
-      // changes today, instead of writing off today as a miss right now.
-      break;
+  // --- rebuild achievedDates from scratch over [trackingStartDate, latestDate] ---
+  const achievedDates = [];
+  if(rewards.trackingStartDate <= latestDate){
+    let cursor = rewards.trackingStartDate;
+    let guard = 0;
+    while(cursor <= latestDate && guard < 3660){ // ~10 years, just a sanity cap
+      const totals = (cursor === todayStr) ? todayTotals : dateDayTotals(cursor);
+      if(totals.hasGoal && totals.actualMin >= totals.goalMin) achievedDates.push(cursor);
+      cursor = addDaysStr(cursor, 1);
+      guard++;
     }
-
-    scoreDay(cursor, achieved, totals.hasGoal);
-    rewards.lastEvaluatedDate = cursor;
-    cursor = addDaysStr(cursor, 1);
-    guard++;
   }
+  rewards.achievedDates = achievedDates;
+
+  // --- dailyStreak: consecutive achieved days walking backward from latestDate ---
+  let streak = 0;
+  {
+    let cursor = latestDate;
+    let guard = 0;
+    while(cursor >= rewards.trackingStartDate && guard < 3660){
+      const totals = (cursor === todayStr) ? todayTotals : dateDayTotals(cursor);
+      if(totals.hasGoal){
+        if(totals.actualMin >= totals.goalMin) streak++;
+        else break; // a real miss ends the streak
+      } // no goal that day -- neutral, keep walking backward without counting it
+      cursor = addDaysStr(cursor, -1);
+      guard++;
+    }
+  }
+  rewards.dailyStreak = streak;
+  if(!rewards.legendaryUnlocked && streak >= LEGENDARY_STREAK_DAYS){
+    rewards.legendaryUnlocked = true;
+    showToast(t('legendaryUnlockedToast'));
+  }
+
+  // --- presents: bank/unlock however many newly-completed groups of GIFT_EVERY_DAYS exist ---
+  const totalGiftsNow = Math.floor(achievedDates.length / GIFT_EVERY_DAYS);
+  rewards.giftProgressDays = achievedDates.length % GIFT_EVERY_DAYS;
+  const newGifts = Math.max(0, totalGiftsNow - rewards.giftsGrantedCount);
+  for(let i=0; i<newGifts; i++){
+    const outfitRoom = categoryHasRoom('outfit');
+    const foodRoom = categoryHasRoom('food');
+    if(outfitRoom && foodRoom){
+      // both categories still have something left -- bank a choice for the
+      // user to make in Settings instead of picking for them.
+      rewards.pendingChoices += 1;
+    } else if(outfitRoom || foodRoom){
+      // only one category has anything left, so there's no real choice to
+      // make -- just unlock it.
+      const unlocked = unlockFromCategory(outfitRoom ? 'outfit' : 'food');
+      if(unlocked) showToast(t('rewardUnlockedToast')(rewardItemName(unlocked)));
+    } // else: everything already unlocked, nothing more to bank
+    rewards.giftsGrantedCount += 1;
+  }
+  // giftEarnedDates (for the calendar's 🎁) mirrors however many presents are
+  // both currently reflected in achievedDates AND actually granted --
+  // capped at giftsGrantedCount so a later edit that shrinks achievedDates
+  // can't make an already-granted present's marker point at the wrong day.
+  const giftsToShow = Math.min(totalGiftsNow, rewards.giftsGrantedCount);
+  const giftEarnedDates = [];
+  for(let i=0; i<giftsToShow; i++) giftEarnedDates.push(achievedDates[(i+1)*GIFT_EVERY_DAYS - 1]);
+  rewards.giftEarnedDates = giftEarnedDates;
 
   clampPendingChoices();
   persistRewards();
