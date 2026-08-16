@@ -125,7 +125,8 @@ const I18N = {
     androidStep2: '右上のメニュー（⋮）をタップ',
     androidStep3: '「ホーム画面に追加」または「アプリをインストール」を選択',
     androidStep4: '画面の指示に従って追加',
-    addRecordShort: '＋ 日付を指定して記録を追加',
+    addRecordTodayShort: '＋ 今日にタスクを追加',
+    addRecordDateShort: mmdd => `＋ ${mmdd}にタスクを追加`,
     totalTime: '合計時間', unmetTime: '未達成時間',
     achievementByTask: 'タスクごとの達成率',
     actualGoal: (a,goalStr) => `実績 ${a}${goalStr}`,
@@ -297,7 +298,8 @@ const I18N = {
     androidStep2: 'Tap the menu (⋮) in the top right',
     androidStep3: 'Select "Add to Home Screen" or "Install app"',
     androidStep4: 'Follow the on-screen instructions',
-    addRecordShort: '＋ Add record for a date',
+    addRecordTodayShort: '＋ Add task for today',
+    addRecordDateShort: mmdd => `＋ Add task for ${mmdd}`,
     totalTime: 'Total time', unmetTime: 'Shortfall',
     achievementByTask: 'Achievement rate by task',
     actualGoal: (a,goalStr) => `Actual ${a}${goalStr}`,
@@ -1871,11 +1873,17 @@ function renderMemoModal(){
 }
 
 // ---------- add record for arbitrary date (後日記録) ----------
-function openAddRecord(){
+// dateStr defaults to today when omitted, but the Report tab's button
+// passes its own currently-selected calendar date (see renderReport()'s
+// targetDate) so the modal opens straight onto whichever day the user is
+// looking at, instead of always defaulting to today. The date field inside
+// the modal is still a plain <input type="date">, so it can be changed
+// afterward regardless of which date it opened on.
+function openAddRecord(dateStr){
   if(tasks.length===0){ alert(t('addTaskFirstAlert')); return; }
   const task = tasks.find(t=>!t.archived) || tasks[0];
   addDraft = {
-    date: fmtDate(new Date()), taskId: task.id,
+    date: dateStr || fmtDate(new Date()), taskId: task.id,
     segments: [{start:'09:00', end:'10:00'}],
   };
   showAddRecord = true;
@@ -2514,13 +2522,18 @@ function selectReportDate(dateStr){
         const dayActualMinutes = dayActualMs / 60000;
         const dayAchievementRate = dayGoalMinutes > 0 ? Math.min(100, dayActualMinutes / dayGoalMinutes * 100) : (dayActualMinutes > 0 ? 100 : 0);
         const dayLabel = targetDate === todayStr ? t('todayAchievement') : t('dateAchievement')(targetDate.slice(5).replace('-', '/'));
+        // Same "today vs. specific date" wording split as dayLabel above, so
+        // the add-task button always names whichever date is currently
+        // selected on the calendar (or today/the 1st of the month when
+        // nothing's selected, same fallback as targetDate itself).
+        const addRecordLabel = targetDate === todayStr ? t('addRecordTodayShort') : t('addRecordDateShort')(targetDate.slice(5).replace('-', '/'));
 
         let html = `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
     <button class="navbtn" onclick="changeMonth(-1)">‹</button>
     <div class="mono" style="font-size:16px;font-weight:700;">${reportMonth}</div>
     <button class="navbtn" onclick="changeMonth(1)">›</button>
   </div>
-  <button onclick="openAddRecord()" style="width:100%;background:none;border:1px dashed var(--lineS);color:var(--dim);border-radius:10px;padding:10px;cursor:pointer;font-family:inherit;font-size:13px;margin-bottom:16px;">${t('addRecordShort')}</button>`;
+  <button onclick="openAddRecord('${targetDate}')" style="width:100%;background:none;border:1px dashed var(--lineS);color:var(--dim);border-radius:10px;padding:10px;cursor:pointer;font-family:inherit;font-size:13px;margin-bottom:16px;">${addRecordLabel}</button>`;
 
         html += `<div class="metrics" style="grid-template-columns:1fr;margin-bottom:10px;">
     <div class="metric"><div class="lbl">${t('totalTime')}</div><div class="val mono">${hmLabel(totalMs)}</div></div>
