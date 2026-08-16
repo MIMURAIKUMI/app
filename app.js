@@ -1090,9 +1090,20 @@ function fbScheduleSave(){
 function fbPushNow(){
   if(!fbUser || !window.__fb){ fbPendingPush = false; return; }
   const f = window.__fb;
-  // merge:true is important — without it, each save would overwrite the whole
-  // document and wipe out server-only fields like `plan` that Cloud Functions set.
-  f.setDoc(fbDocRef(), { tasks, records, settings, rewards, updatedAt: f.serverTimestamp() }, { merge: true })
+  // Use mergeFields (NOT merge:true) so each listed top-level field is
+  // replaced wholesale, rather than deep-merged.
+  // `records` is a map keyed by date (see deleteSession/removeTask etc.), and
+  // Firestore's merge:true recursively merges nested maps: a key that's
+  // present in the write gets overwritten, but a key that's *absent* (e.g.
+  // deleteSession() did `delete records[date]` because it removed that day's
+  // last session) is left untouched on the server instead of being cleared.
+  // The next onSnapshot (often from this very write's own round-trip, ~1s
+  // later) then pastes that still-there date back into local state, making
+  // the delete silently undo itself. mergeFields avoids that (each field is
+  // fully replaced) while still not clobbering server-only fields like
+  // `plan` (set by a Cloud Function), since `plan` isn't in this list. Same
+  // fix already applied to the factory-reset path below — see its comment.
+  f.setDoc(fbDocRef(), { tasks, records, settings, rewards, updatedAt: f.serverTimestamp() }, { mergeFields: ['tasks', 'records', 'settings', 'rewards', 'updatedAt'] })
     .catch(e=>console.error('firebase save failed', e))
     .finally(()=>{ fbPendingPush = false; });
 }
