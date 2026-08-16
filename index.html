@@ -1995,13 +1995,11 @@ function renderSettings(){
     <div style="display:flex;gap:18px;justify-content:center;flex-wrap:wrap;">
       ${Object.keys(BAR_STYLE_NAMES).map(key=>{
         const preview = key==='stretch'
-          ? `<div style="width:70px;overflow:hidden;">${renderStretchProgressBar(settings.pixelArt, 55, false, 1.8, false)}</div>`
-          : `<div style="display:flex;align-items:center;justify-content:center;">${renderPixelArt(settings.pixelArt,1.1,'walking')}</div>`;
-        const cardPad = key==='stretch' ? '12px 0' : '12px';
-        const cardGap = key==='stretch' ? '1px' : '8px';
+          ? `<div style="width:52px;overflow:hidden;">${renderStretchProgressBar(settings.pixelArt, 55, false, 1.8, false)}</div>`
+          : `<div style="display:flex;align-items:center;justify-content:center;"><div style="transform:translateX(-30%);">${renderPixelArt(settings.pixelArt,1.1,'walking')}</div></div>`;
         return `
-        <div class="themecard ${settings.barStyle===key?'on':''}" onclick="selectBarStyle('${key}')" style="flex:0 0 47%;min-width:140px;padding:${cardPad};">
-          <div style="display:flex;align-items:center;justify-content:center;gap:${cardGap};">
+        <div class="themecard ${settings.barStyle===key?'on':''}" onclick="selectBarStyle('${key}')" style="flex:0 0 47%;min-width:140px;padding:12px 6px;">
+          <div style="display:flex;align-items:center;justify-content:center;gap:4px;">
             <div style="flex-shrink:0;height:28px;display:flex;align-items:center;">${preview}</div>
             <div class="name" style="margin:0;word-break:keep-all;">${BAR_STYLE_NAMES[key]}</div>
           </div>
