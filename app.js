@@ -88,7 +88,7 @@ const I18N = {
     rewardCountdown: (name,h) => `プレゼントゲットまで"${name}"をあと${h}時間`,
     legendaryCountdown: d => `1カ月達成まであと${d}日`,
     rewardUnlockedToast: name => `🎁「${name}」を手に入れました！`,
-    legendaryUnlockedToast: '🌈 伝説のねこが仲間になりました！',
+    legendaryUnlockedToast: '💎 伝説のねこが仲間になりました！',
     giftReadyBanner: 'プレゼントがあるよ',
     giftReadyCta: 'Settingsへ',
     giftChoicePrompt: 'おめかしとえさ、どっちのピクセルを解禁する？',
