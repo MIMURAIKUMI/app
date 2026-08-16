@@ -133,6 +133,20 @@
   .stretchbar-goal[data-goal-state="fish"]{z-index:3;}
   .stretchbar-back{transition:left .35s steps(3); z-index:2;}
   .stretchbar-back.working{animation:stretchTug 1.2s steps(3) infinite;}
+  /* Played once at the instant the fish flips to the "done" bone marker, so
+     hitting the goal reads as a distinct little "pop" moment instead of a
+     flat swap. Overshoots past the resting scale(0.8) then settles back. */
+  @keyframes goalPop{
+    0%{ transform:translateX(-50%) scale(0.8); }
+    30%{ transform:translateX(-50%) scale(1.7); }
+    55%{ transform:translateX(-50%) scale(0.7); }
+    78%{ transform:translateX(-50%) scale(1.15); }
+    100%{ transform:translateX(-50%) scale(0.8); }
+  }
+  .stretchbar-goal.goal-pop{ animation:goalPop .5s cubic-bezier(.34,1.56,.64,1); }
+  @media (prefers-reduced-motion: reduce){
+    .stretchbar-goal.goal-pop{ animation:none; }
+  }
   .stretchbar-front{position:absolute; top:0; z-index:1;}
   .stretchbar-mid{position:absolute; transition:width .35s steps(3); image-rendering:pixelated; transform-origin:left center; z-index:0;}
   @keyframes stretchTug{ 0%,100%{transform:translateX(0);} 50%{transform:translateX(2px);} }
@@ -264,7 +278,7 @@
 // ---------- language detection ----------
 // Bump this string every time index.html is updated — shown in Settings so it's
 // easy to confirm which build is actually live (helps catch stale-deploy/cache issues).
-const APP_VERSION = 'v20-2026-08-15';
+const APP_VERSION = 'v21-2026-08-15';
 
 const LANG = (function(){
   const langs = (navigator.languages && navigator.languages.length) ? navigator.languages : [navigator.language || 'en'];
@@ -2311,6 +2325,21 @@ function changeMonth(delta){
   render();
 }
 
+// Briefly overshoots the goal marker's scale then settles back -- played once
+// at the exact instant the fish flips to the "done" bone, so reaching the
+// goal reads as a little "pop" moment rather than a flat icon swap.
+function playGoalPop(el){
+  if(!el) return;
+  el.classList.remove('goal-pop');
+  // Force a reflow so re-adding the class restarts the animation even if it
+  // was already mid-way (e.g. rapid state changes from editing elapsed time).
+  void el.offsetWidth;
+  el.classList.add('goal-pop');
+  const clear = () => el.classList.remove('goal-pop');
+  el.addEventListener('animationend', clear, { once: true });
+  setTimeout(clear, 600); // fallback in case animationend doesn't fire (e.g. reduced-motion)
+}
+
 // ---------- boot ----------
 function tickClock(){
   const activeS = activeSessionToday();
@@ -2350,6 +2379,7 @@ function tickClock(){
           if(goalEl.dataset.goalState !== wantState){
             const marker = reachedGoal ? (typeof STRETCH_GOAL_MARKER_DONE!=='undefined'?STRETCH_GOAL_MARKER_DONE:null) : (typeof STRETCH_GOAL_MARKER!=='undefined'?STRETCH_GOAL_MARKER:null);
             if(marker){ goalEl.innerHTML = renderStretchPart(marker.grid, marker.colors, 2.5); goalEl.dataset.goalState = wantState; }
+            if(wantState==='done') playGoalPop(goalEl);
           }
         }
       }
@@ -2370,6 +2400,7 @@ function tickClock(){
         if(goalEl.dataset.goalState !== wantState){
           const marker = reachedGoal ? (typeof STRETCH_GOAL_MARKER_DONE!=='undefined'?STRETCH_GOAL_MARKER_DONE:null) : (typeof STRETCH_GOAL_MARKER!=='undefined'?STRETCH_GOAL_MARKER:null);
           if(marker){ goalEl.innerHTML = renderStretchPart(marker.grid, marker.colors, 2.5); goalEl.dataset.goalState = wantState; }
+          if(wantState==='done') playGoalPop(goalEl);
         }
       }
     }
