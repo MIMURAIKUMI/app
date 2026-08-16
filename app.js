@@ -75,7 +75,7 @@ const I18N = {
     phaseWork: '集中', phaseBreak: '休憩', phaseLongBreak: 'ロング休憩',
     templateLabel: 'テンプレート',
     templateOption: (w,b) => `（集中${w}分/休憩${b}分）`,
-    focusTimerHint: '「はじめる」を押すとタイマーが使えるようになります<div>SettingsでONにしておくと自動的に開始されます</div>',
+    focusTimerHint: '「はじめる」を押してタイマーをONにするか<div>SettingsでONにしておくと自動的に開始されます</div>',
     purchaseThanks: '🎉 購入ありがとうございます！',
     settingsIntro: 'アプリの見た目や機能を項目別に調整します',
     appearancePixelArt: '🎨 ピクセルアート',
@@ -550,6 +550,12 @@ function defaultSettings(){
     pomodoro:{ templates: POMODORO_DEFAULT_TEMPLATES.map(t=>({...t})), activeTemplateId:'std', autoEnable:false }
   };
 }
+// the single "Sample" task a brand-new install starts with -- also what
+// resetAllData() restores, so a factory reset lands on the same starting point
+// as a first-time install rather than an empty task list.
+function factorySampleTasks(){
+  return [{ id: uid(), name: 'Sample', days: [1], targetHours: 1, color: TASK_COLORS[0], archived: false }];
+}
 const THEME_NAMES = t('themeNames');
 const BAR_STYLE_NAMES = t('barStyleNames');
 const THEME_PREVIEW_KEYS = {
@@ -584,7 +590,7 @@ if(tasks === null){
 }
 // first-time users (no data at all, even after migration): seed one sample task so the app isn't empty
 if(tasks.length === 0 && Object.keys(load('tt_records', {})).length === 0){
-  tasks = [{ id: uid(), name: 'Sample', days: [1], targetHours: 1, color: TASK_COLORS[0], archived: false }];
+  tasks = factorySampleTasks();
   save('tt_tasks', tasks);
 }
 if(settings === null){ settings = defaultSettings(); }
@@ -861,9 +867,16 @@ function importDataFile(event){
 function resetAllData(){
   if(!confirm(t('resetAllConfirm'))) return;
 
+  // "出荷時に戻す" = land back on exactly what a brand-new install shows, which is
+  // one "Sample" task (see factorySampleTasks()) -- not a totally empty list.
+  // Generate it once and write the *same* object to both local storage and the
+  // cloud copy below, so whichever one the reload ends up reading from, the
+  // result is identical (no flicker/race between "empty" and "seeded").
+  const seedTasks = factorySampleTasks();
+
   const finish = ()=>{
     try{
-      localStorage.removeItem('tt_tasks');
+      save('tt_tasks', seedTasks);
       localStorage.removeItem('tt_records');
       localStorage.removeItem('tt_settings');
       localStorage.removeItem('tt_last_tab');
@@ -872,12 +885,12 @@ function resetAllData(){
     }catch(e){}
     try{ sessionStorage.removeItem('tt_backupReminderDismissed'); }catch(e){}
     // Reload so every in-memory variable (tasks/records/settings/tab/pomodoro state/etc.)
-    // starts fresh from the now-empty storage, the same way it would for a new install.
+    // starts fresh from storage, the same way it would for a new install.
     location.reload();
   };
 
   // If cloud sync is active (fbUser is set for anonymous users too -- see the
-  // Firebase sync section above), the synced copy in Firestore has to be cleared
+  // Firebase sync section above), the synced copy in Firestore has to be reset
   // as well. Otherwise the onSnapshot listener would just pull the old data back
   // down again right after reload. `merge:true` recursively merges nested maps
   // instead of replacing them (see fbPushNow's comment), so setting
@@ -888,7 +901,7 @@ function resetAllData(){
   if(fbUser && window.__fb){
     const f = window.__fb;
     f.getDoc(fbDocRef()).then(snap=>{
-      const payload = { tasks: [], records: {}, settings: defaultSettings(), updatedAt: f.serverTimestamp() };
+      const payload = { tasks: seedTasks, records: {}, settings: defaultSettings(), updatedAt: f.serverTimestamp() };
       if(snap.exists() && snap.data().plan !== undefined) payload.plan = snap.data().plan;
       return f.setDoc(fbDocRef(), payload);
     }).catch(e=>console.error('firebase reset failed', e))
