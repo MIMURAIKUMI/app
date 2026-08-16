@@ -781,7 +781,15 @@ function computeWorkMs(rec){
   return ms;
 }
 function taskGoalHours(task){ return task && task.targetHours ? Number(task.targetHours) : 0; }
-function persistRecords(){ save('tt_records', records); fbScheduleSave(); }
+function persistRecords(){
+  save('tt_records', records);
+  fbScheduleSave();
+  // Re-check rewards every time records change (add/end/edit/delete a
+  // session, import, duplicate, etc.) -- not just at app boot -- so hitting
+  // today's goal counts (⭐ / gift countdown / an actual banked present)
+  // right away instead of only being picked up the next time the app opens.
+  evaluateRewards();
+}
 function persistTasks(){ save('tt_tasks', tasks); fbScheduleSave(); }
 function persistSettings(){ save('tt_settings', settings); fbScheduleSave(); }
 function persistRewards(){ save('tt_rewards', rewards); fbScheduleSave(); }
@@ -828,6 +836,20 @@ function dateDayTotals(dateStr){
     actualMin += sessions.filter(s=>s.taskId===tk.id).reduce((sum,s)=>sum + computeWorkMs(s), 0) / 60000;
   });
   return { goalMin, actualMin, hasGoal: goalMin > 0 };
+}
+// True the instant today's combined goal is actually met, whether or not
+// evaluateRewards() has officially committed it to rewards.achievedDates yet
+// (that only happens once something calls persistRecords() -- e.g. stopping
+// a running session -- so while a session is still actively ticking upward
+// this is a live preview rather than committed state). Used to keep the
+// calendar's ⭐/🎁 and the "プレゼントまであと〇日" countdown in sync with
+// each other instead of one updating live and the other only catching up
+// once the session is actually stopped.
+function isTodayAchievedLive(){
+  const todayStr = fmtDate(new Date());
+  if(rewards.achievedDates.includes(todayStr)) return true; // already committed
+  const totals = dateDayTotals(todayStr);
+  return totals.hasGoal && totals.actualMin >= totals.goalMin;
 }
 function addDaysStr(dateStr, n){
   const d = new Date(dateStr + 'T00:00:00');
@@ -892,6 +914,57 @@ function currentGoalFishArt(){
 // Walks forward from the last-evaluated day up to (but excluding) today,
 // catching up on however many days elapsed since the app was last opened.
 // Safe to call every time the app boots; it's a no-op once already caught up.
+// Scores a single day (cursor) that has already been decided as either
+// achieved or not: bumps dailyStreak/giftProgressDays, banks/unlocks a
+// present once GIFT_EVERY_DAYS is reached, and unlocks 伝説のねこ once
+// LEGENDARY_STREAK_DAYS is reached. Shared by every day evaluateRewards()
+// walks through below, including today.
+function scoreDay(cursor, achieved, hasGoal){
+  if(hasGoal){
+    if(achieved){
+      rewards.dailyStreak += 1;
+      rewards.giftProgressDays += 1;
+      rewards.achievedDates.push(cursor); // for the calendar's ⭐ marker
+      if(rewards.giftProgressDays >= GIFT_EVERY_DAYS){
+        rewards.giftProgressDays = 0;
+        const outfitRoom = categoryHasRoom('outfit');
+        const foodRoom = categoryHasRoom('food');
+        if(outfitRoom && foodRoom){
+          // both categories still have something left -- bank a choice
+          // for the user to make in Settings instead of picking for them.
+          rewards.pendingChoices += 1;
+          rewards.giftEarnedDates.push(cursor); // for the calendar's 🎁 marker
+        } else if(outfitRoom || foodRoom){
+          // only one category has anything left, so there's no real
+          // choice to make -- just unlock it.
+          const unlocked = unlockFromCategory(outfitRoom ? 'outfit' : 'food');
+          if(unlocked){
+            showToast(t('rewardUnlockedToast')(rewardItemName(unlocked)));
+            rewards.giftEarnedDates.push(cursor);
+          }
+        } // else: everything already unlocked, nothing more to bank
+      }
+    } else {
+      rewards.dailyStreak = 0;
+    }
+  }
+  if(!rewards.legendaryUnlocked && rewards.dailyStreak >= LEGENDARY_STREAK_DAYS){
+    rewards.legendaryUnlocked = true;
+    showToast(t('legendaryUnlockedToast'));
+  }
+}
+// Walks forward from the last-scored day up through TODAY (not just up to
+// yesterday) so that hitting today's goal counts -- and flows through to the
+// ⭐/🎁 calendar markers, the "プレゼントまであと〇日" countdown, and an
+// actual banked/unlocked present -- the moment it happens, instead of only
+// the next time the app is opened. Days strictly before today are final the
+// instant they're walked (they're fully elapsed, nothing about them can
+// still change). Today is special: it only gets locked in (lastEvaluatedDate
+// advanced onto it) once it's actually achieved -- if it isn't yet, the walk
+// stops just short of today and leaves lastEvaluatedDate at yesterday, so
+// the very next call (this function runs after every records change --
+// see persistRecords()) re-checks today from scratch rather than only
+// scoring it once and never again.
 function evaluateRewards(){
   const todayStr = fmtDate(new Date());
 
@@ -899,47 +972,26 @@ function evaluateRewards(){
     // first run ever -- nothing to backfill, just mark everything up to (but
     // excluding) today as "already evaluated".
     rewards.lastEvaluatedDate = addDaysStr(todayStr, -1);
-  } else {
-    let cursor = addDaysStr(rewards.lastEvaluatedDate, 1);
-    let guard = 0;
-    while(cursor < todayStr && guard < 1800){ // ~5 years of catch-up
-      const totals = dateDayTotals(cursor);
-      if(totals.hasGoal){
-        if(totals.actualMin >= totals.goalMin){
-          rewards.dailyStreak += 1;
-          rewards.giftProgressDays += 1;
-          rewards.achievedDates.push(cursor); // for the calendar's ⭐ marker
-          if(rewards.giftProgressDays >= GIFT_EVERY_DAYS){
-            rewards.giftProgressDays = 0;
-            const outfitRoom = categoryHasRoom('outfit');
-            const foodRoom = categoryHasRoom('food');
-            if(outfitRoom && foodRoom){
-              // both categories still have something left -- bank a choice
-              // for the user to make in Settings instead of picking for them.
-              rewards.pendingChoices += 1;
-              rewards.giftEarnedDates.push(cursor); // for the calendar's 🎁 marker
-            } else if(outfitRoom || foodRoom){
-              // only one category has anything left, so there's no real
-              // choice to make -- just unlock it.
-              const unlocked = unlockFromCategory(outfitRoom ? 'outfit' : 'food');
-              if(unlocked){
-                showToast(t('rewardUnlockedToast')(rewardItemName(unlocked)));
-                rewards.giftEarnedDates.push(cursor);
-              }
-            } // else: everything already unlocked, nothing more to bank
-          }
-        } else {
-          rewards.dailyStreak = 0;
-        }
-      }
-      if(!rewards.legendaryUnlocked && rewards.dailyStreak >= LEGENDARY_STREAK_DAYS){
-        rewards.legendaryUnlocked = true;
-        showToast(t('legendaryUnlockedToast'));
-      }
-      rewards.lastEvaluatedDate = cursor;
-      cursor = addDaysStr(cursor, 1);
-      guard++;
+  }
+
+  let cursor = addDaysStr(rewards.lastEvaluatedDate, 1);
+  let guard = 0;
+  while(cursor <= todayStr && guard < 1800){ // ~5 years of catch-up
+    const isToday = cursor === todayStr;
+    const totals = dateDayTotals(cursor);
+    const achieved = totals.hasGoal && totals.actualMin >= totals.goalMin;
+
+    if(isToday && !achieved){
+      // not there yet -- leave lastEvaluatedDate at yesterday so this same
+      // check runs again (and can still succeed) the next time something
+      // changes today, instead of writing off today as a miss right now.
+      break;
     }
+
+    scoreDay(cursor, achieved, totals.hasGoal);
+    rewards.lastEvaluatedDate = cursor;
+    cursor = addDaysStr(cursor, 1);
+    guard++;
   }
 
   clampPendingChoices();
@@ -950,7 +1002,14 @@ function evaluateRewards(){
 // arrives from a single day's success.
 function giftProgressCountdownInfo(){
   if(!categoryHasRoom('outfit') && !categoryHasRoom('food')) return null; // everything already unlocked
-  const daysRemaining = Math.max(0, GIFT_EVERY_DAYS - rewards.giftProgressDays);
+  const todayStr = fmtDate(new Date());
+  // Preview one day ahead while today is achieved but not yet officially
+  // committed (a session is still actively running, so persistRecords()
+  // hasn't re-run evaluateRewards() yet) -- keeps this countdown moving in
+  // step with the calendar's live ⭐ instead of only updating once the
+  // session is actually stopped.
+  const liveBonus = (!rewards.achievedDates.includes(todayStr) && isTodayAchievedLive()) ? 1 : 0;
+  const daysRemaining = Math.max(0, GIFT_EVERY_DAYS - (rewards.giftProgressDays + liveBonus));
   return { daysRemaining };
 }
 const LEGENDARY_COUNTDOWN_SHOW_WITHIN_DAYS = 5; // only start nudging once this close, not for the whole month
@@ -1163,7 +1222,9 @@ function importDataFile(event){
         }
       });
       persistTasks(); persistRecords(); persistSettings(); persistRewards();
-      evaluateRewards();
+      // persistRecords() above already re-runs evaluateRewards() against the
+      // freshly-imported tasks/records/rewards (assigned earlier in this
+      // function), so no separate call is needed here.
       markBackedUp();
       render();
       alert(t('importSuccess'));
@@ -2431,20 +2492,21 @@ function renderCalendar(rows, month, selectedDate){
   const todayStr = fmtDate(new Date());
   // achievedDates -> ⭐ (that day hit its combined daily goal), giftEarnedDates
   // -> 🎁 (that day's success also banked/unlocked a present) -- see
-  // evaluateRewards()'s design notes for how these get populated. Both only
-  // ever contain *fully-elapsed* days (evaluateRewards() only scores a day
-  // once it's over), so today itself never ends up in them until tomorrow's
-  // catch-up run. Show today's star/gift live instead of making the user
-  // wait until then: recompute today's own totals on every render and treat
-  // it as achieved the moment actualMin reaches goalMin, same threshold
-  // evaluateRewards() will use once today actually finishes.
+  // evaluateRewards()'s design notes for how these get populated. Today gets
+  // committed into these the moment persistRecords() re-runs evaluateRewards()
+  // (e.g. once a running session is stopped), but while a session is still
+  // actively ticking upward nothing has re-run evaluateRewards() yet -- show
+  // the star/gift live in that gap too via isTodayAchievedLive(), instead of
+  // only reflecting it once the session actually stops.
   const achievedSet = new Set(rewards.achievedDates || []);
   const giftSet = new Set(rewards.giftEarnedDates || []);
-  const todayTotals = dateDayTotals(todayStr);
-  const todayLiveAchieved = todayTotals.hasGoal && todayTotals.actualMin >= todayTotals.goalMin;
-  // also preview the 🎁 the instant today's success would be the one that
-  // crosses GIFT_EVERY_DAYS, so the two badges stay in sync with each other.
-  const todayLiveGift = todayLiveAchieved && (rewards.giftProgressDays + 1) >= GIFT_EVERY_DAYS;
+  const todayAlreadyCommitted = achievedSet.has(todayStr);
+  const todayLiveAchieved = isTodayAchievedLive();
+  // Only preview the 🎁 while today isn't committed yet -- once it is,
+  // rewards.giftProgressDays already reflects today's own increment, so
+  // adding another +1 here would double-count it and could show a gift icon
+  // on a day that didn't actually cross GIFT_EVERY_DAYS.
+  const todayLiveGift = !todayAlreadyCommitted && todayLiveAchieved && (rewards.giftProgressDays + 1) >= GIFT_EVERY_DAYS;
 
   const cells = [];
   for(let i=0;i<startWeekday;i++) cells.push(null);
