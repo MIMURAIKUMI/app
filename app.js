@@ -1118,7 +1118,31 @@ function fbApplyRemote(data){
     if(!settings.theme || !THEME_NAMES[settings.theme]) settings.theme = 'original';
     if(!settings.pomodoro || !settings.pomodoro.templates || !settings.pomodoro.templates.length) settings.pomodoro = defaultSettings().pomodoro;
   }
-  if(data.rewards) rewards = Object.assign(defaultRewards(), data.rewards);
+  if(data.rewards){
+    const incoming = Object.assign(defaultRewards(), data.rewards);
+    // giftsGrantedCount (and the counts it gates) is documented in
+    // defaultRewards() as monotonic -- never decreases. But
+    // fbLoadAndSubscribe() does an initial getDoc() *and* then attaches
+    // onSnapshot(), whose first delivery is often the same still-stale
+    // server copy getDoc() just fetched, since our own newer local grant
+    // hasn't reached the server yet (fbScheduleSave() debounces pushes by
+    // 1200ms). Blindly overwriting `rewards` with that stale copy walked
+    // giftsGrantedCount backward, so the evaluateRewards() call right below
+    // "discovered" the very gift we just granted as new again and re-popped
+    // its 🎁 toast -- often 2-3 times in a row as getDoc() and onSnapshot's
+    // cache/server deliveries all raced in before our own write landed.
+    // Never let these monotonic-by-design fields regress on a remote apply;
+    // take the max/union with whatever's already in memory instead of
+    // trusting the remote value outright.
+    if(rewards){
+      incoming.giftsGrantedCount = Math.max(incoming.giftsGrantedCount, rewards.giftsGrantedCount);
+      incoming.outfitUnlockedCount = Math.max(incoming.outfitUnlockedCount, rewards.outfitUnlockedCount);
+      incoming.foodUnlockedCount = Math.max(incoming.foodUnlockedCount, rewards.foodUnlockedCount);
+      incoming.legendaryUnlocked = incoming.legendaryUnlocked || rewards.legendaryUnlocked;
+      incoming.unlocked = Array.from(new Set([...rewards.unlocked, ...incoming.unlocked]));
+    }
+    rewards = incoming;
+  }
   userPlan = data.plan === 'paid' ? 'paid' : 'free';
   save('tt_tasks', tasks); save('tt_records', records); save('tt_settings', settings); save('tt_rewards', rewards);
   fbApplyingRemote = false;
