@@ -166,7 +166,7 @@
     82%{ transform:translateX(-50%) scale(0.92); }
     100%{ transform:translateX(-50%) scale(0.8); }
   }
-  .stretchbar-goal.goal-pop{ animation:goalPop .3s cubic-bezier(.34,1.56,.64,1); }
+  .stretchbar-goal.goal-pop{ animation:goalPop .5s cubic-bezier(.34,1.56,.64,1); }
   @media (prefers-reduced-motion: reduce){
     .stretchbar-goal[data-goal-state="fish"]{ animation:none; }
     .stretchbar-goal.goal-pop{ animation:none; }
@@ -2385,7 +2385,7 @@ function playGoalPop(el, swapToBone){
   el.classList.add('goal-pop');
   let swapped = false;
   const doSwap = () => { if(swapped) return; swapped = true; swapToBone(); };
-  const swapTimer = setTimeout(doSwap, 120);
+  const swapTimer = setTimeout(doSwap, 210);
   const clear = () => { el.classList.remove('goal-pop'); };
   el.addEventListener('animationend', clear, { once: true });
   // Fallback in case animationend doesn't fire (e.g. reduced-motion, tab
