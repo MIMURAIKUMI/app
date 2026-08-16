@@ -75,7 +75,7 @@ const I18N = {
     phaseWork: '集中', phaseBreak: '休憩', phaseLongBreak: 'ロング休憩',
     templateLabel: 'テンプレート',
     templateOption: (w,b) => `（集中${w}分/休憩${b}分）`,
-    focusTimerHint: '「はじめる」を押してタイマーをONにするか<div>SettingsでONにしておくと自動的に開始されます</div>',
+    focusTimerHint: '「はじめる」を押してタイマーをスイッチをONにするか<div>SettingsでONにしておくと自動的に開始されます</div>',
     purchaseThanks: '🎉 購入ありがとうございます！',
     settingsIntro: 'アプリの見た目や機能を項目別に調整します',
     appearancePixelArt: '🎨 ピクセルアート',
