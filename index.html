@@ -1438,12 +1438,19 @@ function renderPunch(today, todayStr, weekday, suggested){
   const walkShowGoal = status!=='none';
   const walkGoal = !walkShowGoal ? null : (walkReachedGoal ? (typeof STRETCH_GOAL_MARKER_DONE!=='undefined'?STRETCH_GOAL_MARKER_DONE:null) : (typeof STRETCH_GOAL_MARKER!=='undefined'?STRETCH_GOAL_MARKER:null));
   const walkGoalHTML = walkGoal ? renderStretchPart(walkGoal.grid, walkGoal.colors, 2.5) : '';
+  // The fish/bone marker sits at left:calc(100% - 10px) and has some width of
+  // its own, so an uncapped width:percent% fill visually runs in underneath
+  // it once percent nears/hits 100 -- e.g. sitting there for the whole final
+  // minute of a short goal. Cap it the same way the walking cat sprite above
+  // is already capped, leaving clear space before the marker.
+  const walkFillClearancePx = walkShowGoal ? 20 : 0;
+  const walkFillWidth = `min(${percent}%, calc(100% - ${walkFillClearancePx}px))`;
   const barHTML = stretchMode
     ? renderStretchProgressBar(settings.pixelArt, stretchDisplayPercent, status==='working', undefined, undefined, status==='paused')
     : (barStyleIsStretch
         ? `<div class="catwalk stretch-idle" style="left:0%;">${renderPixelArt(settings.pixelArt, 1.8, 'sitting')}</div>`
         : `<div class="catwalk ${status==='working'?'walking':''}" style="left:${walkCappedLeft};">${renderPixelArt(settings.pixelArt, 1.8, status==='working'?'walking':'sitting')}</div>
-       <div class="progresstrack"><div class="progressfill" style="width:${percent}%;"></div></div>
+       <div class="progresstrack"><div class="progressfill" style="width:${walkFillWidth};"></div></div>
        ${walkGoal ? `<div class="stretchbar-goal" data-goal-state="${walkReachedGoal?'done':'fish'}" style="left:calc(100% - 10px); top:-37px;">${walkGoalHTML}</div>` : ''}`);
 
   let html = `<div class="panel card-punch">
@@ -2443,7 +2450,13 @@ function tickClock(){
       }
     } else {
       const fill = document.querySelector('.progressfill');
-      if(fill) fill.style.width = percent+'%';
+      // Cap the fill the same way the cat sprite below is capped: uncapped,
+      // width:percent% runs the pink fill in underneath the fish/bone marker
+      // (which sits at left:calc(100% - 10px)) for however long percent sits
+      // at/near 100, instead of stopping clear of it.
+      const walkFillGoalEl = document.querySelector('.progresswrap .stretchbar-goal');
+      const walkFillClearancePx = walkFillGoalEl ? 20 : 0;
+      if(fill) fill.style.width = `min(${percent}%, calc(100% - ${walkFillClearancePx}px))`;
       const cat = document.querySelector('.catwalk');
       if(cat){
         const walkCellActual = 1.8 * 1.5;
