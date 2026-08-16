@@ -133,18 +133,42 @@
   .stretchbar-goal[data-goal-state="fish"]{z-index:3;}
   .stretchbar-back{transition:left .35s steps(3); z-index:2;}
   .stretchbar-back.working{animation:stretchTug 1.2s steps(3) infinite;}
+  /* Idle "alive" twitch for the not-yet-reached fish -- an irregular
+     twitch/twitch, pause, twitch, pause, twitch/twitch pattern rather than a
+     steady loop, so it reads as a little fish waiting rather than a
+     mechanical wobble. Only applies in the "fish" state; the achieved bone
+     stays still. */
+  @keyframes fishTwitch{
+    0%, 100%{ transform:translateX(-50%) scale(0.8) rotate(0deg); }
+    4%{ transform:translateX(-50%) scale(0.82) rotate(-8deg); }
+    8%{ transform:translateX(-50%) scale(0.8) rotate(6deg); }
+    12%{ transform:translateX(-50%) scale(0.8) rotate(0deg); }
+    38%{ transform:translateX(-50%) scale(0.8) rotate(0deg); }
+    42%{ transform:translateX(-50%) scale(0.82) rotate(-7deg); }
+    46%{ transform:translateX(-50%) scale(0.8) rotate(0deg); }
+    64%{ transform:translateX(-50%) scale(0.8) rotate(0deg); }
+    68%{ transform:translateX(-50%) scale(0.82) rotate(8deg); }
+    71%{ transform:translateX(-50%) scale(0.8) rotate(-5deg); }
+    74%{ transform:translateX(-50%) scale(0.8) rotate(0deg); }
+  }
+  .stretchbar-goal[data-goal-state="fish"]{ animation:fishTwitch 4.5s ease-in-out infinite; }
   /* Played once at the instant the fish flips to the "done" bone marker, so
-     hitting the goal reads as a distinct little "pop" moment instead of a
-     flat swap. Overshoots past the resting scale(0.8) then settles back. */
+     hitting the goal reads as: fish grows, bounces, *then* becomes the bone
+     (the JS delays the actual sprite swap until partway through this
+     animation -- see playGoalPop). Scaled down from an earlier pass that
+     overshot too big. This rule is intentionally listed after the fish
+     twitch rule so it wins the tie in specificity while the pop plays. */
   @keyframes goalPop{
     0%{ transform:translateX(-50%) scale(0.8); }
-    30%{ transform:translateX(-50%) scale(1.7); }
-    55%{ transform:translateX(-50%) scale(0.7); }
-    78%{ transform:translateX(-50%) scale(1.15); }
+    30%{ transform:translateX(-50%) scale(1.3); }
+    45%{ transform:translateX(-50%) scale(1.05); }
+    65%{ transform:translateX(-50%) scale(0.68); }
+    82%{ transform:translateX(-50%) scale(0.92); }
     100%{ transform:translateX(-50%) scale(0.8); }
   }
-  .stretchbar-goal.goal-pop{ animation:goalPop .5s cubic-bezier(.34,1.56,.64,1); }
+  .stretchbar-goal.goal-pop{ animation:goalPop .55s cubic-bezier(.34,1.56,.64,1); }
   @media (prefers-reduced-motion: reduce){
+    .stretchbar-goal[data-goal-state="fish"]{ animation:none; }
     .stretchbar-goal.goal-pop{ animation:none; }
   }
   .stretchbar-front{position:absolute; top:0; z-index:1;}
@@ -278,7 +302,7 @@
 // ---------- language detection ----------
 // Bump this string every time index.html is updated — shown in Settings so it's
 // easy to confirm which build is actually live (helps catch stale-deploy/cache issues).
-const APP_VERSION = 'v21-2026-08-15';
+const APP_VERSION = 'v22-2026-08-15';
 
 const LANG = (function(){
   const langs = (navigator.languages && navigator.languages.length) ? navigator.languages : [navigator.language || 'en'];
@@ -2325,19 +2349,26 @@ function changeMonth(delta){
   render();
 }
 
-// Briefly overshoots the goal marker's scale then settles back -- played once
-// at the exact instant the fish flips to the "done" bone, so reaching the
-// goal reads as a little "pop" moment rather than a flat icon swap.
-function playGoalPop(el){
+// Plays the goal-reached "pop": the fish grows, bounces, and *then* turns
+// into the bone mid-bounce -- not an instant swap followed by a bounce.
+// `swapToBone` actually changes the sprite (innerHTML + dataset); it's
+// called partway through the animation, timed to land right around the
+// scale peak/recoil in the goalPop keyframes above.
+function playGoalPop(el, swapToBone){
   if(!el) return;
   el.classList.remove('goal-pop');
   // Force a reflow so re-adding the class restarts the animation even if it
   // was already mid-way (e.g. rapid state changes from editing elapsed time).
   void el.offsetWidth;
   el.classList.add('goal-pop');
-  const clear = () => el.classList.remove('goal-pop');
+  let swapped = false;
+  const doSwap = () => { if(swapped) return; swapped = true; swapToBone(); };
+  const swapTimer = setTimeout(doSwap, 230);
+  const clear = () => { el.classList.remove('goal-pop'); };
   el.addEventListener('animationend', clear, { once: true });
-  setTimeout(clear, 600); // fallback in case animationend doesn't fire (e.g. reduced-motion)
+  // Fallback in case animationend doesn't fire (e.g. reduced-motion, tab
+  // backgrounded) -- make sure the sprite still ends up swapped either way.
+  setTimeout(() => { clearTimeout(swapTimer); doSwap(); clear(); }, 650);
 }
 
 // ---------- boot ----------
@@ -2377,9 +2408,14 @@ function tickClock(){
           const reachedGoal = percent>=100;
           const wantState = reachedGoal ? 'done' : 'fish';
           if(goalEl.dataset.goalState !== wantState){
-            const marker = reachedGoal ? (typeof STRETCH_GOAL_MARKER_DONE!=='undefined'?STRETCH_GOAL_MARKER_DONE:null) : (typeof STRETCH_GOAL_MARKER!=='undefined'?STRETCH_GOAL_MARKER:null);
-            if(marker){ goalEl.innerHTML = renderStretchPart(marker.grid, marker.colors, 2.5); goalEl.dataset.goalState = wantState; }
-            if(wantState==='done') playGoalPop(goalEl);
+            if(wantState==='done'){
+              playGoalPop(goalEl, () => {
+                if(typeof STRETCH_GOAL_MARKER_DONE!=='undefined'){ goalEl.innerHTML = renderStretchPart(STRETCH_GOAL_MARKER_DONE.grid, STRETCH_GOAL_MARKER_DONE.colors, 2.5); goalEl.dataset.goalState = 'done'; }
+              });
+            } else {
+              const marker = typeof STRETCH_GOAL_MARKER!=='undefined' ? STRETCH_GOAL_MARKER : null;
+              if(marker){ goalEl.innerHTML = renderStretchPart(marker.grid, marker.colors, 2.5); goalEl.dataset.goalState = wantState; }
+            }
           }
         }
       }
@@ -2398,9 +2434,14 @@ function tickClock(){
         const reachedGoal = percent>=100;
         const wantState = reachedGoal ? 'done' : 'fish';
         if(goalEl.dataset.goalState !== wantState){
-          const marker = reachedGoal ? (typeof STRETCH_GOAL_MARKER_DONE!=='undefined'?STRETCH_GOAL_MARKER_DONE:null) : (typeof STRETCH_GOAL_MARKER!=='undefined'?STRETCH_GOAL_MARKER:null);
-          if(marker){ goalEl.innerHTML = renderStretchPart(marker.grid, marker.colors, 2.5); goalEl.dataset.goalState = wantState; }
-          if(wantState==='done') playGoalPop(goalEl);
+          if(wantState==='done'){
+            playGoalPop(goalEl, () => {
+              if(typeof STRETCH_GOAL_MARKER_DONE!=='undefined'){ goalEl.innerHTML = renderStretchPart(STRETCH_GOAL_MARKER_DONE.grid, STRETCH_GOAL_MARKER_DONE.colors, 2.5); goalEl.dataset.goalState = 'done'; }
+            });
+          } else {
+            const marker = typeof STRETCH_GOAL_MARKER!=='undefined' ? STRETCH_GOAL_MARKER : null;
+            if(marker){ goalEl.innerHTML = renderStretchPart(marker.grid, marker.colors, 2.5); goalEl.dataset.goalState = wantState; }
+          }
         }
       }
     }
