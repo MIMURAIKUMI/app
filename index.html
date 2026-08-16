@@ -2402,6 +2402,21 @@ function playGoalPop(el, swapToBone){
   // backgrounded) -- make sure the sprite still ends up swapped either way.
   setTimeout(() => { clearTimeout(swapTimer); doSwap(); clear(); }, 650);
 }
+// Reaching 100% and the fish becoming a bone happen with a small deliberate
+// gap (0.5s) rather than instantly together, so the two feel like distinct
+// beats instead of one single event. Guarded with a 'pending-done' state so
+// the once-a-second tick doesn't schedule the swap again while it's already
+// waiting to fire.
+function triggerGoalDone(goalEl, delayMs){
+  if(!goalEl || goalEl.dataset.goalState === 'pending-done' || goalEl.dataset.goalState === 'done') return;
+  goalEl.dataset.goalState = 'pending-done';
+  setTimeout(() => {
+    if(!goalEl.isConnected) return;
+    playGoalPop(goalEl, () => {
+      if(typeof STRETCH_GOAL_MARKER_DONE!=='undefined'){ goalEl.innerHTML = renderStretchPart(STRETCH_GOAL_MARKER_DONE.grid, STRETCH_GOAL_MARKER_DONE.colors, 2.5); goalEl.dataset.goalState = 'done'; }
+    });
+  }, delayMs);
+}
 
 // ---------- boot ----------
 function tickClock(){
@@ -2443,11 +2458,9 @@ function tickClock(){
         if(goalEl){
           const reachedGoal = percent>=100;
           const wantState = reachedGoal ? 'done' : 'fish';
-          if(goalEl.dataset.goalState !== wantState){
+          if(goalEl.dataset.goalState !== wantState && goalEl.dataset.goalState !== 'pending-done'){
             if(wantState==='done'){
-              playGoalPop(goalEl, () => {
-                if(typeof STRETCH_GOAL_MARKER_DONE!=='undefined'){ goalEl.innerHTML = renderStretchPart(STRETCH_GOAL_MARKER_DONE.grid, STRETCH_GOAL_MARKER_DONE.colors, 2.5); goalEl.dataset.goalState = 'done'; }
-              });
+              triggerGoalDone(goalEl, 500);
             } else {
               const marker = typeof STRETCH_GOAL_MARKER!=='undefined' ? STRETCH_GOAL_MARKER : null;
               if(marker){ goalEl.innerHTML = renderStretchPart(marker.grid, marker.colors, 2.5); goalEl.dataset.goalState = wantState; }
@@ -2474,11 +2487,9 @@ function tickClock(){
       if(goalEl){
         const reachedGoal = percent>=100;
         const wantState = reachedGoal ? 'done' : 'fish';
-        if(goalEl.dataset.goalState !== wantState){
+        if(goalEl.dataset.goalState !== wantState && goalEl.dataset.goalState !== 'pending-done'){
           if(wantState==='done'){
-            playGoalPop(goalEl, () => {
-              if(typeof STRETCH_GOAL_MARKER_DONE!=='undefined'){ goalEl.innerHTML = renderStretchPart(STRETCH_GOAL_MARKER_DONE.grid, STRETCH_GOAL_MARKER_DONE.colors, 2.5); goalEl.dataset.goalState = 'done'; }
-            });
+            triggerGoalDone(goalEl, 500);
           } else {
             const marker = typeof STRETCH_GOAL_MARKER!=='undefined' ? STRETCH_GOAL_MARKER : null;
             if(marker){ goalEl.innerHTML = renderStretchPart(marker.grid, marker.colors, 2.5); goalEl.dataset.goalState = wantState; }
