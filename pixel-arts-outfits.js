@@ -12,7 +12,7 @@
 // pixel-arts.js, these are single static icons, not walking/sitting poses).
 //
 // Loaded via <script> before app.js (and after pixel-arts.js), so these
-// become globals: OUTFIT_ART, FOOD_ART, REWARD_SEQUENCE.
+// become globals: OUTFIT_ART, FOOD_ART.
 
 // A simple filled circle in a 16x16 grid, palette index 1. Generated once at
 // load time instead of hand-authored so every placeholder item can share the
@@ -31,35 +31,25 @@ function _dummyCircleGrid16(){
 }
 const DUMMY_CIRCLE_GRID = _dummyCircleGrid16();
 
-// おめかし (worn accessories) -- unlocked in this order.
+// おめかし (worn accessories). Each category unlocks independently, in this
+// object's key order (app.js reads Object.keys(OUTFIT_ART) as "the order to
+// unlock おめかし in") -- see app.js's unlockFromCategory(). Which category
+// advances on any given successful week is the user's own choice (a
+// 2-choice "おめかし or えさ" prompt shown in Settings), not automatic.
 const OUTFIT_ART = {
   ribbon: { name: { ja: 'リボン', en: 'Ribbon' }, colors: { 1: '#FF4D4D' }, grid: DUMMY_CIRCLE_GRID },
   collar: { name: { ja: '首輪', en: 'Collar' }, colors: { 1: '#FF4D4D' }, grid: DUMMY_CIRCLE_GRID },
   crown:  { name: { ja: '王冠', en: 'Crown' }, colors: { 1: '#FF4D4D' }, grid: DUMMY_CIRCLE_GRID },
 };
 
-// えさ (food) -- unlocked after all outfits. When one is equipped in
-// Settings, it also replaces the "goal fish" icon at the end of the
-// progress bar (see app.js's renderStretchProgressBar / walkGoal), i.e. the
-// fish the cat is stretching/walking toward changes to whatever food is
-// currently equipped.
+// えさ (food). Same independent per-category unlock order as OUTFIT_ART.
+// When one is equipped in Settings, it also replaces the "goal fish" icon at
+// the end of the progress bar (see app.js's renderStretchProgressBar /
+// walkGoal), i.e. the fish the cat is stretching/walking toward changes to
+// whatever food is currently equipped.
 const FOOD_ART = {
   karikari: { name: { ja: 'カリカリ', en: 'Kibble' }, colors: { 1: '#FF4D4D' }, grid: DUMMY_CIRCLE_GRID },
   churu:    { name: { ja: 'ちゅーる', en: 'Churu' }, colors: { 1: '#FF4D4D' }, grid: DUMMY_CIRCLE_GRID },
   catgrass: { name: { ja: '猫草', en: 'Cat Grass' }, colors: { 1: '#FF4D4D' }, grid: DUMMY_CIRCLE_GRID },
   sasami:   { name: { ja: 'とりささみ', en: 'Chicken Breast' }, colors: { 1: '#FF4D4D' }, grid: DUMMY_CIRCLE_GRID },
 };
-
-// Order in which weekly-success rewards are unlocked -- one item per
-// successful week (see app.js's evaluateRewards()/unlockNextReward()).
-// index into this array == rewards.totalSuccessWeeks *before* that week's
-// unlock is applied.
-const REWARD_SEQUENCE = [
-  { type: 'outfit', key: 'ribbon' },
-  { type: 'outfit', key: 'collar' },
-  { type: 'outfit', key: 'crown' },
-  { type: 'food', key: 'karikari' },
-  { type: 'food', key: 'churu' },
-  { type: 'food', key: 'catgrass' },
-  { type: 'food', key: 'sasami' },
-];

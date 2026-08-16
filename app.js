@@ -89,6 +89,10 @@ const I18N = {
     legendaryCountdown: d => `1カ月達成まであと${d}日`,
     rewardUnlockedToast: name => `🎁「${name}」を手に入れました！`,
     legendaryUnlockedToast: '🌈 伝説のねこが仲間になりました！',
+    giftReadyBanner: 'プレゼントがあるよ',
+    giftReadyCta: 'Settingsへ',
+    giftChoicePrompt: 'おめかしとえさ、どっちのピクセルを解禁する？',
+    giftPendingCount: n => `ほかに${n}回、選べます`,
     appearanceBarStyle: '📊 進捗バーのスタイル',
     barStyleNames: {normal:'あるくねこ', stretch:'のびるねこ'},
     appearanceTheme: '🌈 カラーテーマ',
@@ -257,6 +261,10 @@ const I18N = {
     legendaryCountdown: d => `${d} days left until you reach a full month`,
     rewardUnlockedToast: name => `🎁 You got "${name}"!`,
     legendaryUnlockedToast: '🌈 The Legendary Cat has joined you!',
+    giftReadyBanner: 'You have a present waiting',
+    giftReadyCta: 'Go to Settings',
+    giftChoicePrompt: 'Choose a category to unlock: Outfits or Food?',
+    giftPendingCount: n => `${n} more choice${n===1?'':'s'} waiting`,
     appearanceBarStyle: '📊 Progress Bar Style',
     barStyleNames: {normal:'Walking cat', stretch:'Growing cat'},
     appearanceTheme: '🌈  Color Theme',
@@ -630,8 +638,11 @@ const LEGENDARY_STREAK_DAYS = 30; // consecutive successful days needed to unloc
 function defaultRewards(){
   return {
     weeklyStreak: 0,            // consecutive successful weeks right now (resets to 0 on a missed week)
-    totalSuccessWeeks: 0,       // lifetime successful weeks -- indexes into REWARD_SEQUENCE
-    unlocked: [],               // flat "type:key" strings, e.g. "outfit:ribbon", in unlock order
+    totalSuccessWeeks: 0,       // lifetime successful weeks
+    unlocked: [],                // flat "type:key" strings, e.g. "outfit:ribbon", in unlock order
+    outfitUnlockedCount: 0,      // how many おめかし items unlocked so far (indexes Object.keys(OUTFIT_ART))
+    foodUnlockedCount: 0,        // how many えさ items unlocked so far (indexes Object.keys(FOOD_ART))
+    pendingChoices: 0,           // successful weeks whose "おめかし or えさ?" choice hasn't been made yet
     lastEvaluatedWeekKey: null, // last fully-elapsed week (its Sunday, as fmtDate()) already scored
     equippedOutfit: null,       // currently worn おめかし key, or null
     equippedFood: null,         // currently equipped えさ key, or null
@@ -782,8 +793,13 @@ function persistRewards(){ save('tt_rewards', rewards); fbScheduleSave(); }
 // - A week is "successful" when, summed across every active task that has a
 //   goal set, that week's actual tracked time meets or beats the week's
 //   target time (target = targetHours × the number of that task's scheduled
-//   days that fell within the week). Each successful week unlocks the next
-//   item in REWARD_SEQUENCE: 3 おめかし (ribbon/collar/crown), then 4 えさ.
+//   days that fell within the week). Each successful week banks one
+//   "pending choice" (rewards.pendingChoices) between おめかし and えさ --
+//   the user picks a category in Settings (see chooseReward()), and the
+//   next item in *that* category's own order unlocks (3 おめかし, 4 えさ).
+//   If only one category still has items left, that one unlocks
+//   automatically without prompting; once both are fully unlocked, further
+//   successful weeks don't bank anything more.
 // - A "day" counts toward the Legendary Cat streak once it has fully
 //   elapsed, had at least one task scheduled on it, and the tracked time for
 //   that day's scheduled tasks met the combined daily target.
@@ -828,14 +844,48 @@ function evaluateWeekSuccess(weekStartStr){
   });
   return goalMin > 0 && actualMin >= goalMin;
 }
-function unlockNextReward(){
-  const seq = (typeof REWARD_SEQUENCE !== 'undefined') ? REWARD_SEQUENCE : [];
-  const idx = rewards.totalSuccessWeeks - 1; // the week just scored unlocks this index
-  if(idx < 0 || idx >= seq.length) return null; // nothing left to unlock (or bad index)
-  const item = seq[idx];
-  const flatKey = `${item.type}:${item.key}`;
+// The unlock order within a category is just that category's own key order
+// in pixel-arts-outfits.js (ribbon→collar→crown, karikari→churu→catgrass→sasami).
+function categoryOrder(type){
+  if(type === 'outfit') return (typeof OUTFIT_ART !== 'undefined') ? Object.keys(OUTFIT_ART) : [];
+  if(type === 'food') return (typeof FOOD_ART !== 'undefined') ? Object.keys(FOOD_ART) : [];
+  return [];
+}
+function categoryUnlockedCount(type){
+  return type === 'outfit' ? rewards.outfitUnlockedCount : rewards.foodUnlockedCount;
+}
+function categoryHasRoom(type){
+  return categoryUnlockedCount(type) < categoryOrder(type).length;
+}
+// Unlocks the next item in `type`'s own order (if any is left) and returns
+// {type,key}, or null if that category is already fully unlocked.
+function unlockFromCategory(type){
+  const order = categoryOrder(type);
+  const count = categoryUnlockedCount(type);
+  if(count >= order.length) return null;
+  const key = order[count];
+  const flatKey = `${type}:${key}`;
   if(!rewards.unlocked.includes(flatKey)) rewards.unlocked.push(flatKey);
-  return item;
+  if(type === 'outfit') rewards.outfitUnlockedCount += 1; else rewards.foodUnlockedCount += 1;
+  return { type, key };
+}
+// Once neither category has anything left, any leftover banked choices
+// (e.g. from successful weeks that piled up before the user visited
+// Settings) have nothing left to spend on -- drop them rather than leaving
+// a "プレゼントがあるよ" banner stuck on permanently with no buttons to press.
+function clampPendingChoices(){
+  if(!categoryHasRoom('outfit') && !categoryHasRoom('food')) rewards.pendingChoices = 0;
+}
+// Called when the user picks おめかし or えさ from the Settings choice
+// prompt (see renderSettings()) in response to a banked pending choice.
+function chooseReward(type){
+  if(rewards.pendingChoices <= 0 || !categoryHasRoom(type)) return;
+  const item = unlockFromCategory(type);
+  rewards.pendingChoices = Math.max(0, rewards.pendingChoices - 1);
+  clampPendingChoices();
+  persistRewards();
+  if(item) showToast(t('rewardUnlockedToast')(rewardItemName(item)));
+  render();
 }
 function rewardItemName(item){
   if(!item) return '';
@@ -868,8 +918,18 @@ function evaluateRewards(){
       if(evaluateWeekSuccess(cursor)){
         rewards.weeklyStreak += 1;
         rewards.totalSuccessWeeks += 1;
-        const unlocked = unlockNextReward();
-        if(unlocked) showToast(t('rewardUnlockedToast')(rewardItemName(unlocked)));
+        const outfitRoom = categoryHasRoom('outfit');
+        const foodRoom = categoryHasRoom('food');
+        if(outfitRoom && foodRoom){
+          // both categories still have something left -- bank a choice for
+          // the user to make in Settings instead of picking for them.
+          rewards.pendingChoices += 1;
+        } else if(outfitRoom || foodRoom){
+          // only one category has anything left, so there's no real choice
+          // to make -- just unlock it.
+          const unlocked = unlockFromCategory(outfitRoom ? 'outfit' : 'food');
+          if(unlocked) showToast(t('rewardUnlockedToast')(rewardItemName(unlocked)));
+        } // else: everything already unlocked, nothing more to do this week
       } else {
         rewards.weeklyStreak = 0;
       }
@@ -900,6 +960,7 @@ function evaluateRewards(){
     }
   }
 
+  clampPendingChoices();
   persistRewards();
 }
 // How many hours are left, in the currently in-progress week, until the task
@@ -908,8 +969,7 @@ function evaluateRewards(){
 // happened this week (not future scheduled days that haven't come up yet
 // this week), and only while there are still rewards left to unlock.
 function nextRewardCountdownInfo(){
-  const seq = (typeof REWARD_SEQUENCE !== 'undefined') ? REWARD_SEQUENCE : [];
-  if(rewards.totalSuccessWeeks >= seq.length) return null; // everything already unlocked
+  if(!categoryHasRoom('outfit') && !categoryHasRoom('food')) return null; // everything already unlocked
   const todayStr = fmtDate(new Date());
   const elapsedDates = weekRangeDates(weekStartStrFor(todayStr)).filter(ds => ds <= todayStr);
   let bestTask = null, bestRemainingMin = Infinity;
@@ -928,12 +988,23 @@ function nextRewardCountdownInfo(){
   if(!bestTask) return null;
   return { taskName: bestTask.name, hoursRemaining: Math.max(1, Math.ceil(bestRemainingMin / 60)) };
 }
+const LEGENDARY_COUNTDOWN_SHOW_WITHIN_DAYS = 5; // only start nudging once this close, not for the whole month
 function legendaryCountdownInfo(){
   if(rewards.legendaryUnlocked) return null;
-  return { daysRemaining: Math.max(0, LEGENDARY_STREAK_DAYS - rewards.dailyStreak) };
+  const daysRemaining = Math.max(0, LEGENDARY_STREAK_DAYS - rewards.dailyStreak);
+  if(daysRemaining > LEGENDARY_COUNTDOWN_SHOW_WITHIN_DAYS) return null;
+  return { daysRemaining };
 }
 function selectOutfit(key){ rewards.equippedOutfit = key || null; persistRewards(); render(); }
 function selectFood(key){ rewards.equippedFood = key || null; persistRewards(); render(); }
+// Jumps to Settings from the "プレゼントがあるよ" banner and opens whichever
+// category panels still have something left, so the おめかし/えさ choice
+// buttons are immediately visible without the user having to hunt for them.
+function jumpToSettingsForGift(){
+  if(categoryHasRoom('outfit')) showOutfitPanel = true;
+  if(categoryHasRoom('food')) showFoodPanel = true;
+  setTab('settings');
+}
 // Small badge showing the currently-worn おめかし item, overlaid on the
 // Timecard tab's cat/progress area. Placeholder positioning (top-right
 // corner of the whole progress bar) rather than composited onto the cat
@@ -1376,14 +1447,21 @@ function render(){
     </div>`;
   }
 
-  // gamification nudges: how close the user is to the next おめかし/えさ
-  // unlock, and (until unlocked) a silhouette-teased countdown to the
-  // Legendary Cat. Shown on every tab, same as the unfinished-records
-  // banner above.
-  const rewardInfo = nextRewardCountdownInfo();
+  // gamification nudges: a "プレゼントがあるよ" notice once a weekly win is
+  // waiting to be spent on おめかし/えさ (tap it to jump to Settings), how
+  // close the user is to their *next* win otherwise, and -- only once
+  // within LEGENDARY_COUNTDOWN_SHOW_WITHIN_DAYS days -- a silhouette-teased
+  // countdown to the Legendary Cat. Shown on every tab, same as the
+  // unfinished-records banner above.
+  const hasPendingGift = rewards.pendingChoices > 0;
+  const rewardInfo = hasPendingGift ? null : nextRewardCountdownInfo();
   const legendaryInfo = legendaryCountdownInfo();
-  if(rewardInfo || legendaryInfo){
+  if(hasPendingGift || rewardInfo || legendaryInfo){
     html += `<div class="panel" style="padding:12px 14px;margin-bottom:16px;font-size:12px;color:var(--dim);display:flex;flex-direction:column;gap:8px;">
+      ${hasPendingGift ? `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;cursor:pointer;" onclick="jumpToSettingsForGift()">
+          <span>🎁 ${t('giftReadyBanner')}</span>
+          <span style="color:var(--brassDim);font-weight:700;flex-shrink:0;">${t('giftReadyCta')} ›</span>
+        </div>` : ''}
       ${rewardInfo ? `<div>🎀 ${t('rewardCountdown')(escapeHtml(rewardInfo.taskName), rewardInfo.hoursRemaining)}</div>` : ''}
       ${legendaryInfo ? `<div style="display:flex;align-items:center;gap:8px;">
           <span style="flex-shrink:0;line-height:0;">${renderPixelArtSilhouette('rainbow', 0.55, 'sitting', 0.3)}</span>
@@ -2039,6 +2117,21 @@ function renderSettings(){
       </div>`).join('')}
     <button onclick="openPomodoroForm()" style="width:100%;background:none;border:1px dashed var(--lineS);color:var(--dim);border-radius:8px;padding:8px;cursor:pointer;font-family:inherit;font-size:12px;margin-top:4px;">${t('addTemplate')}</button>
   </div>`;
+
+  // 1b. Pending "おめかし or えさ?" choice -- shown right above the pixel
+  // art panel (where the "プレゼントがあるよ" banner sends the user) whenever
+  // a successful week is waiting to be spent. Only offers the categories
+  // that actually still have something left to unlock.
+  if(rewards.pendingChoices > 0 && (categoryHasRoom('outfit') || categoryHasRoom('food'))){
+    html += `<div class="panel" style="padding:16px;margin-bottom:16px;border:2px dashed var(--brassDim);">
+      <div class="settitle" style="margin-bottom:10px;">🎁 ${t('giftChoicePrompt')}</div>
+      <div style="display:flex;gap:10px;">
+        ${categoryHasRoom('outfit') ? `<button class="bigbtn primary" onclick="chooseReward('outfit')">${t('pixelArtRowOutfit')}</button>` : ''}
+        ${categoryHasRoom('food') ? `<button class="bigbtn pale" onclick="chooseReward('food')">${t('pixelArtRowFood')}</button>` : ''}
+      </div>
+      ${rewards.pendingChoices > 1 ? `<div style="font-size:11px;color:var(--faint);margin-top:10px;">${t('giftPendingCount')(rewards.pendingChoices - 1)}</div>` : ''}
+    </div>`;
+  }
 
   // 2. Pixel art. The 5 default cats keep their original, unlabeled pixrow
   // grid exactly as before the rewards feature. おめかし／えさ／伝説のねこ
