@@ -95,6 +95,10 @@ const I18N = {
     importConfirm: '現在のデータを上書きしてバックアップを読み込みますか？',
     importSuccess: 'バックアップを読み込みました!',
     importFail: 'ファイルの読み込みに失敗しました。正しいバックアップファイルか確認してください。',
+    resetSection: '⚠️ データの初期化',
+    resetSectionDesc: 'すべてのデータが削除されます　この操作は取り消せません',
+    resetAllBtn: '出荷時に戻す',
+    resetAllConfirm: '本当にすべてのデータを削除しますか？この操作は取り消せません。',
     addToHomeScreen: '📲 ホーム画面に追加',
     iphoneCase: 'iPhone（Safari）の場合',
     iphoneStep1: 'Safariでこのページを開く',
@@ -250,6 +254,10 @@ const I18N = {
     importConfirm: 'This will overwrite your current data with the backup. Continue?',
     importSuccess: 'Backup loaded!',
     importFail: 'Failed to load the file. Please check that it is a valid backup file.',
+    resetSection: '⚠️ Reset Data',
+    resetSectionDesc: 'All data will be deleted. This action cannot be undone.',
+    resetAllBtn: 'Restore to Factory Settings',
+    resetAllConfirm: 'Are you sure you want to delete all data? This cannot be undone.',
     addToHomeScreen: '📲 Add to Home Screen',
     iphoneCase: 'On iPhone (Safari)',
     iphoneStep1: 'Open this page in Safari',
@@ -847,6 +855,47 @@ function importDataFile(event){
     event.target.value = '';
   };
   reader.readAsText(file);
+}
+
+// ---------- factory reset (delete all data) ----------
+function resetAllData(){
+  if(!confirm(t('resetAllConfirm'))) return;
+
+  const finish = ()=>{
+    try{
+      localStorage.removeItem('tt_tasks');
+      localStorage.removeItem('tt_records');
+      localStorage.removeItem('tt_settings');
+      localStorage.removeItem('tt_last_tab');
+      localStorage.removeItem('tt_lastBackupAt');
+      localStorage.removeItem('tt_locations'); // legacy pre-migration key
+    }catch(e){}
+    try{ sessionStorage.removeItem('tt_backupReminderDismissed'); }catch(e){}
+    // Reload so every in-memory variable (tasks/records/settings/tab/pomodoro state/etc.)
+    // starts fresh from the now-empty storage, the same way it would for a new install.
+    location.reload();
+  };
+
+  // If cloud sync is active (fbUser is set for anonymous users too -- see the
+  // Firebase sync section above), the synced copy in Firestore has to be cleared
+  // as well. Otherwise the onSnapshot listener would just pull the old data back
+  // down again right after reload. `merge:true` recursively merges nested maps
+  // instead of replacing them (see fbPushNow's comment), so setting
+  // records:{} with merge wouldn't actually clear existing dates -- a full,
+  // non-merge overwrite is required. That would also drop server-only fields
+  // like `plan` (set by a Cloud Function, never by the client), so read the
+  // current value first and carry it forward untouched.
+  if(fbUser && window.__fb){
+    const f = window.__fb;
+    f.getDoc(fbDocRef()).then(snap=>{
+      const payload = { tasks: [], records: {}, settings: defaultSettings(), updatedAt: f.serverTimestamp() };
+      if(snap.exists() && snap.data().plan !== undefined) payload.plan = snap.data().plan;
+      return f.setDoc(fbDocRef(), payload);
+    }).catch(e=>console.error('firebase reset failed', e))
+      .finally(finish);
+  } else {
+    finish();
+  }
 }
 
 // ---------- actions ----------
@@ -1796,6 +1845,16 @@ function renderSettings(){
       <button class="btn-ghost" onclick="exportData()">${t('exportBtn')}</button>
       <label class="btn-ghost" style="text-align:center;cursor:pointer;">${t('importBtn')}<input type="file" accept="application/json" style="display:none;" onchange="importDataFile(event)"></label>
     </div>
+  </div>`;
+
+  // 6. Danger zone: factory reset. Kept as its own visually-separated panel at the
+  // very bottom of Settings (away from everyday toggles) so it isn't tapped by
+  // accident; resetAllData() itself also asks for a native OK/Cancel confirmation
+  // before doing anything irreversible.
+  html += `<div class="panel" style="padding:16px;margin-bottom:16px;border-color:var(--rust);">
+    <div class="settitle" style="color:var(--rust);">${t('resetSection')}</div>
+    <div style="font-size:12px;color:var(--dim);margin-bottom:14px;">${t('resetSectionDesc')}</div>
+    <button class="btn-ghost" style="width:100%;color:var(--rust);border-color:var(--rust);" onclick="resetAllData()">${t('resetAllBtn')}</button>
   </div>`;
 
   return html;
