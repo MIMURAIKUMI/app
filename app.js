@@ -1820,7 +1820,7 @@ function renderSettings(){
       <div class="tri">${showInstall?'▼':'▶'}</div>
     </div>
     ${showInstall? `<div class="collapsebody">
-      <div style="font-size:11px;color:var(--faint);margin-top:10px;">${t('installNote')}</div>
+      <div style="font-size:11px;color:var(--faint);margin-top:10px;margin-bottom:6px;">${t('installNote')}</div>
       <div style="font-size:12px;font-weight:700;margin-bottom:6px;">${t('iphoneCase')}</div>
       <ol class="installsteps">
         <li>${t('iphoneStep1')}</li>
