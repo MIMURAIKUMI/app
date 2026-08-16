@@ -2423,9 +2423,20 @@ function renderCalendar(rows, month, selectedDate){
   const todayStr = fmtDate(new Date());
   // achievedDates -> ⭐ (that day hit its combined daily goal), giftEarnedDates
   // -> 🎁 (that day's success also banked/unlocked a present) -- see
-  // evaluateRewards()'s design notes for how these get populated.
+  // evaluateRewards()'s design notes for how these get populated. Both only
+  // ever contain *fully-elapsed* days (evaluateRewards() only scores a day
+  // once it's over), so today itself never ends up in them until tomorrow's
+  // catch-up run. Show today's star/gift live instead of making the user
+  // wait until then: recompute today's own totals on every render and treat
+  // it as achieved the moment actualMin reaches goalMin, same threshold
+  // evaluateRewards() will use once today actually finishes.
   const achievedSet = new Set(rewards.achievedDates || []);
   const giftSet = new Set(rewards.giftEarnedDates || []);
+  const todayTotals = dateDayTotals(todayStr);
+  const todayLiveAchieved = todayTotals.hasGoal && todayTotals.actualMin >= todayTotals.goalMin;
+  // also preview the 🎁 the instant today's success would be the one that
+  // crosses GIFT_EVERY_DAYS, so the two badges stay in sync with each other.
+  const todayLiveGift = todayLiveAchieved && (rewards.giftProgressDays + 1) >= GIFT_EVERY_DAYS;
 
   const cells = [];
   for(let i=0;i<startWeekday;i++) cells.push(null);
@@ -2439,7 +2450,9 @@ function renderCalendar(rows, month, selectedDate){
     const isToday = dateStr === todayStr;
     const isSelected = dateStr === selectedDate;
     const cls = `cal-cell${isToday?' today':''}${isSelected?' selected':''}`;
-    const badges = `${achievedSet.has(dateStr) ? '<span class="cal-star">⭐</span>' : ''}${giftSet.has(dateStr) ? '<span class="cal-gift">🎁</span>' : ''}`;
+    const isAchieved = achievedSet.has(dateStr) || (isToday && todayLiveAchieved);
+    const gotGift = giftSet.has(dateStr) || (isToday && todayLiveGift);
+    const badges = `${isAchieved ? '<span class="cal-star">⭐</span>' : ''}${gotGift ? '<span class="cal-gift">🎁</span>' : ''}`;
     if(!info){
       return `<div class="${cls}" onclick="selectReportDate('${dateStr}')"><div class="cal-day">${d}${badges}</div></div>`;
     }
