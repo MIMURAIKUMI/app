@@ -1,7 +1,7 @@
 // Timecard - offline cache
 // Bump CACHE_NAME whenever index.html changes so users get the new version.
-const CACHE_NAME = 'habitcard-v21';
-const CORE_ASSETS = ['./', './index.html', './manifest.json', './pixel-arts.js'];
+const CACHE_NAME = 'habitcard-v22';
+const CORE_ASSETS = ['./', './index.html', './manifest.json', './pixel-arts.js', './app.js'];
 
 // Requests matching this list prefer the network (to get the latest version
 // when online), but race it against a short timeout -- so a slow/flaky
@@ -14,13 +14,23 @@ const CORE_ASSETS = ['./', './index.html', './manifest.json', './pixel-arts.js']
 // broken" reports (tab-memory, Google sign-in, etc. all live in these files,
 // so a stale cache meant old bugs kept reappearing after real fixes) — so on
 // a normal-speed connection this still behaves exactly like network-first.
+// NOTE: pixel-arts.js is intentionally NOT in this list. It's pure pixel-art
+// data (not logic), it's now loaded via <script defer> so it no longer blocks
+// first paint of the #__loadcats boot screen, and it will only grow as more
+// cats/stamps/decorations are added -- so it's treated like any other static
+// asset below (cache-first, revalidate in background) instead of paying the
+// network-first race on every launch. app.js (the actual app logic that used
+// to live inline in index.html) takes over pixel-arts.js's old spot here.
 function isAppCode(url) {
   return url.pathname.endsWith('/') ||
          url.pathname.endsWith('/index.html') ||
-         url.pathname.endsWith('/pixel-arts.js') ||
+         url.pathname.endsWith('/app.js') ||
          url.pathname.endsWith('/manifest.json');
 }
-const NETWORK_TIMEOUT_MS = 800;
+// Shortened from 800ms: a cold app-icon launch that's going to time out often
+// does so well under 800ms of waiting, and every ms spent waiting here is a
+// ms added to startup on a normal-but-not-instant connection too.
+const NETWORK_TIMEOUT_MS = 400;
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
