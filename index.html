@@ -126,6 +126,11 @@
   .stretchbar{position:relative; width:100%;}
   .stretchbar-back{position:absolute; top:0; filter:drop-shadow(1px 1px 0 var(--lineS));}
   .stretchbar-goal{position:absolute; top:0; transform:translateX(-50%) scale(0.8); transform-origin:center; z-index:0; opacity:0.9;}
+  /* The not-yet-reached fish should draw in front of the cat (instead of
+     being covered by its head as it stretches in close) so it stays clearly
+     visible right up to 100%. The "done" marker (eaten fish/bone) keeps the
+     base stacking. */
+  .stretchbar-goal[data-goal-state="fish"]{z-index:3;}
   .stretchbar-back{transition:left .35s steps(3); z-index:2;}
   .stretchbar-back.working{animation:stretchTug 1.2s steps(3) infinite;}
   .stretchbar-front{position:absolute; top:0; z-index:1;}
@@ -259,7 +264,7 @@
 // ---------- language detection ----------
 // Bump this string every time index.html is updated — shown in Settings so it's
 // easy to confirm which build is actually live (helps catch stale-deploy/cache issues).
-const APP_VERSION = 'v19-2026-08-15';
+const APP_VERSION = 'v20-2026-08-15';
 
 const LANG = (function(){
   const langs = (navigator.languages && navigator.languages.length) ? navigator.languages : [navigator.language || 'en'];
