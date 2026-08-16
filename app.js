@@ -1064,6 +1064,17 @@ function renderEquippedOutfitBadge(){
 let fbUser = null;
 let fbSaveTimer = null;
 let fbApplyingRemote = false;
+// True from the moment a local change schedules a Firestore push until that
+// push actually resolves (covers both the 1200ms debounce wait *and* the
+// setDoc() round-trip itself). While true, incoming onSnapshot callbacks are
+// ignored below -- otherwise a delete (task, record, whatever) sits in memory
+// only, and if a snapshot carrying the still-old server copy arrives before
+// our own debounced write reaches Firestore, fbApplyRemote() would silently
+// paste that stale (pre-delete) data back over the local state, making the
+// deleted item "not actually disappear". snap.metadata.hasPendingWrites only
+// covers the case where *our own* write already left the client, not this
+// earlier debounce window, so it isn't enough on its own.
+let fbPendingPush = false;
 let userPlan = 'free'; // 'free' | 'paid' — set only by the server (Cloud Function), never written by the client
 
 function fbDocRef(){
@@ -1072,15 +1083,18 @@ function fbDocRef(){
 }
 function fbScheduleSave(){
   if(!fbUser || fbApplyingRemote || !window.__fb) return;
+  fbPendingPush = true;
   clearTimeout(fbSaveTimer);
   fbSaveTimer = setTimeout(fbPushNow, 1200);
 }
 function fbPushNow(){
-  if(!fbUser || !window.__fb) return;
+  if(!fbUser || !window.__fb){ fbPendingPush = false; return; }
   const f = window.__fb;
   // merge:true is important — without it, each save would overwrite the whole
   // document and wipe out server-only fields like `plan` that Cloud Functions set.
-  f.setDoc(fbDocRef(), { tasks, records, settings, rewards, updatedAt: f.serverTimestamp() }, { merge: true }).catch(e=>console.error('firebase save failed', e));
+  f.setDoc(fbDocRef(), { tasks, records, settings, rewards, updatedAt: f.serverTimestamp() }, { merge: true })
+    .catch(e=>console.error('firebase save failed', e))
+    .finally(()=>{ fbPendingPush = false; });
 }
 function fbApplyRemote(data){
   if(!data) return;
@@ -1113,7 +1127,7 @@ async function fbLoadAndSubscribe(){
   }catch(e){ console.error('firebase initial load failed', e); }
 
   f.onSnapshot(ref, (snap)=>{
-    if(fbApplyingRemote || snap.metadata.hasPendingWrites) return;
+    if(fbApplyingRemote || fbPendingPush || snap.metadata.hasPendingWrites) return;
     if(snap.exists()) fbApplyRemote(snap.data());
   }, (e)=>console.error('firebase snapshot error', e));
 }
@@ -1266,6 +1280,7 @@ function resetAllData(){
   // freshly-seeded cloud doc. That race is why "出荷時に戻す" could
   // sometimes come back with the old task list instead of just "Sample".
   clearTimeout(fbSaveTimer);
+  fbPendingPush = false;
 
   // "出荷時に戻す" = land back on exactly what a brand-new install shows, which is
   // one "Sample" task (see factorySampleTasks()) -- not a totally empty list.
