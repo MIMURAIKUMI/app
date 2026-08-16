@@ -317,6 +317,7 @@ const I18N = {
     endNow: '今すぐ終了にする',
     noGoalSet: '目標未設定',
     hoursSuffix: '時間',
+    minutesSuffix: '分',
     noActiveTasks: '📍<br>有効なタスクがありません。<br>「Tasks」タブから追加、またはアーカイブを解除してください。',
     noActiveTasksShort: '有効なタスクがありません',
     statusWorking: '作業中', statusPaused: '中断中', statusNone: '未開始',
@@ -339,7 +340,7 @@ const I18N = {
     editTaskTitle: 'タスクを編集', addTaskTitle: 'タスクを追加',
     nameLabel: '名称', namePlaceholder: '例：ランニング、英単語学習',
     daysLabel: '曜日（未設定なら毎日）',
-    targetHoursLabel: '目標時間（1回あたり・時間）',
+    targetHoursLabel: '目標時間（1回あたり）',
     colorLabel: '色',
     cancel: 'キャンセル', save: '保存',
     editElapsedTitle: '経過時間を編集',
@@ -471,6 +472,7 @@ const I18N = {
     endNow: 'End now',
     noGoalSet: 'No goal set',
     hoursSuffix: 'h',
+    minutesSuffix: 'm',
     noActiveTasks: '📍<br>No active tasks.<br>Add one from the "Tasks" tab, or unarchive an existing task.',
     noActiveTasksShort: 'No active tasks',
     statusWorking: 'Working', statusPaused: 'Paused', statusNone: 'Not started',
@@ -493,7 +495,7 @@ const I18N = {
     editTaskTitle: 'Edit task', addTaskTitle: 'Add task',
     nameLabel: 'Name', namePlaceholder: 'e.g. Running, Vocabulary study',
     daysLabel: 'Days (leave unset for every day)',
-    targetHoursLabel: 'Target hours (per session)',
+    targetHoursLabel: 'Target time (per session)',
     colorLabel: 'Color',
     cancel: 'Cancel', save: 'Save',
     editElapsedTitle: 'Edit time',
@@ -1355,7 +1357,10 @@ function render(){
 
 function taskGoalHoursLabel(hours){
   if(!hours) return t('noGoalSet');
-  return (hours%1===0 ? `${hours}` : `${hours.toFixed(1)}`) + t('hoursSuffix');
+  const totalMin = Math.round(hours*60);
+  const h = Math.floor(totalMin/60);
+  const m = totalMin%60;
+  return t('hm')(h,m);
 }
 
 function renderPunch(today, todayStr, weekday, suggested){
@@ -1576,6 +1581,16 @@ function toggleDay(idx){
 function updateEditingField(key, value, isNum){
   editingTask[key] = isNum ? Number(value) : value;
 }
+function updateEditingTargetH(value){
+  const mins = Math.round(((editingTask.targetHours||0)%1)*60);
+  const h = Math.max(0, Number(value)||0);
+  editingTask.targetHours = h + mins/60;
+}
+function updateEditingTargetM(value){
+  const h = Math.floor(editingTask.targetHours||0);
+  let m = Math.max(0, Math.min(59, Number(value)||0));
+  editingTask.targetHours = h + m/60;
+}
 function saveTask(){
   if(!editingTask.name.trim()){ alert(t('enterNameAlert')); return; }
   const exists = tasks.some(t=>t.id===editingTask.id);
@@ -1599,7 +1614,14 @@ function renderTaskModal(){
         <div class="field"><label>${t('daysLabel')}</label><div class="days-picker">
           ${WEEKDAYS_JP.map((w,idx)=>`<button type="button" class="day-chip ${(e.days||[]).includes(idx)?'on':''}" onclick="toggleDay(${idx})">${w}</button>`).join('')}
         </div></div>
-        <div class="field"><label>${t('targetHoursLabel')}</label><input type="number" step="0.25" min="0" value="${e.targetHours}" oninput="updateEditingField('targetHours', this.value, true)"></div>
+        <div class="field"><label>${t('targetHoursLabel')}</label>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <input type="number" step="1" min="0" style="flex:1;" value="${Math.floor(e.targetHours||0)}" oninput="updateEditingTargetH(this.value)">
+            <span class="mono" style="font-size:12px;color:var(--dim);white-space:nowrap;">${t('hoursSuffix')}</span>
+            <input type="number" step="5" min="0" max="59" style="flex:1;" value="${Math.round(((e.targetHours||0)%1)*60)}" oninput="updateEditingTargetM(this.value)">
+            <span class="mono" style="font-size:12px;color:var(--dim);white-space:nowrap;">${t('minutesSuffix')}</span>
+          </div>
+        </div>
         <div class="field"><label>${t('colorLabel')}</label><div class="swatch-picker">
           ${TASK_COLORS.map(c=>`<div class="swatch ${e.color===c?'on':''}" style="background:${c};" onclick="updateEditingField('color','${c}'); render();">${e.color===c?'✓':''}</div>`).join('')}
         </div></div>
