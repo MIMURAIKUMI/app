@@ -79,7 +79,16 @@ const I18N = {
     purchaseThanks: '🎉 購入ありがとうございます！',
     settingsIntro: 'アプリの見た目や機能を項目別に調整します',
     appearancePixelArt: '🎨 ピクセルアート',
-        morePixelArtSoon: 'ピクセルアートは今後追加予定です<br>ピクセル素材参考：kohacu (https://kohacu.com/)',
+        morePixelArtSoon: 'あなたのがんばりでピクセルアートが増えます<br>猫のピクセル素材参考：kohacu (https://kohacu.com/)',
+    pixelArtRowDefaultCats: 'デフォルトのねこ5種',
+    pixelArtRowOutfit: 'おめかし',
+    pixelArtRowFood: 'えさ',
+    pixelArtRowLegendary: '伝説のねこ',
+    outfitNoneOption: 'なし',
+    rewardCountdown: (name,h) => `おめかしゲットまで「${name}」をあと${h}時間`,
+    legendaryCountdown: d => `1カ月達成まであと${d}日`,
+    rewardUnlockedToast: name => `🎁「${name}」を手に入れました！`,
+    legendaryUnlockedToast: '🌈 伝説のねこが仲間になりました！',
     appearanceBarStyle: '📊 進捗バーのスタイル',
     barStyleNames: {normal:'あるくねこ', stretch:'のびるねこ'},
     appearanceTheme: '🌈 カラーテーマ',
@@ -238,7 +247,16 @@ const I18N = {
     purchaseThanks: '🎉 Thanks for your purchase!',
     settingsIntro: "Adjust the app's look and features",
     appearancePixelArt: '🎨 Pixel Art',
-    morePixelArtSoon: 'More pixel art coming soon<br>Pixel art reference: kohacu (https://kohacu.com/)',
+    morePixelArtSoon: 'Your effort unlocks more pixel art<br>Cat pixel art reference: kohacu (https://kohacu.com/)',
+    pixelArtRowDefaultCats: 'Default cats (5)',
+    pixelArtRowOutfit: 'Outfits',
+    pixelArtRowFood: 'Food',
+    pixelArtRowLegendary: 'Legendary Cat',
+    outfitNoneOption: 'None',
+    rewardCountdown: (name,h) => `${h}h left until "${name}" unlocks a new look`,
+    legendaryCountdown: d => `${d} days left until you reach a full month`,
+    rewardUnlockedToast: name => `🎁 You got "${name}"!`,
+    legendaryUnlockedToast: '🌈 The Legendary Cat has joined you!',
     appearanceBarStyle: '📊 Progress Bar Style',
     barStyleNames: {normal:'Walking cat', stretch:'Growing cat'},
     appearanceTheme: '🌈  Color Theme',
@@ -357,9 +375,18 @@ function taskColor(taskId){
 // The actual sprite data (PIXEL_ART_GRIDS) lives in ./pixel-arts.js, loaded via
 // <script src="pixel-arts.js"> before this script tag, so new cats can be added
 // there without touching this file.
+// Looks up a cat by key across every cat registry -- the 5 default cats in
+// PIXEL_ART_GRIDS (pixel-arts.js) plus any unlocked ones in
+// LEGENDARY_ART_GRIDS (pixel-arts-legendary.js) -- so the Legendary Cat can
+// be selected/rendered through the exact same code paths as a normal cat.
+function getCatArt(key){
+  if(PIXEL_ART_GRIDS[key]) return PIXEL_ART_GRIDS[key];
+  if(typeof LEGENDARY_ART_GRIDS !== 'undefined' && LEGENDARY_ART_GRIDS[key]) return LEGENDARY_ART_GRIDS[key];
+  return null;
+}
 function renderPixelArt(key, cell, pose){
   cell = (cell || 1.8) * 1.5;
-  const art = PIXEL_ART_GRIDS[key] || PIXEL_ART_GRIDS[Object.keys(PIXEL_ART_GRIDS)[0]];
+  const art = getCatArt(key) || PIXEL_ART_GRIDS[Object.keys(PIXEL_ART_GRIDS)[0]];
   pose = (pose && art.poses[pose]) ? pose : 'sitting';
   const grid = art.poses[pose];
   const cellsHtml = grid.map(row => row.map(v=>{
@@ -368,8 +395,36 @@ function renderPixelArt(key, cell, pose){
   }).join('')).join('');
   return `<div style="display:grid;grid-template-columns:repeat(${grid[0].length},${cell}px);grid-template-rows:repeat(${grid.length},${cell}px);filter:drop-shadow(1px 1px 0 var(--lineS));">${cellsHtml}</div>`;
 }
+// Renders a cat as a flat silhouette (shape only, fixed dim color) instead of
+// its real colors -- used for the "not unlocked yet" Legendary Cat teaser in
+// the startup banner (see legendaryCountdownInfo()/render()).
+function renderPixelArtSilhouette(key, cell, pose, alpha){
+  cell = (cell || 1.8) * 1.5;
+  const art = getCatArt(key);
+  if(!art) return '';
+  pose = (pose && art.poses[pose]) ? pose : 'sitting';
+  const grid = art.poses[pose];
+  const color = `rgba(43,42,58,${alpha != null ? alpha : 0.35})`;
+  const cellsHtml = grid.map(row => row.map(v=>{
+    const bg = v ? color : 'transparent';
+    return `<div style="width:${cell}px;height:${cell}px;background:${bg};"></div>`;
+  }).join('')).join('');
+  return `<div style="display:grid;grid-template-columns:repeat(${grid[0].length},${cell}px);grid-template-rows:repeat(${grid.length},${cell}px);">${cellsHtml}</div>`;
+}
+// Renders a single static 16x16 icon (おめかし/えさ item), as opposed to
+// renderPixelArt() which renders an animated cat with walking/sitting poses.
+function renderIconArt(art, cell){
+  if(!art || !art.grid) return '';
+  cell = (cell || 1.3) * 1.5;
+  const grid = art.grid;
+  const cellsHtml = grid.map(row => row.map(v=>{
+    const bg = art.colors[v] || 'transparent';
+    return `<div style="width:${cell}px;height:${cell}px;background:${bg};"></div>`;
+  }).join('')).join('');
+  return `<div style="display:grid;grid-template-columns:repeat(${grid[0].length},${cell}px);grid-template-rows:repeat(${grid.length},${cell}px);filter:drop-shadow(1px 1px 0 var(--lineS));">${cellsHtml}</div>`;
+}
 function pixelArtName(key){
-  const art = PIXEL_ART_GRIDS[key];
+  const art = getCatArt(key);
   if(!art) return key;
   return (art.name && (art.name[LANG] || art.name.en)) || key;
 }
@@ -380,7 +435,7 @@ function pixelArtName(key){
 const _catMainColorCache = {};
 function catMainColor(key){
   if(_catMainColorCache[key]) return _catMainColorCache[key];
-  const art = PIXEL_ART_GRIDS[key];
+  const art = getCatArt(key);
   let color = '#FF9EC7';
   if(art){
     const grid = (art.poses && (art.poses.sitting || art.poses.walking)) || [];
@@ -395,7 +450,7 @@ function catMainColor(key){
   return color;
 }
 function catOutlineColor(key){
-  const art = PIXEL_ART_GRIDS[key];
+  const art = getCatArt(key);
   return (art && art.colors && art.colors[1]) || '#2B2A3A';
 }
 // Palette (1=outline, 2=main fur, 3=belly/highlight) to recolor the shared
@@ -403,7 +458,7 @@ function catOutlineColor(key){
 // `stretchColors` in pixel-arts.js (e.g. tuxedo); anything else falls back
 // to an auto-derived rough recolor so it "just works" for now.
 function stretchColorsFor(key){
-  const art = PIXEL_ART_GRIDS[key];
+  const art = getCatArt(key);
   if(art && art.stretchColors) return art.stretchColors;
   return {1: catOutlineColor(key), 2: catMainColor(key), 3: '#FFFFFF'};
 }
@@ -463,7 +518,7 @@ function renderStretchProgressBar(key, percent, isWorking, cell, showGoal, pause
   // the resting/sitting variant so the cat visibly settles down instead of
   // staying in its active reaching pose; if only the active variant was
   // drawn, fall back to that rather than jumping to the generic shape.
-  const art = PIXEL_ART_GRIDS[key];
+  const art = getCatArt(key);
   const customShape = paused ? (art && (art.stretchShapeSit || art.stretchShape)) : (art && art.stretchShape);
   const shape = customShape || ((paused && typeof CAT_STRETCH_SHAPE_SIT!=='undefined') ? CAT_STRETCH_SHAPE_SIT : CAT_STRETCH_SHAPE);
   if(!shape) return '';
@@ -521,7 +576,7 @@ function renderStretchProgressBar(key, percent, isWorking, cell, showGoal, pause
   // for the idle sway's peak) rather than a separate natural/capped pair.
   const midWidth = `calc(${backLeft} - ${frontRightPx}px + ${backAnchorPx + 3}px)`;
   const reachedGoal = percent>=100;
-  const goal = showGoal ? (reachedGoal ? (typeof STRETCH_GOAL_MARKER_DONE!=='undefined'?STRETCH_GOAL_MARKER_DONE:null) : STRETCH_GOAL_MARKER) : null;
+  const goal = showGoal ? (reachedGoal ? (typeof STRETCH_GOAL_MARKER_DONE!=='undefined'?STRETCH_GOAL_MARKER_DONE:null) : currentGoalFishArt()) : null;
   const goalHTML = goal ? renderStretchPart(goal.grid, goal.colors, cell) : '';
   return `<div class="stretchbar" style="height:${wrapH}px;" data-front-right="${frontRightPx}" data-back-anchor="${backAnchorPx}" data-right-margin="${rightMarginPx}">
     ${goal ? `<div class="stretchbar-goal" data-goal-state="${reachedGoal?'done':'fish'}" style="left:calc(100% - 10px); top:8px;">${goalHTML}</div>` : ''}
@@ -548,6 +603,23 @@ function defaultSettings(){
     theme:'original',
     barStyle:'normal',
     pomodoro:{ templates: POMODORO_DEFAULT_TEMPLATES.map(t=>({...t})), activeTemplateId:'std', autoEnable:false }
+  };
+}
+// ---------- rewards / gamification (weekly おめかし・えさ unlocks, monthly 伝説のねこ) ----------
+// See evaluateRewards() further down for the actual streak/unlock logic.
+// This is just the persisted shape + its defaults.
+const LEGENDARY_STREAK_DAYS = 30; // consecutive successful days needed to unlock the Legendary Cat
+function defaultRewards(){
+  return {
+    weeklyStreak: 0,            // consecutive successful weeks right now (resets to 0 on a missed week)
+    totalSuccessWeeks: 0,       // lifetime successful weeks -- indexes into REWARD_SEQUENCE
+    unlocked: [],               // flat "type:key" strings, e.g. "outfit:ribbon", in unlock order
+    lastEvaluatedWeekKey: null, // last fully-elapsed week (its Sunday, as fmtDate()) already scored
+    equippedOutfit: null,       // currently worn おめかし key, or null
+    equippedFood: null,         // currently equipped えさ key, or null
+    dailyStreak: 0,             // consecutive successful days right now (resets to 0 on a missed day)
+    lastEvaluatedDate: null,    // last fully-elapsed day already scored
+    legendaryUnlocked: false,
   };
 }
 // the single "Sample" task a brand-new install starts with -- also what
@@ -598,7 +670,7 @@ if(!settings.theme || !THEME_NAMES[settings.theme]) settings.theme = 'original';
 if(!settings.barStyle || !BAR_STYLE_NAMES[settings.barStyle]) settings.barStyle = 'normal';
 if(!settings.pomodoro) settings.pomodoro = defaultSettings().pomodoro;
 if(!settings.pomodoro.templates || !settings.pomodoro.templates.length) settings.pomodoro.templates = POMODORO_DEFAULT_TEMPLATES.map(t=>({...t}));
-if(!PIXEL_ART_GRIDS[settings.pixelArt]) settings.pixelArt = Object.keys(PIXEL_ART_GRIDS)[0];
+if(!getCatArt(settings.pixelArt)) settings.pixelArt = Object.keys(PIXEL_ART_GRIDS)[0];
 
 // migrate old single-record-per-day format to session-array format, drop money fields, rename location->task
 Object.keys(records).forEach(date=>{
@@ -615,6 +687,9 @@ Object.keys(records).forEach(date=>{
   records[date] = records[date].filter(s=> s.status!=='done' || (s.segments && s.segments.length>0));
   if(records[date].length===0) delete records[date];
 });
+
+let rewards = load('tt_rewards', null);
+rewards = Object.assign(defaultRewards(), rewards || {});
 
 let tab = load('tt_last_tab', 'punch');
 const TAB_ORDER = ['punch','tasks','report','settings']; // nav / スワイプ共通のタブ順序
@@ -674,6 +749,182 @@ function taskGoalHours(task){ return task && task.targetHours ? Number(task.targ
 function persistRecords(){ save('tt_records', records); fbScheduleSave(); }
 function persistTasks(){ save('tt_tasks', tasks); fbScheduleSave(); }
 function persistSettings(){ save('tt_settings', settings); fbScheduleSave(); }
+function persistRewards(){ save('tt_rewards', rewards); fbScheduleSave(); }
+
+// ---------- rewards / gamification logic ----------
+// Design notes (placeholder logic -- tune freely once the real content design
+// is locked in; see pixel-arts-outfits.js / pixel-arts-legendary.js for the
+// (currently dummy) art these unlock):
+// - A "week" runs Sun→Sat (WEEKDAYS[0] is SUN). A week only counts once it
+//   has fully elapsed -- we only ever score weeks strictly before the
+//   current one.
+// - A week is "successful" when, summed across every active task that has a
+//   goal set, that week's actual tracked time meets or beats the week's
+//   target time (target = targetHours × the number of that task's scheduled
+//   days that fell within the week). Each successful week unlocks the next
+//   item in REWARD_SEQUENCE: 3 おめかし (ribbon/collar/crown), then 4 えさ.
+// - A "day" counts toward the Legendary Cat streak once it has fully
+//   elapsed, had at least one task scheduled on it, and the tracked time for
+//   that day's scheduled tasks met the combined daily target.
+//   LEGENDARY_STREAK_DAYS such days (not necessarily calendar-consecutive
+//   weeks -- just consecutive as *counted* days) unlocks 伝説のねこ.
+function activeGoalTasks(){
+  return tasks.filter(tk => !tk.archived && Number(tk.targetHours) > 0);
+}
+// Combined goal/actual minutes across every active goal task scheduled on dateStr.
+function dateDayTotals(dateStr){
+  const wd = new Date(dateStr + 'T00:00:00').getDay();
+  const sessions = records[dateStr] || [];
+  let goalMin = 0, actualMin = 0;
+  activeGoalTasks().forEach(tk=>{
+    const days = tk.days && tk.days.length ? tk.days : null; // null = every day
+    if(days && !days.includes(wd)) return;
+    goalMin += Number(tk.targetHours) * 60;
+    actualMin += sessions.filter(s=>s.taskId===tk.id).reduce((sum,s)=>sum + computeWorkMs(s), 0) / 60000;
+  });
+  return { goalMin, actualMin, hasGoal: goalMin > 0 };
+}
+function weekStartStrFor(dateStr){
+  const d = new Date(dateStr + 'T00:00:00');
+  d.setDate(d.getDate() - d.getDay());
+  return fmtDate(d);
+}
+function addDaysStr(dateStr, n){
+  const d = new Date(dateStr + 'T00:00:00');
+  d.setDate(d.getDate() + n);
+  return fmtDate(d);
+}
+function weekRangeDates(weekStartStr){
+  const out = [];
+  for(let i=0;i<7;i++) out.push(addDaysStr(weekStartStr, i));
+  return out;
+}
+function evaluateWeekSuccess(weekStartStr){
+  let goalMin = 0, actualMin = 0;
+  weekRangeDates(weekStartStr).forEach(ds=>{
+    const totals = dateDayTotals(ds);
+    goalMin += totals.goalMin; actualMin += totals.actualMin;
+  });
+  return goalMin > 0 && actualMin >= goalMin;
+}
+function unlockNextReward(){
+  const seq = (typeof REWARD_SEQUENCE !== 'undefined') ? REWARD_SEQUENCE : [];
+  const idx = rewards.totalSuccessWeeks - 1; // the week just scored unlocks this index
+  if(idx < 0 || idx >= seq.length) return null; // nothing left to unlock (or bad index)
+  const item = seq[idx];
+  const flatKey = `${item.type}:${item.key}`;
+  if(!rewards.unlocked.includes(flatKey)) rewards.unlocked.push(flatKey);
+  return item;
+}
+function rewardItemName(item){
+  if(!item) return '';
+  const art = item.type === 'outfit' ? (typeof OUTFIT_ART!=='undefined' && OUTFIT_ART[item.key]) : (typeof FOOD_ART!=='undefined' && FOOD_ART[item.key]);
+  return art ? (art.name[LANG] || art.name.en) : item.key;
+}
+// The item currently shown as the "goal fish" at the end of the progress bar
+// while it hasn't been reached yet: whatever えさ is equipped, or the
+// original fish if none is (see FOOD_ART's comment in pixel-arts-outfits.js).
+function currentGoalFishArt(){
+  if(rewards.equippedFood && typeof FOOD_ART!=='undefined' && FOOD_ART[rewards.equippedFood]) return FOOD_ART[rewards.equippedFood];
+  return (typeof STRETCH_GOAL_MARKER!=='undefined') ? STRETCH_GOAL_MARKER : null;
+}
+// Walks forward from the last-evaluated week/day up to (but excluding) the
+// current one, catching up on however many weeks/days elapsed since the app
+// was last opened. Safe to call every time the app boots; it's a no-op once
+// already caught up.
+function evaluateRewards(){
+  const todayStr = fmtDate(new Date());
+  const thisWeekStart = weekStartStrFor(todayStr);
+
+  if(rewards.lastEvaluatedWeekKey === null){
+    // first run ever -- nothing to backfill, just mark everything up to (but
+    // excluding) the current week as "already evaluated".
+    rewards.lastEvaluatedWeekKey = addDaysStr(thisWeekStart, -7);
+  } else {
+    let cursor = addDaysStr(rewards.lastEvaluatedWeekKey, 7);
+    let guard = 0;
+    while(cursor < thisWeekStart && guard < 260){ // ~5 years of catch-up, just as a sanity cap
+      if(evaluateWeekSuccess(cursor)){
+        rewards.weeklyStreak += 1;
+        rewards.totalSuccessWeeks += 1;
+        const unlocked = unlockNextReward();
+        if(unlocked) showToast(t('rewardUnlockedToast')(rewardItemName(unlocked)));
+      } else {
+        rewards.weeklyStreak = 0;
+      }
+      rewards.lastEvaluatedWeekKey = cursor;
+      cursor = addDaysStr(cursor, 7);
+      guard++;
+    }
+  }
+
+  if(rewards.lastEvaluatedDate === null){
+    rewards.lastEvaluatedDate = addDaysStr(todayStr, -1);
+  } else {
+    let cursor = addDaysStr(rewards.lastEvaluatedDate, 1);
+    let guard = 0;
+    while(cursor < todayStr && guard < 1800){ // ~5 years of catch-up
+      const totals = dateDayTotals(cursor);
+      if(totals.hasGoal){
+        if(totals.actualMin >= totals.goalMin) rewards.dailyStreak += 1;
+        else rewards.dailyStreak = 0;
+      }
+      if(!rewards.legendaryUnlocked && rewards.dailyStreak >= LEGENDARY_STREAK_DAYS){
+        rewards.legendaryUnlocked = true;
+        showToast(t('legendaryUnlockedToast'));
+      }
+      rewards.lastEvaluatedDate = cursor;
+      cursor = addDaysStr(cursor, 1);
+      guard++;
+    }
+  }
+
+  persistRewards();
+}
+// How many hours are left, in the currently in-progress week, until the task
+// closest to hitting its own weekly goal actually gets there -- shown in the
+// startup banner as a little nudge. Only considers days that have already
+// happened this week (not future scheduled days that haven't come up yet
+// this week), and only while there are still rewards left to unlock.
+function nextRewardCountdownInfo(){
+  const seq = (typeof REWARD_SEQUENCE !== 'undefined') ? REWARD_SEQUENCE : [];
+  if(rewards.totalSuccessWeeks >= seq.length) return null; // everything already unlocked
+  const todayStr = fmtDate(new Date());
+  const elapsedDates = weekRangeDates(weekStartStrFor(todayStr)).filter(ds => ds <= todayStr);
+  let bestTask = null, bestRemainingMin = Infinity;
+  activeGoalTasks().forEach(tk=>{
+    let goalMin = 0, actualMin = 0;
+    elapsedDates.forEach(ds=>{
+      const wd = new Date(ds + 'T00:00:00').getDay();
+      const days = tk.days && tk.days.length ? tk.days : null;
+      if(days && !days.includes(wd)) return;
+      goalMin += Number(tk.targetHours) * 60;
+      actualMin += (records[ds] || []).filter(s=>s.taskId===tk.id).reduce((sum,s)=>sum + computeWorkMs(s), 0) / 60000;
+    });
+    const remaining = goalMin - actualMin;
+    if(goalMin > 0 && remaining > 0 && remaining < bestRemainingMin){ bestRemainingMin = remaining; bestTask = tk; }
+  });
+  if(!bestTask) return null;
+  return { taskName: bestTask.name, hoursRemaining: Math.max(1, Math.ceil(bestRemainingMin / 60)) };
+}
+function legendaryCountdownInfo(){
+  if(rewards.legendaryUnlocked) return null;
+  return { daysRemaining: Math.max(0, LEGENDARY_STREAK_DAYS - rewards.dailyStreak) };
+}
+function selectOutfit(key){ rewards.equippedOutfit = key || null; persistRewards(); render(); }
+function selectFood(key){ rewards.equippedFood = key || null; persistRewards(); render(); }
+// Small badge showing the currently-worn おめかし item, overlaid on the
+// Timecard tab's cat/progress area. Placeholder positioning (top-right
+// corner of the whole progress bar) rather than composited onto the cat
+// sprite itself, since the real accessory art (and per-cat anchor points)
+// hasn't been drawn yet -- see pixel-arts-outfits.js.
+function renderEquippedOutfitBadge(){
+  const key = rewards.equippedOutfit;
+  if(!key || typeof OUTFIT_ART === 'undefined' || !OUTFIT_ART[key]) return '';
+  const art = OUTFIT_ART[key];
+  const name = escapeHtml(art.name[LANG] || art.name.en);
+  return `<div title="${name}" style="position:absolute;top:-6px;right:6px;z-index:5;">${renderIconArt(art, 1.3)}</div>`;
+}
 
 // ---------- Firebase sync (Firestore doc per user; anonymous by default, Google to sync across devices) ----------
 let fbUser = null;
@@ -695,7 +946,7 @@ function fbPushNow(){
   const f = window.__fb;
   // merge:true is important — without it, each save would overwrite the whole
   // document and wipe out server-only fields like `plan` that Cloud Functions set.
-  f.setDoc(fbDocRef(), { tasks, records, settings, updatedAt: f.serverTimestamp() }, { merge: true }).catch(e=>console.error('firebase save failed', e));
+  f.setDoc(fbDocRef(), { tasks, records, settings, rewards, updatedAt: f.serverTimestamp() }, { merge: true }).catch(e=>console.error('firebase save failed', e));
 }
 function fbApplyRemote(data){
   if(!data) return;
@@ -704,13 +955,15 @@ function fbApplyRemote(data){
   if(data.records) records = data.records;
   if(data.settings){
     settings = data.settings;
-    if(!PIXEL_ART_GRIDS[settings.pixelArt]) settings.pixelArt = Object.keys(PIXEL_ART_GRIDS)[0];
+    if(!getCatArt(settings.pixelArt)) settings.pixelArt = Object.keys(PIXEL_ART_GRIDS)[0];
     if(!settings.theme || !THEME_NAMES[settings.theme]) settings.theme = 'original';
     if(!settings.pomodoro || !settings.pomodoro.templates || !settings.pomodoro.templates.length) settings.pomodoro = defaultSettings().pomodoro;
   }
+  if(data.rewards) rewards = Object.assign(defaultRewards(), data.rewards);
   userPlan = data.plan === 'paid' ? 'paid' : 'free';
-  save('tt_tasks', tasks); save('tt_records', records); save('tt_settings', settings);
+  save('tt_tasks', tasks); save('tt_records', records); save('tt_settings', settings); save('tt_rewards', rewards);
   fbApplyingRemote = false;
+  evaluateRewards();
   applyTheme(); render();
 }
 async function fbLoadAndSubscribe(){
@@ -821,7 +1074,7 @@ function renderBackupReminder(){
 }
 
 function exportData(){
-  const payload = { tasks, records, settings, exportedAt: new Date().toISOString() };
+  const payload = { tasks, records, settings, rewards, exportedAt: new Date().toISOString() };
   const blob = new Blob([JSON.stringify(payload, null, 2)], {type:'application/json'});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -841,9 +1094,10 @@ function importDataFile(event){
       tasks = payload.tasks || [];
       records = payload.records || {};
       settings = payload.settings || defaultSettings();
-      if(!PIXEL_ART_GRIDS[settings.pixelArt]) settings.pixelArt=Object.keys(PIXEL_ART_GRIDS)[0];
+      if(!getCatArt(settings.pixelArt)) settings.pixelArt=Object.keys(PIXEL_ART_GRIDS)[0];
       if(!settings.theme || !THEME_NAMES[settings.theme]) settings.theme='original';
       if(!settings.pomodoro || !settings.pomodoro.templates || !settings.pomodoro.templates.length) settings.pomodoro = defaultSettings().pomodoro;
+      rewards = Object.assign(defaultRewards(), payload.rewards || {});
       Object.keys(records).forEach(date=>{
         if(!Array.isArray(records[date])){
           const old = records[date];
@@ -851,7 +1105,8 @@ function importDataFile(event){
           records[date] = [old];
         }
       });
-      persistTasks(); persistRecords(); persistSettings();
+      persistTasks(); persistRecords(); persistSettings(); persistRewards();
+      evaluateRewards();
       markBackedUp();
       render();
       alert(t('importSuccess'));
@@ -881,6 +1136,7 @@ function resetAllData(){
       localStorage.removeItem('tt_settings');
       localStorage.removeItem('tt_last_tab');
       localStorage.removeItem('tt_lastBackupAt');
+      localStorage.removeItem('tt_rewards');
       localStorage.removeItem('tt_locations'); // legacy pre-migration key
     }catch(e){}
     try{ sessionStorage.removeItem('tt_backupReminderDismissed'); }catch(e){}
@@ -901,7 +1157,7 @@ function resetAllData(){
   if(fbUser && window.__fb){
     const f = window.__fb;
     f.getDoc(fbDocRef()).then(snap=>{
-      const payload = { tasks: seedTasks, records: {}, settings: defaultSettings(), updatedAt: f.serverTimestamp() };
+      const payload = { tasks: seedTasks, records: {}, settings: defaultSettings(), rewards: defaultRewards(), updatedAt: f.serverTimestamp() };
       if(snap.exists() && snap.data().plan !== undefined) payload.plan = snap.data().plan;
       return f.setDoc(fbDocRef(), payload);
     }).catch(e=>console.error('firebase reset failed', e))
@@ -1099,6 +1355,22 @@ function render(){
     </div>`;
   }
 
+  // gamification nudges: how close the user is to the next おめかし/えさ
+  // unlock, and (until unlocked) a silhouette-teased countdown to the
+  // Legendary Cat. Shown on every tab, same as the unfinished-records
+  // banner above.
+  const rewardInfo = nextRewardCountdownInfo();
+  const legendaryInfo = legendaryCountdownInfo();
+  if(rewardInfo || legendaryInfo){
+    html += `<div class="panel" style="padding:12px 14px;margin-bottom:16px;font-size:12px;color:var(--dim);display:flex;flex-direction:column;gap:8px;">
+      ${rewardInfo ? `<div>🎀 ${t('rewardCountdown')(escapeHtml(rewardInfo.taskName), rewardInfo.hoursRemaining)}</div>` : ''}
+      ${legendaryInfo ? `<div style="display:flex;align-items:center;gap:8px;">
+          <span style="flex-shrink:0;line-height:0;">${renderPixelArtSilhouette('rainbow', 0.55, 'sitting', 0.3)}</span>
+          <span>🌈 ${t('legendaryCountdown')(legendaryInfo.daysRemaining)}</span>
+        </div>` : ''}
+    </div>`;
+  }
+
   html += `<nav>
     <button class="${tab==='punch'?'active':''}" onclick="setTab('punch')">Timecard</button>
     <button class="${tab==='tasks'?'active':''}" onclick="setTab('tasks')">Tasks</button>
@@ -1214,7 +1486,7 @@ function renderPunch(today, todayStr, weekday, suggested){
   // Match stretch mode: the fish/bone only appears once a session has
   // actually started (はじめる pressed), not before.
   const walkShowGoal = status!=='none';
-  const walkGoal = !walkShowGoal ? null : (walkReachedGoal ? (typeof STRETCH_GOAL_MARKER_DONE!=='undefined'?STRETCH_GOAL_MARKER_DONE:null) : (typeof STRETCH_GOAL_MARKER!=='undefined'?STRETCH_GOAL_MARKER:null));
+  const walkGoal = !walkShowGoal ? null : (walkReachedGoal ? (typeof STRETCH_GOAL_MARKER_DONE!=='undefined'?STRETCH_GOAL_MARKER_DONE:null) : currentGoalFishArt());
   const walkGoalHTML = walkGoal ? renderStretchPart(walkGoal.grid, walkGoal.colors, 2.5) : '';
   const barHTML = stretchMode
     ? renderStretchProgressBar(settings.pixelArt, stretchDisplayPercent, status==='working', undefined, undefined, status==='paused')
@@ -1231,7 +1503,7 @@ function renderPunch(today, todayStr, weekday, suggested){
     </div>
     <div id="clockDisplay" class="clock" style="color:${status==='none'?'var(--faint)':sColor};">${msToHMS(ms)}</div>
     <div class="projlist">${chipsHtml}</div>
-    <div class="progresswrap${barStyleIsStretch?' stretch':''}">${barHTML}</div>
+    <div class="progresswrap${barStyleIsStretch?' stretch':''}" style="position:relative;">${barHTML}${renderEquippedOutfitBadge()}</div>
     <div class="goalline">${hmLabel(ms)} / ${taskGoalHoursLabel(goalHours)}${t('parenWrap')(escapeHtml(currentTask?currentTask.name:''))}</div>
     ${buttonsHtml}
   </div>`;
@@ -1744,9 +2016,19 @@ function renderSettings(){
     <button onclick="openPomodoroForm()" style="width:100%;background:none;border:1px dashed var(--lineS);color:var(--dim);border-radius:8px;padding:8px;cursor:pointer;font-family:inherit;font-size:12px;margin-top:4px;">${t('addTemplate')}</button>
   </div>`;
 
-  // 2. Pixel art
+  // 2. Pixel art -- 4 rows: the 5 default cats (grid, as before), then
+  // おめかし / えさ / 伝説のねこ as dropdowns (kept as <select> rather than
+  // another pixrow grid so this panel doesn't get long once a user has
+  // unlocked several items). Each of the 3 reward rows only appears once the
+  // user has actually unlocked something in it.
+  const unlockedOutfitKeys = rewards.unlocked.filter(k=>k.startsWith('outfit:')).map(k=>k.slice(7)).filter(k=>typeof OUTFIT_ART!=='undefined' && OUTFIT_ART[k]);
+  const unlockedFoodKeys = rewards.unlocked.filter(k=>k.startsWith('food:')).map(k=>k.slice(5)).filter(k=>typeof FOOD_ART!=='undefined' && FOOD_ART[k]);
+  const legendaryKeys = (rewards.legendaryUnlocked && typeof LEGENDARY_ART_GRIDS!=='undefined') ? Object.keys(LEGENDARY_ART_GRIDS) : [];
+
   html += `<div class="panel" style="padding:16px;margin-bottom:16px;">
     <div class="settitle">${t('appearancePixelArt')}</div>
+
+    <div style="font-size:11px;color:var(--dim);font-weight:700;margin-bottom:8px;">${t('pixelArtRowDefaultCats')}</div>
     <div class="pixrow">
       ${Object.keys(PIXEL_ART_GRIDS).map((key)=>`
         <div class="pixcard ${settings.pixelArt===key?'on':''}" onclick="selectPixelArt('${key}')">
@@ -1754,7 +2036,37 @@ function renderSettings(){
           <div class="name">${escapeHtml(pixelArtName(key))}</div>
         </div>`).join('')}
     </div>
-    <div style="font-size:11px;color:var(--faint);margin-top:10px;">${t('morePixelArtSoon')}</div>
+
+    ${unlockedOutfitKeys.length ? `
+    <div style="font-size:11px;color:var(--dim);font-weight:700;margin:16px 0 8px;">${t('pixelArtRowOutfit')}</div>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <div style="width:30px;height:30px;flex-shrink:0;display:flex;align-items:center;justify-content:center;">${rewards.equippedOutfit && OUTFIT_ART[rewards.equippedOutfit] ? renderIconArt(OUTFIT_ART[rewards.equippedOutfit],1.0) : ''}</div>
+      <select onchange="selectOutfit(this.value)" style="flex:1;">
+        <option value="" ${!rewards.equippedOutfit?'selected':''}>${t('outfitNoneOption')}</option>
+        ${unlockedOutfitKeys.map(k=>`<option value="${k}" ${rewards.equippedOutfit===k?'selected':''}>${escapeHtml(OUTFIT_ART[k].name[LANG]||OUTFIT_ART[k].name.en)}</option>`).join('')}
+      </select>
+    </div>` : ''}
+
+    ${unlockedFoodKeys.length ? `
+    <div style="font-size:11px;color:var(--dim);font-weight:700;margin:16px 0 8px;">${t('pixelArtRowFood')}</div>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <div style="width:30px;height:30px;flex-shrink:0;display:flex;align-items:center;justify-content:center;">${rewards.equippedFood && FOOD_ART[rewards.equippedFood] ? renderIconArt(FOOD_ART[rewards.equippedFood],1.0) : ''}</div>
+      <select onchange="selectFood(this.value)" style="flex:1;">
+        <option value="" ${!rewards.equippedFood?'selected':''}>${t('outfitNoneOption')}</option>
+        ${unlockedFoodKeys.map(k=>`<option value="${k}" ${rewards.equippedFood===k?'selected':''}>${escapeHtml(FOOD_ART[k].name[LANG]||FOOD_ART[k].name.en)}</option>`).join('')}
+      </select>
+    </div>` : ''}
+
+    ${legendaryKeys.length ? `
+    <div style="font-size:11px;color:var(--dim);font-weight:700;margin:16px 0 8px;">${t('pixelArtRowLegendary')}</div>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <div style="width:30px;height:30px;flex-shrink:0;display:flex;align-items:center;justify-content:center;">${renderPixelArt(settings.pixelArt && LEGENDARY_ART_GRIDS[settings.pixelArt] ? settings.pixelArt : legendaryKeys[0], 0.7, 'sitting')}</div>
+      <select onchange="selectPixelArt(this.value)" style="flex:1;">
+        ${legendaryKeys.map(k=>`<option value="${k}" ${settings.pixelArt===k?'selected':''}>${escapeHtml(LEGENDARY_ART_GRIDS[k].name[LANG]||LEGENDARY_ART_GRIDS[k].name.en)}</option>`).join('')}
+      </select>
+    </div>` : ''}
+
+    <div style="font-size:11px;color:var(--faint);margin-top:14px;">${t('morePixelArtSoon')}</div>
   </div>`;
 
   // 2b. Progress bar style
@@ -2240,7 +2552,7 @@ function tickClock(){
             if(wantState==='done'){
               triggerGoalDone(goalEl, 500);
             } else {
-              const marker = typeof STRETCH_GOAL_MARKER!=='undefined' ? STRETCH_GOAL_MARKER : null;
+              const marker = currentGoalFishArt();
               if(marker){ goalEl.innerHTML = renderStretchPart(marker.grid, marker.colors, 2.5); goalEl.dataset.goalState = wantState; }
             }
           }
@@ -2269,7 +2581,7 @@ function tickClock(){
           if(wantState==='done'){
             triggerGoalDone(goalEl, 500);
           } else {
-            const marker = typeof STRETCH_GOAL_MARKER!=='undefined' ? STRETCH_GOAL_MARKER : null;
+            const marker = currentGoalFishArt();
             if(marker){ goalEl.innerHTML = renderStretchPart(marker.grid, marker.colors, 2.5); goalEl.dataset.goalState = wantState; }
           }
         }
@@ -2284,6 +2596,7 @@ function tickClock(){
   }
 }
 setInterval(tickClock, 1000);
+evaluateRewards(); // catch up any weeks/days that elapsed since the app was last opened
 applyTheme();
 render();
 
