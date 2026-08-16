@@ -793,16 +793,19 @@ function renderStretchProgressBar(key, percent, isWorking, cell, showGoal, pause
   // shorter than the others at the same percent.
   const goalClearancePx = showGoal ? 20 : 0;
   const rightMarginPx = boxWidthPx - backAnchorPx + goalClearancePx;
-  const backLeft = `min(calc(${percent}% - ${backAnchorPx}px), calc(100% - ${rightMarginPx}px))`;
-  // Natural (uncapped) width includes a small +3px buffer so the body still
-  // reaches the head even while the head's idle sway (stretchTug) nudges it
-  // a couple px right. Once capped at the goal, the head stops moving, so
-  // the buffer instead needs to close the exact gap between the body's
-  // anchor point and the head art's own start (backAnchorPx), plus a couple
-  // px for the sway's peak.
-  const midWidthNatural = `calc(${percent}% - ${frontRightPx}px + 3px)`;
-  const midWidthCapped = `calc(100% - ${rightMarginPx}px + ${backAnchorPx + 2}px - ${frontRightPx}px)`;
-  const midWidth = `min(${midWidthNatural}, ${midWidthCapped})`;
+  // Scale the whole 0-100% range linearly onto [restPos, maxStretchPos]
+  // instead of capping: restPos (-backAnchorPx) is where the back element
+  // sits at percent=0, and maxStretchPos (100% - rightMarginPx) is the
+  // furthest it should ever stretch (clear of the goal marker). This way the
+  // cat keeps stretching the whole time and reaches its maximum exactly at
+  // percent=100, instead of hitting that max early and sitting still for
+  // however long is left.
+  const backLeft = `calc(-${backAnchorPx}px + (100% - ${rightMarginPx}px + ${backAnchorPx}px) * ${percent} / 100)`;
+  // The body always spans from the front's right edge to the back's anchor
+  // point, so derive its width directly from backLeft (same relation as
+  // before: width = backLeft - frontRightPx + backAnchorPx + a small buffer
+  // for the idle sway's peak) rather than a separate natural/capped pair.
+  const midWidth = `calc(${backLeft} - ${frontRightPx}px + ${backAnchorPx + 3}px)`;
   const reachedGoal = percent>=100;
   const goal = showGoal ? (reachedGoal ? (typeof STRETCH_GOAL_MARKER_DONE!=='undefined'?STRETCH_GOAL_MARKER_DONE:null) : STRETCH_GOAL_MARKER) : null;
   const goalHTML = goal ? renderStretchPart(goal.grid, goal.colors, cell) : '';
@@ -1431,26 +1434,26 @@ function renderPunch(today, todayStr, weekday, suggested){
   const walkSpriteWidthPx = 16 * walkCellActual;
   const walkRightExtendPx = walkSpriteWidthPx * 0.7;
   const walkGoalClearancePx = 15;
-  const walkCappedLeft = `min(${percent}%, calc(100% - ${walkRightExtendPx}px - ${walkGoalClearancePx}px))`;
+  // The bar itself (progressfill) and the cat sprite are intentionally on
+  // separate scales: the bar always fills to literally 100% width at the
+  // goal, while the cat has its own "100%" -- the position just clear of the
+  // goal marker, which reads as it having walked up to and eaten the fish.
+  // Scaling the whole 0-100% range onto [0, that position] means the cat
+  // keeps walking the entire time and arrives exactly at the goal instant,
+  // instead of arriving early and then just standing there.
+  const walkCappedLeft = `calc((100% - ${walkRightExtendPx}px - ${walkGoalClearancePx}px) * ${percent} / 100)`;
   const walkReachedGoal = percent>=100;
   // Match stretch mode: the fish/bone only appears once a session has
   // actually started (はじめる pressed), not before.
   const walkShowGoal = status!=='none';
   const walkGoal = !walkShowGoal ? null : (walkReachedGoal ? (typeof STRETCH_GOAL_MARKER_DONE!=='undefined'?STRETCH_GOAL_MARKER_DONE:null) : (typeof STRETCH_GOAL_MARKER!=='undefined'?STRETCH_GOAL_MARKER:null));
   const walkGoalHTML = walkGoal ? renderStretchPart(walkGoal.grid, walkGoal.colors, 2.5) : '';
-  // The fish/bone marker sits at left:calc(100% - 10px) and has some width of
-  // its own, so an uncapped width:percent% fill visually runs in underneath
-  // it once percent nears/hits 100 -- e.g. sitting there for the whole final
-  // minute of a short goal. Cap it the same way the walking cat sprite above
-  // is already capped, leaving clear space before the marker.
-  const walkFillClearancePx = walkShowGoal ? 20 : 0;
-  const walkFillWidth = `min(${percent}%, calc(100% - ${walkFillClearancePx}px))`;
   const barHTML = stretchMode
     ? renderStretchProgressBar(settings.pixelArt, stretchDisplayPercent, status==='working', undefined, undefined, status==='paused')
     : (barStyleIsStretch
         ? `<div class="catwalk stretch-idle" style="left:0%;">${renderPixelArt(settings.pixelArt, 1.8, 'sitting')}</div>`
         : `<div class="catwalk ${status==='working'?'walking':''}" style="left:${walkCappedLeft};">${renderPixelArt(settings.pixelArt, 1.8, status==='working'?'walking':'sitting')}</div>
-       <div class="progresstrack"><div class="progressfill" style="width:${walkFillWidth};"></div></div>
+       <div class="progresstrack"><div class="progressfill" style="width:${percent}%;"></div></div>
        ${walkGoal ? `<div class="stretchbar-goal" data-goal-state="${walkReachedGoal?'done':'fish'}" style="left:calc(100% - 10px); top:-37px;">${walkGoalHTML}</div>` : ''}`);
 
   let html = `<div class="panel card-punch">
@@ -2428,10 +2431,14 @@ function tickClock(){
         const rightMarginPx = parseFloat(sb.dataset.rightMargin)||0;
         const mid = sb.querySelector('.stretchbar-mid');
         const back = sb.querySelector('.stretchbar-back');
-        const midWidthNatural = `calc(${displayPercent}% - ${frontRightPx}px + 3px)`;
-        const midWidthCapped = `calc(100% - ${rightMarginPx}px + ${backAnchorPx + 2}px - ${frontRightPx}px)`;
-        if(mid) mid.style.width = `min(${midWidthNatural}, ${midWidthCapped})`;
-        if(back) back.style.left = `min(calc(${displayPercent}% - ${backAnchorPx}px), calc(100% - ${rightMarginPx}px))`;
+        // Same linear interpolation as the initial render: scale the whole
+        // 0-100% range onto [restPos, maxStretchPos] so the cat keeps
+        // stretching continuously and reaches its max exactly at 100%,
+        // instead of capping early and sitting still for the remainder.
+        const backLeft = `calc(-${backAnchorPx}px + (100% - ${rightMarginPx}px + ${backAnchorPx}px) * ${displayPercent} / 100)`;
+        const midWidth = `calc(${backLeft} - ${frontRightPx}px + ${backAnchorPx + 3}px)`;
+        if(mid) mid.style.width = midWidth;
+        if(back) back.style.left = backLeft;
         const goalEl = sb.querySelector('.stretchbar-goal');
         if(goalEl){
           const reachedGoal = percent>=100;
@@ -2450,19 +2457,18 @@ function tickClock(){
       }
     } else {
       const fill = document.querySelector('.progressfill');
-      // Cap the fill the same way the cat sprite below is capped: uncapped,
-      // width:percent% runs the pink fill in underneath the fish/bone marker
-      // (which sits at left:calc(100% - 10px)) for however long percent sits
-      // at/near 100, instead of stopping clear of it.
-      const walkFillGoalEl = document.querySelector('.progresswrap .stretchbar-goal');
-      const walkFillClearancePx = walkFillGoalEl ? 20 : 0;
-      if(fill) fill.style.width = `min(${percent}%, calc(100% - ${walkFillClearancePx}px))`;
+      // The bar fills to literally 100% at the goal; the cat sprite below
+      // moves on its own separate scale (see comment there).
+      if(fill) fill.style.width = percent+'%';
       const cat = document.querySelector('.catwalk');
       if(cat){
         const walkCellActual = 1.8 * 1.5;
         const walkRightExtendPx = (16 * walkCellActual) * 0.7;
         const walkGoalClearancePx = 25;
-        cat.style.left = `min(${percent}%, calc(100% - ${walkRightExtendPx}px - ${walkGoalClearancePx}px))`;
+        // Scale 0-100% linearly onto [0, the fish-eating position] so the
+        // cat keeps walking the whole time and arrives exactly at 100%,
+        // instead of reaching that spot early and standing still.
+        cat.style.left = `calc((100% - ${walkRightExtendPx}px - ${walkGoalClearancePx}px) * ${percent} / 100)`;
       }
       const goalEl = document.querySelector('.progresswrap .stretchbar-goal');
       if(goalEl){
