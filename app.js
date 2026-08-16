@@ -1820,6 +1820,7 @@ function renderSettings(){
       <div class="tri">${showInstall?'▼':'▶'}</div>
     </div>
     ${showInstall? `<div class="collapsebody">
+      <div style="font-size:11px;color:var(--faint);margin-top:10px;">${t('installNote')}</div>
       <div style="font-size:12px;font-weight:700;margin-bottom:6px;">${t('iphoneCase')}</div>
       <ol class="installsteps">
         <li>${t('iphoneStep1')}</li>
@@ -1835,7 +1836,6 @@ function renderSettings(){
         <li>${t('androidStep3')}</li>
         <li>${t('androidStep4')}</li>
       </ol>
-      <div style="font-size:11px;color:var(--faint);margin-top:10px;">${t('installNote')}</div>
     </div>` : ''}
 
     <div style="height:1px;background:var(--line);margin:14px 0;"></div>
