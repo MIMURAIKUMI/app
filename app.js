@@ -748,6 +748,9 @@ let expandedReportDates = new Set();
 let selectedReportDate = fmtDate(new Date());
 let toastMessage = null;
 let toastTimer = null;
+// flatKeys ("outfit:ribbon" etc.) already shown via rewardUnlockedToast this
+// page load -- see the guard inside evaluateRewards()'s auto-unlock branch.
+const toastedRewardKeys = new Set();
 function showToast(msg, ms){
   toastMessage = msg;
   render();
@@ -999,7 +1002,17 @@ function evaluateRewards(){
       // only one category has anything left, so there's no real choice to
       // make -- just unlock it.
       const unlocked = unlockFromCategory(outfitRoom ? 'outfit' : 'food');
-      if(unlocked) showToast(t('rewardUnlockedToast')(rewardItemName(unlocked)));
+      // Belt-and-suspenders against evaluateRewards() being re-entered for
+      // an item it already toasted this session (e.g. from a redundant
+      // Firebase apply that slips past the fbApplyRemote() guards above) --
+      // never show the exact same "◯◯を手に入れました" toast twice per load.
+      if(unlocked){
+        const flatKey = `${unlocked.type}:${unlocked.key}`;
+        if(!toastedRewardKeys.has(flatKey)){
+          toastedRewardKeys.add(flatKey);
+          showToast(t('rewardUnlockedToast')(rewardItemName(unlocked)));
+        }
+      }
     } // else: everything already unlocked, nothing more to bank
     rewards.giftsGrantedCount += 1;
   }
@@ -1063,6 +1076,7 @@ function renderEquippedOutfitBadge(){
 // ---------- Firebase sync (Firestore doc per user; anonymous by default, Google to sync across devices) ----------
 let fbUser = null;
 let fbSaveTimer = null;
+let fbUnsubscribe = null; // unsubscribe fn for the currently-active onSnapshot listener, if any
 let fbApplyingRemote = false;
 // True from the moment a local change schedules a Firestore push until that
 // push actually resolves (covers both the 1200ms debounce wait *and* the
@@ -1161,7 +1175,19 @@ async function fbLoadAndSubscribe(){
     }
   }catch(e){ console.error('firebase initial load failed', e); }
 
-  f.onSnapshot(ref, (snap)=>{
+  // onAuthStateChanged (see __loadFirebaseModule below) can fire more than
+  // once during a single page load -- e.g. once for the anonymous session,
+  // again once a Google redirect sign-in resolves, or just a redundant
+  // re-fire while auth state settles. Each fire re-runs this whole function
+  // via the 'fb-auth' listener. Without unsubscribing the previous listener
+  // first, every extra fire stacked ANOTHER onSnapshot() on top of the
+  // previous one(s), so a single Firestore update (including the echo of our
+  // own writes) ran fbApplyRemote()/evaluateRewards() once per stacked
+  // listener -- this is what was popping the same "手に入れました" toast
+  // multiple times in a row. Always drop the old subscription before
+  // attaching a new one.
+  if(fbUnsubscribe){ fbUnsubscribe(); fbUnsubscribe = null; }
+  fbUnsubscribe = f.onSnapshot(ref, (snap)=>{
     if(fbApplyingRemote || fbPendingPush || snap.metadata.hasPendingWrites) return;
     if(snap.exists()) fbApplyRemote(snap.data());
   }, (e)=>console.error('firebase snapshot error', e));
