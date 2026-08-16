@@ -1433,7 +1433,7 @@ function renderPunch(today, todayStr, weekday, suggested){
   const walkCellActual = 1.8 * 1.5;
   const walkSpriteWidthPx = 16 * walkCellActual;
   const walkRightExtendPx = walkSpriteWidthPx * 0.7;
-  const walkGoalClearancePx = 15;
+  const walkGoalClearancePx = 5;
   // The bar itself (progressfill) and the cat sprite are intentionally on
   // separate scales: the bar always fills to literally 100% width at the
   // goal, while the cat has its own "100%" -- the position just clear of the
@@ -2464,7 +2464,7 @@ function tickClock(){
       if(cat){
         const walkCellActual = 1.8 * 1.5;
         const walkRightExtendPx = (16 * walkCellActual) * 0.7;
-        const walkGoalClearancePx = 25;
+        const walkGoalClearancePx = 5;
         // Scale 0-100% linearly onto [0, the fish-eating position] so the
         // cat keeps walking the whole time and arrives exactly at 100%,
         // instead of reaching that spot early and standing still.
