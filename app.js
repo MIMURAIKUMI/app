@@ -85,7 +85,6 @@ const I18N = {
     pixelArtRowLegendary: '伝説のねこ',
     outfitNoneOption: 'なし',
     countSuffix: n => `（${n}）`,
-    rewardCountdown: (name,h) => `今日の達成まで「${name}」をあと${h}時間`,
     giftProgressCountdown: d => `プレゼントまであと${d}日`,
     legendaryCountdown: d => `1カ月達成まであと${d}日`,
     rewardUnlockedToast: name => `🎁「${name}」を手に入れました！`,
@@ -258,7 +257,6 @@ const I18N = {
     pixelArtRowLegendary: 'Legendary Cat',
     outfitNoneOption: 'None',
     countSuffix: n => ` (${n})`,
-    rewardCountdown: (name,h) => `${h}h left to hit today's goal for "${name}"`,
     giftProgressCountdown: d => `${d} more successful day${d===1?'':'s'} until your next present`,
     legendaryCountdown: d => `${d} days left until you reach a full month`,
     rewardUnlockedToast: name => `🎁 You got "${name}"!`,
@@ -650,6 +648,8 @@ function defaultRewards(){
     dailyStreak: 0,             // consecutive successful days right now (resets to 0 on a missed day)
     lastEvaluatedDate: null,    // last fully-elapsed day already scored
     legendaryUnlocked: false,
+    achievedDates: [],          // fmtDate() strings of every scored day that hit its goal (calendar ⭐)
+    giftEarnedDates: [],        // fmtDate() strings of every day a present banked/unlocked (calendar 🎁)
   };
 }
 // the single "Sample" task a brand-new install starts with -- also what
@@ -806,6 +806,11 @@ function persistRewards(){ save('tt_rewards', rewards); fbScheduleSave(); }
 //   giftProgressDays -- DOES reset to 0 on a missed day, since it tracks
 //   calendar-consecutive days. LEGENDARY_STREAK_DAYS consecutive successful
 //   days unlocks 伝説のねこ.
+// - Every scored successful day is also appended to rewards.achievedDates,
+//   and every day a present banks/unlocks is appended to
+//   rewards.giftEarnedDates -- both purely for the Report tab's calendar
+//   (⭐ / 🎁 markers, see renderCalendar()), not read by any of the streak
+//   logic above.
 function activeGoalTasks(){
   return tasks.filter(tk => !tk.archived && Number(tk.targetHours) > 0);
 }
@@ -901,6 +906,7 @@ function evaluateRewards(){
         if(totals.actualMin >= totals.goalMin){
           rewards.dailyStreak += 1;
           rewards.giftProgressDays += 1;
+          rewards.achievedDates.push(cursor); // for the calendar's ⭐ marker
           if(rewards.giftProgressDays >= GIFT_EVERY_DAYS){
             rewards.giftProgressDays = 0;
             const outfitRoom = categoryHasRoom('outfit');
@@ -909,11 +915,15 @@ function evaluateRewards(){
               // both categories still have something left -- bank a choice
               // for the user to make in Settings instead of picking for them.
               rewards.pendingChoices += 1;
+              rewards.giftEarnedDates.push(cursor); // for the calendar's 🎁 marker
             } else if(outfitRoom || foodRoom){
               // only one category has anything left, so there's no real
               // choice to make -- just unlock it.
               const unlocked = unlockFromCategory(outfitRoom ? 'outfit' : 'food');
-              if(unlocked) showToast(t('rewardUnlockedToast')(rewardItemName(unlocked)));
+              if(unlocked){
+                showToast(t('rewardUnlockedToast')(rewardItemName(unlocked)));
+                rewards.giftEarnedDates.push(cursor);
+              }
             } // else: everything already unlocked, nothing more to bank
           }
         } else {
@@ -933,29 +943,9 @@ function evaluateRewards(){
   clampPendingChoices();
   persistRewards();
 }
-// How many hours are left, today, until the task closest to hitting its own
-// daily goal actually gets there -- shown in the startup banner as a little
-// nudge toward today's achievement (which is what banks a day toward the
-// next present). Only while there are still rewards left to unlock.
-function nextRewardCountdownInfo(){
-  if(!categoryHasRoom('outfit') && !categoryHasRoom('food')) return null; // everything already unlocked
-  const todayStr = fmtDate(new Date());
-  const wd = new Date(todayStr + 'T00:00:00').getDay();
-  let bestTask = null, bestRemainingMin = Infinity;
-  activeGoalTasks().forEach(tk=>{
-    const days = tk.days && tk.days.length ? tk.days : null;
-    if(days && !days.includes(wd)) return;
-    const goalMin = Number(tk.targetHours) * 60;
-    const actualMin = (records[todayStr] || []).filter(s=>s.taskId===tk.id).reduce((sum,s)=>sum + computeWorkMs(s), 0) / 60000;
-    const remaining = goalMin - actualMin;
-    if(goalMin > 0 && remaining > 0 && remaining < bestRemainingMin){ bestRemainingMin = remaining; bestTask = tk; }
-  });
-  if(!bestTask) return null;
-  return { taskName: bestTask.name, hoursRemaining: Math.max(1, Math.ceil(bestRemainingMin / 60)) };
-}
 // How many more successful days are needed until the next present banks --
-// shown alongside nextRewardCountdownInfo() as a secondary nudge, since a
-// present no longer arrives from a single day's success.
+// shown in the startup banner as a little nudge, since a present no longer
+// arrives from a single day's success.
 function giftProgressCountdownInfo(){
   if(!categoryHasRoom('outfit') && !categoryHasRoom('food')) return null; // everything already unlocked
   const daysRemaining = Math.max(0, GIFT_EVERY_DAYS - rewards.giftProgressDays);
@@ -1187,12 +1177,30 @@ function importDataFile(event){
 function resetAllData(){
   if(!confirm(t('resetAllConfirm'))) return;
 
+  // Cancel any debounced Firebase push still pending from an edit made just
+  // before the reset (fbScheduleSave() waits 1200ms before actually calling
+  // fbPushNow()). Left uncancelled, that stale push can fire *after* this
+  // function's own Firestore write below finishes -- using the pre-reset
+  // tasks/records still sitting in memory -- and silently overwrite the
+  // freshly-seeded cloud doc. That race is why "出荷時に戻す" could
+  // sometimes come back with the old task list instead of just "Sample".
+  clearTimeout(fbSaveTimer);
+
   // "出荷時に戻す" = land back on exactly what a brand-new install shows, which is
   // one "Sample" task (see factorySampleTasks()) -- not a totally empty list.
   // Generate it once and write the *same* object to both local storage and the
   // cloud copy below, so whichever one the reload ends up reading from, the
   // result is identical (no flicker/race between "empty" and "seeded").
   const seedTasks = factorySampleTasks();
+
+  // Also update the in-memory copies (not just localStorage below) so that if
+  // anything else reads or persists state during the async gap before
+  // location.reload() actually happens, it sees the reset data rather than
+  // whatever was in memory right before the reset was triggered.
+  tasks = seedTasks;
+  records = {};
+  settings = defaultSettings();
+  rewards = defaultRewards();
 
   const finish = ()=>{
     try{
@@ -1422,22 +1430,19 @@ function render(){
 
   // gamification nudges: a "プレゼントがあるよ" notice once a present is
   // waiting to be spent on おめかし/えさ (tap it to jump to Settings), how
-  // close the user is to today's own goal plus how many more successful
-  // days until the *next* present otherwise, and -- only once within
-  // LEGENDARY_COUNTDOWN_SHOW_WITHIN_DAYS days -- a silhouette-teased
-  // countdown to the Legendary Cat. Shown on every tab, same as the
-  // unfinished-records banner above.
+  // many more successful days until the *next* present otherwise, and --
+  // only once within LEGENDARY_COUNTDOWN_SHOW_WITHIN_DAYS days -- a
+  // silhouette-teased countdown to the Legendary Cat. Shown on every tab,
+  // same as the unfinished-records banner above.
   const hasPendingGift = rewards.pendingChoices > 0;
-  const rewardInfo = hasPendingGift ? null : nextRewardCountdownInfo();
   const giftInfo = hasPendingGift ? null : giftProgressCountdownInfo();
   const legendaryInfo = legendaryCountdownInfo();
-  if(hasPendingGift || rewardInfo || giftInfo || legendaryInfo){
+  if(hasPendingGift || giftInfo || legendaryInfo){
     html += `<div class="panel" style="padding:12px 14px;margin-bottom:16px;font-size:12px;color:var(--dim);display:flex;flex-direction:column;gap:8px;">
       ${hasPendingGift ? `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;cursor:pointer;" onclick="jumpToSettingsForGift()">
           <span>🎁 ${t('giftReadyBanner')}</span>
           <span style="color:var(--brassDim);font-weight:700;flex-shrink:0;">${t('giftReadyCta')} ›</span>
         </div>` : ''}
-      ${rewardInfo ? `<div>🎀 ${t('rewardCountdown')(escapeHtml(rewardInfo.taskName), rewardInfo.hoursRemaining)}</div>` : ''}
       ${giftInfo ? `<div>🎁 ${t('giftProgressCountdown')(giftInfo.daysRemaining)}</div>` : ''}
       ${legendaryInfo ? `<div style="display:flex;align-items:center;gap:8px;">
           <span style="flex-shrink:0;line-height:0;">${renderPixelArtSilhouette('rainbow', 0.55, 'sitting', 0.3)}</span>
@@ -2416,6 +2421,11 @@ function renderCalendar(rows, month, selectedDate){
   const daysInMonth = new Date(y, m, 0).getDate();
   const startWeekday = new Date(y, m-1, 1).getDay();
   const todayStr = fmtDate(new Date());
+  // achievedDates -> ⭐ (that day hit its combined daily goal), giftEarnedDates
+  // -> 🎁 (that day's success also banked/unlocked a present) -- see
+  // evaluateRewards()'s design notes for how these get populated.
+  const achievedSet = new Set(rewards.achievedDates || []);
+  const giftSet = new Set(rewards.giftEarnedDates || []);
 
   const cells = [];
   for(let i=0;i<startWeekday;i++) cells.push(null);
@@ -2429,12 +2439,13 @@ function renderCalendar(rows, month, selectedDate){
     const isToday = dateStr === todayStr;
     const isSelected = dateStr === selectedDate;
     const cls = `cal-cell${isToday?' today':''}${isSelected?' selected':''}`;
+    const badges = `${achievedSet.has(dateStr) ? '<span class="cal-star">⭐</span>' : ''}${giftSet.has(dateStr) ? '<span class="cal-gift">🎁</span>' : ''}`;
     if(!info){
-      return `<div class="${cls}" onclick="selectReportDate('${dateStr}')"><div class="cal-day">${d}</div></div>`;
+      return `<div class="${cls}" onclick="selectReportDate('${dateStr}')"><div class="cal-day">${d}${badges}</div></div>`;
     }
     const dots = [...info.taskIds].map(id=>`<span class="cal-dot" style="background:${taskColor(id)};"></span>`).join('');
     return `<div class="${cls}" onclick="selectReportDate('${dateStr}')">
-      <div class="cal-day">${d}</div>
+      <div class="cal-day">${d}${badges}</div>
       <div class="cal-hrs">${(info.ms/3600000).toFixed(1)}h</div>
       <div class="cal-dots">${dots}</div>
     </div>`;
