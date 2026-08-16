@@ -148,9 +148,9 @@ const I18N = {
     ],
     howToIconsTitle: 'アイコンの意味',
     howToIcons: [
-        { icon: '✎', label: '編集' },{icon:'⧉', label:'複製'}, {icon:'🗑', label:'削除'},
+      { icon: '✎', label: '編集' },{icon:'⧉', label:'複製'}, {icon:'🗑', label:'削除'},
       {icon:'🗄', label:'アーカイブ（一時的に非表示にする）'}, {icon:'↩', label:'復元'},
-        { icon: '⭐', label: '集中タイマーの回数' }, { icon: '📝', label: '完了したタスクにメモを残せます' }
+      { icon: '⭐', label: '集中タイマーの回数' }, { icon: '📝', label: '完了したタスクにメモを残せます' }
     ],
     syncSignedInAnon: '端末内に保存中（未ログイン）',
     syncSignedInGoogle: name => `Googleアカウントで同期中：${name}`,
@@ -259,6 +259,7 @@ const I18N = {
     resetAllBtn: 'Restore to Factory Settings',
     resetAllConfirm: 'Are you sure you want to delete all data? This cannot be undone.',
     addToHomeScreen: '📲 Add to Home Screen',
+    installNote: 'Once added, you can launch it directly from the icon and use it offline',
     iphoneCase: 'On iPhone (Safari)',
     iphoneStep1: 'Open this page in Safari',
     iphoneStep2: 'Tap the share button (square with ↑) at the bottom',
@@ -270,7 +271,6 @@ const I18N = {
     androidStep2: 'Tap the menu (⋮) in the top right',
     androidStep3: 'Select "Add to Home Screen" or "Install app"',
     androidStep4: 'Follow the on-screen instructions',
-    installNote: 'Once added, you can launch it directly from the icon and use it offline',
     addRecordShort: '＋ Add record for a date',
     totalTime: 'Total time', unmetTime: 'Shortfall',
     achievementByTask: 'Achievement rate by task',
