@@ -1851,10 +1851,10 @@ function renderSettings(){
   // very bottom of Settings (away from everyday toggles) so it isn't tapped by
   // accident; resetAllData() itself also asks for a native OK/Cancel confirmation
   // before doing anything irreversible.
-  html += `<div class="panel" style="padding:16px;margin-bottom:16px;border-color:var(--rust);">
+  html += `<div class="panel" style="padding:16px;margin-bottom:16px;">
     <div class="settitle" style="color:var(--rust);">${t('resetSection')}</div>
     <div style="font-size:12px;color:var(--dim);margin-bottom:14px;">${t('resetSectionDesc')}</div>
-    <button class="btn-ghost" style="width:100%;color:var(--rust);border-color:var(--rust);" onclick="resetAllData()">${t('resetAllBtn')}</button>
+    <button class="btn-ghost" style="width:100%;color:var(--text);background:color-mix(in srgb, var(--rust) 16%, var(--panel));border-color:color-mix(in srgb, var(--rust) 45%, var(--panel));box-shadow:3px 3px 0 color-mix(in srgb, var(--rust) 30%, var(--line));" onclick="resetAllData()">${t('resetAllBtn')}</button>
   </div>`;
 
   return html;
