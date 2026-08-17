@@ -2708,9 +2708,14 @@ function selectReportDate(dateStr){
         const dayActualMinutes = dayActualMs / 60000;
         const dayAchievementRate = dayGoalMinutes > 0 ? Math.min(100, dayActualMinutes / dayGoalMinutes * 100) : (dayActualMinutes > 0 ? 100 : 0);
         const dayLabel = targetDate === todayStr ? t('todayAchievement') : t('dateAchievement')(targetDate.slice(5).replace('-', '/'));
-        // 100%達成時だけ強調色にする（テーマごとの --achieve100 を使用。ダーク
-        // モードでは黄色、それ以外はピンクになるようindex.htmlのCSS側で定義）
-        const dayRateStyle = dayAchievementRate >= 100 ? ' style="color:var(--achieve100);"' : '';
+        // 表示上「100%」に見えたら強調色にしたいので、生の割合ではなく実際に
+        // 画面に出す丸め後の値で判定する（例：99.6%は生の値だと100%未満だが
+        // Math.round()で「100%」と表示されるため、丸め後の値で判定しないと
+        // 見た目は100%なのに色が変わらないというズレが起きる）。
+        // テーマごとの --achieve100 を使用（ダークモードは黄色、それ以外は
+        // ピンクになるようindex.htmlのCSS側で定義）
+        const dayAchievementRatePct = Math.round(dayAchievementRate);
+        const dayRateStyle = dayAchievementRatePct >= 100 ? ' style="color:var(--achieve100);"' : '';
 
         // 累計の⭐/🎁（月をまたいだ全期間の集計）と、今のプレゼントサイクル
         // （7つ星ためると1個）の進捗ゲージ
@@ -2733,7 +2738,7 @@ function selectReportDate(dateStr){
 
         html += `<div class="metrics" style="grid-template-columns:1fr 1fr;margin-bottom:10px;">
     <div class="metric"><div class="lbl">${t('totalTime')}</div><div class="val mono">${hmLabel(totalMs)}</div></div>
-    <div class="metric"><div class="lbl">${dayLabel}</div><div class="val mono"${dayRateStyle}>${Math.round(dayAchievementRate)}%</div></div>
+    <div class="metric"><div class="lbl">${dayLabel}</div><div class="val mono"${dayRateStyle}>${dayAchievementRatePct}%</div></div>
   </div>`;
 
         html += `<div class="metrics" style="grid-template-columns:1fr 1fr;margin-bottom:16px;">
