@@ -8,7 +8,7 @@
 // ---------- language detection ----------
 // Bump this string every time index.html is updated — shown in Settings so it's
 // easy to confirm which build is actually live (helps catch stale-deploy/cache issues).
-const APP_VERSION = 'v24-2026-08-17';
+const APP_VERSION = 'v26-2026-08-17';
 
 const LANG = (function(){
   const langs = (navigator.languages && navigator.languages.length) ? navigator.languages : [navigator.language || 'en'];
@@ -1845,7 +1845,7 @@ function renderTasks(){
 
   let html = `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
     <div style="font-size:13px;color:var(--dim);">${t('tasksIntro')}</div>
-    <button onclick="openTaskForm(null)" style="background:var(--brass);color:#fff;border:2px solid var(--brassDim);border-radius:9px;padding:8px 12px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;box-shadow:2px 2px 0 rgba(255,158,199,0.3);">${t('addBtn')}</button>
+    <button onclick="openTaskForm(null)" style="background:var(--accent);color:#fff;border:2px solid var(--accentDim);border-radius:9px;padding:8px 12px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;box-shadow:2px 2px 0 color-mix(in srgb, var(--accent) 30%, transparent);">${t('addBtn')}</button>
   </div>`;
 
   if(active.length===0){
