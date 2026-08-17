@@ -751,11 +751,37 @@ let toastTimer = null;
 // flatKeys ("outfit:ribbon" etc.) already shown via rewardUnlockedToast this
 // page load -- see the guard inside evaluateRewards()'s auto-unlock branch.
 const toastedRewardKeys = new Set();
+// Renders into its own standalone DOM node (#toastHost, a sibling of #app in
+// index.html) instead of being part of the big innerHTML template render()
+// rebuilds on every state change. render() gets called very often while a
+// toast happens to be showing (any unrelated action -- switching tabs,
+// ticking the pomodoro, an unrelated persistRecords()/evaluateRewards() call
+// -- re-renders #app's whole innerHTML), and since the toast used to be
+// inline in that same template, EVERY one of those unrelated re-renders tore
+// the toast <div> down and recreated it -- restarting its CSS pop-in
+// animation from scratch each time even though the message hadn't changed.
+// That's what made a single "◯◯を手に入れました" look like it was popping up
+// several times in a row. Keeping it in a separate node that's only touched
+// when the message actually changes fixes that at the root, regardless of
+// how many times something else calls render() in the meantime.
 function showToast(msg, ms){
   toastMessage = msg;
-  render();
+  renderToastHost();
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(()=>{ toastMessage=null; render(); }, ms || 3500);
+  toastTimer = setTimeout(()=>{ toastMessage=null; renderToastHost(); }, ms || 3500);
+}
+function renderToastHost(){
+  const host = document.getElementById('toastHost');
+  if(!host) return;
+  if(toastMessage){
+    if(host.dataset.msg !== toastMessage){
+      host.dataset.msg = toastMessage;
+      host.innerHTML = `<div class="toast">${escapeHtml(toastMessage)}</div>`;
+    }
+  } else if(host.innerHTML){
+    host.innerHTML = '';
+    delete host.dataset.msg;
+  }
 }
 let addDraft = null; // {date, taskId, segments:[{start,end}]}
 let showDuplicate = false;
@@ -1561,7 +1587,6 @@ function render(){
     const isJa = /[^ -~]/.test(titlePrefix);
 
     let html = `
-    ${toastMessage ? `<div class="toast">${escapeHtml(toastMessage)}</div>` : ''}
     <header>
       <div class="eyebrow">
         <span id="header-username" class="user-name-part ${isJa ? 'is-ja' : ''}">${titlePrefix}</span>
