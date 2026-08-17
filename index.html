@@ -33,27 +33,33 @@
     --gray:#AACBE6; --paleblue:#BFE6FA;
     --teal:#4FAE72; --rust:#E8746B; --blue:#7FB3DC;
     --ink:#2B2A3A; --pix:2px; --sh:3px;
-    --achieve100:#ff7aba;
+    --achieve100:#FF4FA3;
+    /* 「はじめる」ボタン・Tasksの＋追加ボタン・選択中タブの背景 専用の色。
+       見出し文字（.eyebrow）は引き続き--brassを使うので、ここだけ変えても
+       見出しの色は変わらない。初期値は--brass/--brassDimと同じにしてある。 */
+    --accent:#FF9EC7; --accentDim:#F17FB2;
   }
   [data-theme="mono"]{
     --bg:#F1F1F1; --panel:#FFFFFF; --panel2:#E9E9E9;
     --line:#DEDEDE; --lineS:#C4C4C4;
     --text:#242424; --dim:#8C8C8C; --faint:#BDBDBD;
-    --brass:#888888; --brassDim:#636363;
+    --brass:#4B4B4B; --brassDim:#2C2C2C;
     --gray:#B3B3B3; --paleblue:#D9D9D9;
     --teal:#4E4E4E; --rust:#3A3A3A; --blue:#6E6E6E;
     --ink:#242424; --pix:2px; --sh:3px;
-    --achieve100:#ff7aba;
+    --achieve100:#FF4FA3;
+    --accent:#888888; --accentDim:#636363;
   }
   [data-theme="dark"]{
     --bg:#17171D; --panel:#1E1E25; --panel2:#26262F;
     --line:#34343E; --lineS:#4B4B57;
     --text:#ECECF0; --dim:#9C9CA8; --faint:#64646F;
-    --brass:#777779; --brassDim:#B7B7BF;
+    --brass:#D9D9DE; --brassDim:#B7B7BF;
     --gray:#8A8A94; --paleblue:#3A3A44;
     --teal:#CFCFD4; --rust:#77777F; --blue:#9C9CA8;
     --ink:#ECECF0; --pix:2px; --sh:3px;
-    --achieve100:#ffdc5c;
+    --achieve100:#FFD84F;
+    --accent:#777779; --accentDim:#B7B7BF;
   }
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
   html,body{margin:0; padding:0; background:var(--bg); color:var(--text); font-family:'DotGothic16',sans-serif; -webkit-font-smoothing:antialiased;}
@@ -89,7 +95,7 @@
   .panel{background:var(--panel); border:var(--pix) solid var(--lineS); border-radius:16px; box-shadow: var(--sh) var(--sh) 0 var(--line);}
   nav{display:flex; gap:6px; margin-bottom:18px;}
   nav button{padding:9px 6px; background:var(--panel2); cursor:pointer; color:var(--dim); font-size:11px; font-weight:600; font-family:inherit; display:flex; align-items:center; justify-content:center; gap:5px; border:2px solid var(--lineS); border-radius:10px; box-shadow:2px 2px 0 var(--line); transition:transform .08s ease, box-shadow .08s ease; flex:1;}
-  nav button.active{color:#fff; background:var(--brass); border-color:var(--brassDim);}
+  nav button.active{color:#fff; background:var(--accent); border-color:var(--accentDim);}
   nav button:active{transform:translate(2px,2px); box-shadow:0 0 0 var(--line);}
   /* タブ切り替え時の軽量な演出。transform/opacityのみのCSSアニメーションなので
      毎フレームのJS計算は発生せず、起動速度やスクロール性能への影響はごく小さい。 */
@@ -109,7 +115,7 @@
   .btnrow{display:flex; gap:10px;}
   .bigbtn{flex:1; padding:16px 4px; border-radius:14px; cursor:pointer; font-family:inherit; font-size:15px; font-weight:700; border:2px solid var(--lineS); box-shadow:3px 3px 0 var(--line); transition:transform .08s ease, box-shadow .08s ease;}
   .bigbtn:active{transform:translate(3px,3px); box-shadow:0 0 0 var(--line);}
-  .bigbtn.primary{background:var(--brass); color:#fff; border-color:var(--brassDim); box-shadow:3px 3px 0 rgba(255,158,199,0.4);}
+  .bigbtn.primary{background:var(--accent); color:#fff; border-color:var(--accentDim); box-shadow:3px 3px 0 color-mix(in srgb, var(--accent) 40%, transparent);}
   .bigbtn.secondary{background:var(--panel); color:var(--dim);}
   .bigbtn.pale{background:var(--paleblue); color:var(--text); border-color:#8FCBEA;}
   .projlist{display:flex; flex-wrap:wrap; gap:8px; margin:16px 0;}
