@@ -38,6 +38,11 @@
        見出し文字（.eyebrow）は引き続き--brassを使うので、ここだけ変えても
        見出しの色は変わらない。初期値は--brass/--brassDimと同じにしてある。 */
     --accent:#FF9EC7; --accentDim:#F17FB2;
+    /* Summaryのカレンダーで「今日」のセルの背景に使う、--brassとpanelの
+       混色率。テーマによって--brassの明るさ・彩度が違うので、同じ%だと
+       今日の背景がほぼ見えなくなる（モノクロ）／うっすらしすぎる（ダーク）
+       ということが起きる。テーマごとに個別調整できるようにしてある。 */
+    --todayMix:14%;
   }
   [data-theme="mono"]{
     --bg:#F1F1F1; --panel:#FFFFFF; --panel2:#E9E9E9;
@@ -49,6 +54,7 @@
     --ink:#242424; --pix:2px; --sh:3px;
     --achieve100:#FF4FA3;
     --accent:#888888; --accentDim:#636363;
+    --todayMix:35%;
   }
   [data-theme="dark"]{
     --bg:#17171D; --panel:#1E1E25; --panel2:#26262F;
@@ -60,6 +66,7 @@
     --ink:#ECECF0; --pix:2px; --sh:3px;
     --achieve100:#FFD84F;
     --accent:#777779; --accentDim:#B7B7BF;
+    --todayMix:30%;
   }
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
   html,body{margin:0; padding:0; background:var(--bg); color:var(--text); font-family:'DotGothic16',sans-serif; -webkit-font-smoothing:antialiased;}
@@ -246,10 +253,12 @@
   .cal-head{font-size:10px; color:var(--dim); text-align:center; padding-bottom:6px; font-family:'JetBrains Mono',monospace; font-weight:700;}
   .cal-cell{background:var(--panel2); border-radius:9px; padding:5px 4px; min-height:58px; display:flex; flex-direction:column; gap:2px; border:2px solid var(--line); cursor:pointer; transition:transform .08s ease, box-shadow .08s ease;}
   .cal-cell.blank{background:none; border-color:transparent; cursor:default;}
-  /* 当日：枠は標準色で、背景だけ薄ピンクにする */
+  /* 当日：枠は標準色で、背景だけ薄ピンクにする（濃さはテーマごとに
+     --todayMixで調整。同じ%だとモノクロは薄すぎ、ダークはうっすら
+     しすぎるため） */
     .cal-cell.today {
         border-color: color-mix(in srgb, var(--brass) 30%, var(--panel));
-        background: color-mix(in srgb, var(--brass) 14%, var(--panel));
+        background: color-mix(in srgb, var(--brass) var(--todayMix), var(--panel));
         box-shadow: none;
     }  /* 選択中：背景は標準色（薄い青）で、枠と影だけピンクにする */
   .cal-cell.selected {
@@ -260,7 +269,7 @@
   /* 当日かつ選択中：薄ピンクの背景＋ピンクの枠 */
   .cal-cell.selected.today {
         border-color: var(--brassDim);
-        background: color-mix(in srgb, var(--brass) 14%, var(--panel));
+        background: color-mix(in srgb, var(--brass) var(--todayMix), var(--panel));
         box-shadow: 2px 2px 0 color-mix(in srgb, var(--brassDim) 45%, transparent);
   }
   .cal-cell:active{transform:translate(2px,2px); box-shadow:0 0 0 var(--line);}

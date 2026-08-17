@@ -8,7 +8,7 @@
 // ---------- language detection ----------
 // Bump this string every time index.html is updated — shown in Settings so it's
 // easy to confirm which build is actually live (helps catch stale-deploy/cache issues).
-const APP_VERSION = 'v28-2026-08-17';
+const APP_VERSION = 'v30-2026-08-17';
 
 const LANG = (function(){
   const langs = (navigator.languages && navigator.languages.length) ? navigator.languages : [navigator.language || 'en'];
@@ -675,7 +675,17 @@ const THEME_PREVIEW_KEYS = {
 function applyTheme(){
   document.documentElement.setAttribute('data-theme', settings.theme || 'original');
 }
-function selectTheme(key){ settings.theme=key; persistSettings(); applyTheme(); render(); }
+// テーマごとに雰囲気の合う猫を「おすすめデフォルト」として用意しておき、
+// テーマ切り替えと同時に猫も自動で切り替える（モノクロ→白猫、ダーク→黒猫）。
+// あくまで初期値の提案なので、切り替え後もSettingsから普段通り別の猫を
+// 選び直せる（次にまたテーマを切り替えると、そのテーマのおすすめに戻る）。
+const THEME_DEFAULT_CAT = { mono: 'white', dark: 'black' };
+function selectTheme(key){
+  settings.theme=key;
+  const recommendedCat = THEME_DEFAULT_CAT[key];
+  if(recommendedCat && getCatArt(recommendedCat)) settings.pixelArt = recommendedCat;
+  persistSettings(); applyTheme(); render();
+}
 function selectBarStyle(key){ settings.barStyle=key; persistSettings(); render(); }
 
 let tasks = load('tt_tasks', null);
