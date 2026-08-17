@@ -8,7 +8,7 @@
 // ---------- language detection ----------
 // Bump this string every time index.html is updated — shown in Settings so it's
 // easy to confirm which build is actually live (helps catch stale-deploy/cache issues).
-const APP_VERSION = 'v23-2026-08-16';
+const APP_VERSION = 'v24-2026-08-17';
 
 const LANG = (function(){
   const langs = (navigator.languages && navigator.languages.length) ? navigator.languages : [navigator.language || 'en'];
@@ -127,7 +127,7 @@ const I18N = {
     androidStep4: '画面の指示に従って追加',
     addRecordTodayShort: '＋ 今日にタスクを追加',
     addRecordDateShort: mmdd => `＋ ${mmdd}にタスクを追加`,
-    totalTime: '合計時間', unmetTime: '未達成時間',
+    totalTime: '今月の合計時間', unmetTime: '未達成時間',
     achievementByTask: 'タスクごとの達成率',
     actualGoal: (a,goalStr) => `実績 ${a}${goalStr}`,
     goalPart: g => ` / 目標 ${g}`,
@@ -135,7 +135,9 @@ const I18N = {
     thDate: '日付', thTask: 'タスク', thDuration: '所要時間', thRate: '達成率',
     noRecordsThisMonth: 'この月の記録はありません',
     calendarTitle: 'カレンダー（記録した時間）',
-    monthAchievement: '今月の達成率',
+    giftGaugeLabel: 'つぎのプレゼントまで',
+    collectedSoFar: 'これまで集めた数',
+    collectedSummary: (stars,gifts) => `⭐×${stars} 🎁×${gifts}`,
     dayAchievement: '選択日の達成率',
     todayAchievement: '今日の達成率',
     dateAchievement: mmdd => `${mmdd}の達成率`,
@@ -300,7 +302,7 @@ const I18N = {
     androidStep4: 'Follow the on-screen instructions',
     addRecordTodayShort: '＋ Add task for today',
     addRecordDateShort: mmdd => `＋ Add task for ${mmdd}`,
-    totalTime: 'Total time', unmetTime: 'Shortfall',
+    totalTime: 'This month\'s total time', unmetTime: 'Shortfall',
     achievementByTask: 'Achievement rate by task',
     actualGoal: (a,goalStr) => `Actual ${a}${goalStr}`,
     goalPart: g => ` / Goal ${g}`,
@@ -308,7 +310,9 @@ const I18N = {
     thDate: 'Date', thTask: 'Task', thDuration: 'Duration', thRate: 'Rate',
     noRecordsThisMonth: 'No records this month',
     calendarTitle: 'Calendar (recorded time)',
-    monthAchievement: 'This month',
+    giftGaugeLabel: 'Until next present',
+    collectedSoFar: 'Collected so far',
+    collectedSummary: (stars,gifts) => `⭐×${stars} 🎁×${gifts}`,
     dayAchievement: 'Selected day',
     todayAchievement: 'Today',
     dateAchievement: mmdd => `${mmdd}`,
@@ -1069,6 +1073,17 @@ function giftProgressCountdownInfo(){
   const daysRemaining = Math.max(0, GIFT_EVERY_DAYS - (rewards.giftProgressDays + liveBonus));
   return { daysRemaining };
 }
+// How many stars of the current GIFT_EVERY_DAYS-day cycle have been
+// collected so far, for the ★★★☆☆☆☆-style gauge on the Summary tab. Mirrors
+// giftProgressCountdownInfo()'s "preview today's live achievement" logic so
+// the gauge fills in the instant today's goal is hit, not only once the
+// session is stopped and persistRecords() re-runs evaluateRewards().
+function giftGaugeInfo(){
+  const todayStr = fmtDate(new Date());
+  const liveBonus = (!rewards.achievedDates.includes(todayStr) && isTodayAchievedLive()) ? 1 : 0;
+  const filled = Math.min(GIFT_EVERY_DAYS, rewards.giftProgressDays + liveBonus);
+  return { filled, total: GIFT_EVERY_DAYS };
+}
 const LEGENDARY_COUNTDOWN_SHOW_WITHIN_DAYS = 5; // only start nudging once this close, not for the whole month
 function legendaryCountdownInfo(){
   if(rewards.legendaryUnlocked) return null;
@@ -1611,21 +1626,22 @@ function render(){
   }
 
   // gamification nudges: a "プレゼントがあるよ" notice once a present is
-  // waiting to be spent on おめかし/えさ (tap it to jump to Settings), how
-  // many more successful days until the *next* present otherwise, and --
+  // waiting to be spent on おめかし/えさ (tap it to jump to Settings), and --
   // only once within LEGENDARY_COUNTDOWN_SHOW_WITHIN_DAYS days -- a
   // silhouette-teased countdown to the Legendary Cat. Shown on every tab,
-  // same as the unfinished-records banner above.
+  // same as the unfinished-records banner above. The day-by-day "プレゼント
+  // まであと〇日" nudge used to live here too, but it's been consolidated
+  // into the ⭐ gauge on the Summary tab instead (see giftGaugeInfo()), so the
+  // user can check streak/present progress in one stable place rather than a
+  // constantly-shifting top banner.
   const hasPendingGift = rewards.pendingChoices > 0;
-  const giftInfo = hasPendingGift ? null : giftProgressCountdownInfo();
   const legendaryInfo = legendaryCountdownInfo();
-  if(hasPendingGift || giftInfo || legendaryInfo){
+  if(hasPendingGift || legendaryInfo){
     html += `<div class="panel" style="padding:12px 14px;margin-bottom:16px;font-size:12px;color:var(--dim);display:flex;flex-direction:column;gap:8px;">
       ${hasPendingGift ? `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;cursor:pointer;" onclick="jumpToSettingsForGift()">
           <span>🎁 ${t('giftReadyBanner')}</span>
           <span style="color:var(--brassDim);font-weight:700;flex-shrink:0;">${t('giftReadyCta')} ›</span>
         </div>` : ''}
-      ${giftInfo ? `<div>🎁 ${t('giftProgressCountdown')(giftInfo.daysRemaining)}</div>` : ''}
       ${legendaryInfo ? `<div style="display:flex;align-items:center;gap:8px;">
           <span style="flex-shrink:0;line-height:0;">${renderPixelArtSilhouette('rainbow', 0.55, 'sitting', 0.3)}</span>
           <span>🌈 ${t('legendaryCountdown')(legendaryInfo.daysRemaining)}</span>
@@ -2609,23 +2625,21 @@ function renderCalendar(rows, month, selectedDate){
   const daysInMonth = new Date(y, m, 0).getDate();
   const startWeekday = new Date(y, m-1, 1).getDay();
   const todayStr = fmtDate(new Date());
-  // achievedDates -> ⭐ (that day hit its combined daily goal), giftEarnedDates
-  // -> 🎁 (that day's success also banked/unlocked a present) -- see
-  // evaluateRewards()'s design notes for how these get populated. Today gets
-  // committed into these the moment persistRecords() re-runs evaluateRewards()
+  // achievedDates -> ⭐ (that day hit its combined daily goal) -- see
+  // evaluateRewards()'s design notes for how this gets populated. Today gets
+  // committed into it the moment persistRecords() re-runs evaluateRewards()
   // (e.g. once a running session is stopped), but while a session is still
   // actively ticking upward nothing has re-run evaluateRewards() yet -- show
-  // the star/gift live in that gap too via isTodayAchievedLive(), instead of
-  // only reflecting it once the session actually stops.
+  // the star live in that gap too via isTodayAchievedLive(), instead of only
+  // reflecting it once the session actually stops.
+  // (The calendar used to also show a 🎁 on the day each present was banked
+  // via giftEarnedDates, but that marker jumps around whenever a past date
+  // gets a record added retroactively -- since which day earns the 🎁
+  // depends on the achievedDates order, not a fixed date -- so it's been
+  // dropped as more confusing than useful. See collectedSoFar/giftGaugeInfo
+  // on the Summary tab for the cumulative present count instead.)
   const achievedSet = new Set(rewards.achievedDates || []);
-  const giftSet = new Set(rewards.giftEarnedDates || []);
-  const todayAlreadyCommitted = achievedSet.has(todayStr);
   const todayLiveAchieved = isTodayAchievedLive();
-  // Only preview the 🎁 while today isn't committed yet -- once it is,
-  // rewards.giftProgressDays already reflects today's own increment, so
-  // adding another +1 here would double-count it and could show a gift icon
-  // on a day that didn't actually cross GIFT_EVERY_DAYS.
-  const todayLiveGift = !todayAlreadyCommitted && todayLiveAchieved && (rewards.giftProgressDays + 1) >= GIFT_EVERY_DAYS;
 
   const cells = [];
   for(let i=0;i<startWeekday;i++) cells.push(null);
@@ -2640,8 +2654,7 @@ function renderCalendar(rows, month, selectedDate){
     const isSelected = dateStr === selectedDate;
     const cls = `cal-cell${isToday?' today':''}${isSelected?' selected':''}`;
     const isAchieved = achievedSet.has(dateStr) || (isToday && todayLiveAchieved);
-    const gotGift = giftSet.has(dateStr) || (isToday && todayLiveGift);
-    const badges = `${isAchieved ? '<span class="cal-star">⭐</span>' : ''}${gotGift ? '<span class="cal-gift">🎁</span>' : ''}`;
+    const badges = `${isAchieved ? '<span class="cal-star">⭐</span>' : ''}`;
     if(!info){
       return `<div class="${cls}" onclick="selectReportDate('${dateStr}')"><div class="cal-day">${d}${badges}</div></div>`;
     }
@@ -2674,14 +2687,6 @@ function selectReportDate(dateStr){
         const rows = monthSessions.map(r => ({ ...r, ms: computeWorkMs(r) }));
         const totalMs = rows.reduce((s, r) => s + r.ms, 0);
 
-        // 月全体の目標と実績を計算（月間達成率用）
-        let totalMonthGoalMinutes = 0;
-        tasks.filter(t => !t.archived && t.targetHours > 0).forEach(task => {
-            totalMonthGoalMinutes += monthlyGoalMinutes(task, reportMonth, todayStr);
-        });
-        const totalMonthActualMinutes = totalMs / 60000;
-        const monthAchievementRate = totalMonthGoalMinutes > 0 ? Math.min(100, totalMonthActualMinutes / totalMonthGoalMinutes * 100) : (totalMonthActualMinutes > 0 ? 100 : 0);
-
         // ターゲット日付を決定（選択日、なければ今日、過去月なら1日）
         let targetDate = selectedReportDate;
         if (!targetDate) {
@@ -2703,6 +2708,16 @@ function selectReportDate(dateStr){
         const dayActualMinutes = dayActualMs / 60000;
         const dayAchievementRate = dayGoalMinutes > 0 ? Math.min(100, dayActualMinutes / dayGoalMinutes * 100) : (dayActualMinutes > 0 ? 100 : 0);
         const dayLabel = targetDate === todayStr ? t('todayAchievement') : t('dateAchievement')(targetDate.slice(5).replace('-', '/'));
+        // 100%達成時だけ強調色にする（テーマごとの --achieve100 を使用。ダーク
+        // モードでは黄色、それ以外はピンクになるようindex.htmlのCSS側で定義）
+        const dayRateStyle = dayAchievementRate >= 100 ? ' style="color:var(--achieve100);"' : '';
+
+        // 累計の⭐/🎁（月をまたいだ全期間の集計）と、今のプレゼントサイクル
+        // （7つ星ためると1個）の進捗ゲージ
+        const gauge = giftGaugeInfo();
+        const gaugeStr = '★'.repeat(gauge.filled) + '☆'.repeat(gauge.total - gauge.filled);
+        const totalStarsAllTime = rewards.achievedDates.length;
+        const totalGiftsAllTime = rewards.giftsGrantedCount;
         // Same "today vs. specific date" wording split as dayLabel above, so
         // the add-task button always names whichever date is currently
         // selected on the calendar (or today/the 1st of the month when
@@ -2716,13 +2731,14 @@ function selectReportDate(dateStr){
   </div>
   <button onclick="openAddRecord('${targetDate}')" style="width:100%;background:none;border:1px dashed var(--lineS);color:var(--dim);border-radius:10px;padding:10px;cursor:pointer;font-family:inherit;font-size:13px;margin-bottom:16px;">${addRecordLabel}</button>`;
 
-        html += `<div class="metrics" style="grid-template-columns:1fr;margin-bottom:10px;">
+        html += `<div class="metrics" style="grid-template-columns:1fr 1fr;margin-bottom:10px;">
     <div class="metric"><div class="lbl">${t('totalTime')}</div><div class="val mono">${hmLabel(totalMs)}</div></div>
+    <div class="metric"><div class="lbl">${dayLabel}</div><div class="val mono"${dayRateStyle}>${Math.round(dayAchievementRate)}%</div></div>
   </div>`;
 
         html += `<div class="metrics" style="grid-template-columns:1fr 1fr;margin-bottom:16px;">
-    <div class="metric"><div class="lbl">${t('monthAchievement')}</div><div class="val mono">${Math.round(monthAchievementRate)}%</div></div>
-    <div class="metric"><div class="lbl">${dayLabel}</div><div class="val mono">${Math.round(dayAchievementRate)}%</div></div>
+    <div class="metric"><div class="lbl">${t('giftGaugeLabel')}</div><div class="val mono">${gaugeStr}</div></div>
+    <div class="metric"><div class="lbl">${t('collectedSoFar')}</div><div class="val mono">${t('collectedSummary')(totalStarsAllTime, totalGiftsAllTime)}</div></div>
   </div>`;
 
         // カレンダー描画
