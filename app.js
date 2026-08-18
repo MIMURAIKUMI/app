@@ -92,7 +92,11 @@ const I18N = {
     giftReadyBanner: 'プレゼントがあるよ',
     giftReadyCta: 'Settingsへ',
     giftChoicePrompt: 'おめかしとえさ、どっちのピクセルを解禁する？',
-    giftPendingCount: n => `ほかに${n}回、選べます`,
+    // n はrewards.pendingChoicesそのもの(今から選ぶ1回を含めた残り総数)。
+    // 以前は「ほかにn回、選べます」(pendingChoices-1、今回を除いた残り)だったが、
+    // 「今から選ぶのも含めて残り何回か」の方がわかりやすいというフィードバックを
+    // 受けて、2026-08-18に総数表示に変更した。
+    giftPendingCount: n => `プレゼントはあと${n}個あるよ`,
     appearanceBarStyle: '📊 進捗バーのスタイル',
     barStyleNames: {normal:'あるくねこ', stretch:'のびるねこ'},
     appearanceTheme: '🌈 カラーテーマ',
@@ -268,7 +272,10 @@ const I18N = {
     giftReadyBanner: 'You have a present waiting',
     giftReadyCta: 'Go to Settings',
     giftChoicePrompt: 'Choose a category to unlock: Outfits or Food?',
-    giftPendingCount: n => `${n} more choice${n===1?'':'s'} waiting`,
+    // n is rewards.pendingChoices itself (total remaining, including the one
+    // being chosen right now) -- see the ja string's comment for why this
+    // switched from an "other than this one" count.
+    giftPendingCount: n => `${n} gift${n===1?'':'s'} left to unlock`,
     appearanceBarStyle: '📊 Progress Bar Style',
     barStyleNames: {normal:'Walking cat', stretch:'Growing cat'},
     appearanceTheme: '🌈  Color Theme',
@@ -2489,7 +2496,7 @@ function renderSettings(){
           <div class="name" style="margin:0;text-align:center;">${t('pixelArtRowFood')}</div>
         </div>` : ''}
       </div>
-      ${rewards.pendingChoices > 1 ? `<div style="font-size:11px;color:var(--faint);margin-top:8px;">${t('giftPendingCount')(rewards.pendingChoices - 1)}</div>` : ''}
+      ${rewards.pendingChoices > 1 ? `<div style="font-size:11px;color:var(--faint);margin-top:8px;">${t('giftPendingCount')(rewards.pendingChoices)}</div>` : ''}
     </div>` : ''}
 
     <div class="pixrow">
