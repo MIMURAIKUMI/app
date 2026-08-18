@@ -874,7 +874,7 @@ function addDaysStr(dateStr, n){
   return fmtDate(d);
 }
 // The unlock order within a category is just that category's own key order
-// in pixel-arts-outfits.js (collar→ribbon→crown, karikari→churu→sasami).
+// in pixel-arts-outfits.js (collar→ribbon→crown, karikari→churu→sasami→nekokusa).
 function categoryOrder(type){
   if(type === 'outfit') return (typeof OUTFIT_ART !== 'undefined') ? Object.keys(OUTFIT_ART) : [];
   if(type === 'food') return (typeof FOOD_ART !== 'undefined') ? Object.keys(FOOD_ART) : [];
