@@ -1127,6 +1127,25 @@ let fbApplyingRemote = false;
 // covers the case where *our own* write already left the client, not this
 // earlier debounce window, so it isn't enough on its own.
 let fbPendingPush = false;
+// Firebase itself (the SDK modules + auth) loads lazily, up to ~2s after
+// boot (see __loadFirebaseModule()'s requestIdleCallback/setTimeout near the
+// bottom of this file) -- fbUser is null the whole time it's loading/signing
+// in. Any local edit made during that window (e.g. tapping おめかし/えさ in
+// Settings right after opening the app) used to go through fbScheduleSave()
+// while `!fbUser` was true, which just silently returned -- the edit was
+// saved to localStorage but NEVER scheduled to reach Firestore. A moment
+// later, once Firebase finished waking up, fbLoadAndSubscribe()'s initial
+// getDoc() would fetch this device's *previous* (older) synced copy and
+// fbApplyRemote() would unconditionally overwrite the in-memory state with
+// it -- silently discarding that early edit, since nothing had told this
+// code an un-pushed local change existed. That's what made a just-unlocked
+// おめかし item (or any other early edit) flash and then revert a moment
+// later, only to "stick" the second time (by then fbUser was set, so the
+// edit was properly protected by fbPendingPush).
+// This flag remembers "a local edit happened while Firebase wasn't ready to
+// push it yet", so the first sync can push that edit up instead of pulling
+// old server data over it (see fbLoadAndSubscribe()).
+let localChangedBeforeFbReady = false;
 let userPlan = 'free'; // 'free' | 'paid' — set only by the server (Cloud Function), never written by the client
 
 function fbDocRef(){
@@ -1134,7 +1153,14 @@ function fbDocRef(){
   return f.doc(f.db, 'users', fbUser.uid);
 }
 function fbScheduleSave(){
-  if(!fbUser || fbApplyingRemote || !window.__fb) return;
+  if(fbApplyingRemote) return; // this write came from applying a remote snapshot, not a real local edit
+  if(!fbUser || !window.__fb){
+    // Firebase isn't ready to accept a push yet -- remember this edit so the
+    // first sync (see fbLoadAndSubscribe()) pushes it up instead of
+    // overwriting it with whatever was on the server before it happened.
+    localChangedBeforeFbReady = true;
+    return;
+  }
   fbPendingPush = true;
   clearTimeout(fbSaveTimer);
   fbSaveTimer = setTimeout(fbPushNow, 1200);
@@ -1171,7 +1197,18 @@ async function fbLoadAndSubscribe(){
   const ref = fbDocRef();
   try{
     const snap = await f.getDoc(ref);
-    if(snap.exists() && snap.data() && (snap.data().tasks || snap.data().records)){
+    // A local edit already happened before Firebase was ready to push it
+    // (localChangedBeforeFbReady), or happened after fbUser was set but
+    // while this very getDoc() call was still in flight (fbPendingPush) --
+    // either way there's an un-pushed local change sitting in memory right
+    // now. Applying the snapshot we just fetched would silently overwrite
+    // it with older server data, so push the local state up instead of
+    // pulling the snapshot down (see the comments on localChangedBeforeFbReady
+    // and fbPendingPush above for the full story).
+    if(localChangedBeforeFbReady || fbPendingPush){
+      localChangedBeforeFbReady = false;
+      fbPushNow();
+    } else if(snap.exists() && snap.data() && (snap.data().tasks || snap.data().records)){
       fbApplyRemote(snap.data());
     } else {
       fbPushNow();
@@ -1534,17 +1571,19 @@ function renderPomodoroPanel(session){
 // ---------- render ----------
 // render() is called from dozens of onclick="..." handlers, often more than
 // once for a single user action (e.g. chooseReward() below used to call it
-// twice). Each call tears down and rebuilds #app's innerHTML -- including
-// whatever element the user's finger/cursor is still on top of. Doing that
-// SYNCHRONOUSLY, inside the same click/touch event that's still being
-// dispatched, is what caused the "選んだものが一瞬で消える" /
-// "トーストが2〜3回連続で出る" symptoms: on touch devices, replacing the
-// tapped element mid-gesture makes the browser resolve the rest of that same
-// tap's event sequence (touchend/click) against whatever new element now
-// sits at those same screen coordinates, so a single tap can end up
-// re-triggering a DIFFERENT handler (or the same one again) right after the
-// first one already ran -- e.g. re-closing a panel that had just opened, or
-// re-firing the reward toast.
+// twice). Each call tears down and rebuilds #app's innerHTML synchronously,
+// inside the same click/touch event that's still being dispatched --
+// including whatever element the user's finger/cursor is still on top of.
+// On touch devices that's a known source of misdirected/duplicate follow-up
+// events (the browser can resolve the rest of that tap's event sequence
+// against whatever new element now sits at those same coordinates).
+// NOTE: this turned out NOT to be the cause of the "選んだものが一瞬で消える" /
+// "トーストが2〜3回連続で出る" report -- that was a separate Firebase-sync
+// race (see localChangedBeforeFbReady / fbLoadAndSubscribe() below), now
+// fixed there. This render() change is still a real, independent
+// improvement (avoids redundant double DOM rebuilds and removes the touch
+// hazard described above) so it's kept, just no longer credited with fixing
+// the reported bug by itself.
 //
 // Fix: renderNow() (the actual DOM rebuild) is deferred to the next
 // requestAnimationFrame, and repeated render() calls made before that frame
