@@ -2501,7 +2501,7 @@ function renderSettings(){
       <div class="tri">${showOutfitPanel?'▼':'▶'}</div>
     </div>
     ${showOutfitPanel ? `<div class="collapsebody">${rewardPixcardRow(
-      unlockedOutfitKeys.map(k=>({ key:k, iconHtml: renderIconArt(OUTFIT_ART[k],1.0), name: OUTFIT_ART[k].name[LANG]||OUTFIT_ART[k].name.en })),
+      unlockedOutfitKeys.map(k=>({ key:k, iconHtml: renderIconArt(OUTFIT_ART[k].preview || OUTFIT_ART[k],1.0), name: OUTFIT_ART[k].name[LANG]||OUTFIT_ART[k].name.en })),
       rewards.equippedOutfit, 'selectOutfit', true
     )}</div>` : ''}` : ''}
 
