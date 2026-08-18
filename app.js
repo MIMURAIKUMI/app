@@ -612,7 +612,7 @@ function svgTileDataURI(grid, colorMap){
 // a back piece riding the current progress position, and a tiled middle
 // segment that stretches to fill the gap between them -- so the cat's body
 // itself reads as the progress bar, instead of a separate track underneath.
-function renderStretchProgressBar(key, percent, isWorking, cell, showGoal, paused){
+function renderStretchProgressBar(key, percent, isWorking, cell, showGoal, paused, skipOutfit){
   cell = cell || 2.5;
   if(showGoal===undefined) showGoal = true;
   // Prefer this cat's own custom stretch art (art.stretchShape /
@@ -650,7 +650,14 @@ function renderStretchProgressBar(key, percent, isWorking, cell, showGoal, pause
   // sits inside .stretchbar-back below, the outfit rides along automatically
   // as that div's `left` advances with progress, instead of needing separate
   // position tracking.
-  const backHTML = compositeOutfitOverlay(renderStretchPart(movingGrid, colors, cell), movingGrid[0].length, movingGrid.length, cell);
+  // `skipOutfit` opts a caller out of this compositing entirely -- used by
+  // the Settings > Bar Style「のびるねこ」preview thumbnail, which should
+  // just show the plain cat (matching the「あるくねこ」preview beside it,
+  // which also renders the bare cat via renderPixelArt() with no outfit)
+  // rather than whatever おめかし happens to be equipped right now.
+  const backHTML = skipOutfit
+    ? renderStretchPart(movingGrid, colors, cell)
+    : compositeOutfitOverlay(renderStretchPart(movingGrid, colors, cell), movingGrid[0].length, movingGrid.length, cell);
   const midTileURI = svgTileDataURI(midCropped, colors);
   const workingCls = isWorking ? ' working' : '';
   // The moving (head) box is `boxWidthPx` wide and its art sits to the right
@@ -2558,7 +2565,7 @@ function renderSettings(){
     <div style="display:flex;gap:18px;justify-content:center;flex-wrap:wrap;">
       ${Object.keys(BAR_STYLE_NAMES).map(key=>{
         const preview = key==='stretch'
-          ? `<div style="width:52px;overflow:hidden;">${renderStretchProgressBar(settings.pixelArt, 55, false, 1.8, false)}</div>`
+          ? `<div style="width:52px;overflow:hidden;">${renderStretchProgressBar(settings.pixelArt, 55, false, 1.8, false, undefined, true)}</div>`
           : `<div style="display:flex;align-items:center;justify-content:center;"><div style="transform:translateX(-30%);">${renderPixelArt(settings.pixelArt,1.1,'walking')}</div></div>`;
         return `
         <div class="themecard ${settings.barStyle===key?'on':''}" onclick="selectBarStyle('${key}')" style="flex:0 0 47%;min-width:140px;padding:12px 6px;">

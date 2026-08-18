@@ -8,7 +8,29 @@
 <link rel="preload" as="script" href="./pixel-arts-legendary.js">
 <link rel="preload" as="script" href="./app.js">
 <title>MyTimecard</title>
+<!-- ファビコン。ねこアート(sns_share_cats.png)から生成した正方形版
+     (favicon_master.png)を各サイズに書き出したもの。ホーム画面追加用の
+     apple-touch-icon(既存のicon.png)とは別物なのでそちらは変更していない。 -->
+<link rel="icon" href="./favicon.ico" sizes="any">
+<link rel="icon" type="image/png" sizes="32x32" href="./favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="./favicon-16x16.png">
+<link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png">
 <link rel="apple-touch-icon" href="./icon.png">
+<!-- OGP / SNS共有カード。画像はいただいたsns_share_cats.png(1200x630)を
+     そのままogp-cats.pngとして使用。og:imageは相対パスにしてあるが、
+     Facebook等の一部プラットフォームは絶対URLを要求するため、
+     公開ドメインが決まったら https://.../ogp-cats.png のような
+     絶対URLに直すことをおすすめします。 -->
+<meta property="og:type" content="website">
+<meta property="og:title" content="MyTimecard">
+<meta property="og:description" content="打刻と工数管理でねこが育つタイムカードアプリ">
+<meta property="og:image" content="./ogp-cats.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="MyTimecard">
+<meta name="twitter:description" content="打刻と工数管理でねこが育つタイムカードアプリ">
+<meta name="twitter:image" content="./ogp-cats.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" content="#FBF4F7">
