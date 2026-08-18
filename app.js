@@ -984,9 +984,18 @@ function chooseReward(type){
   rewards.pendingChoices = Math.max(0, rewards.pendingChoices - 1);
   clampPendingChoices();
   persistRewards();
-  // showToast() already calls renderToastHost() -- calling render() again
-  // right after was a redundant second full-DOM rebuild for the same tap
-  // (see the render() comment above for why that mattered on touch devices).
+  // showToast() only touches #toastHost now (renderToastHost()) -- it no
+  // longer rebuilds #app itself (that's the whole point of splitting the
+  // toast into its own DOM node, see renderToastHost()'s comment). So a
+  // render() call here is NOT redundant: it's the only thing that updates
+  // the Settings panel's own content -- the pendingChoices count, the "ほかに
+  // n回選べます" text, and the newly-unlocked item now showing in the list.
+  // Skipping it (as an earlier version of this function did, back when
+  // showToast() itself called render()) is exactly what made a chosen item
+  // stay invisible in the reward picker until some unrelated action finally
+  // triggered a render() -- which is what "3回連続で選んでも無反応で、3回
+  // 選び終わるとまとめて出てくる" was.
+  //
   // toastedRewardKeys guard: each item key can only ever be unlocked once
   // (unlockFromCategory() won't re-return an already-unlocked item), so this
   // can never wrongly suppress a legitimate toast -- it only protects
@@ -997,12 +1006,9 @@ function chooseReward(type){
     if(!toastedRewardKeys.has(flatKey)){
       toastedRewardKeys.add(flatKey);
       showToast(t('rewardUnlockedToast')(rewardItemName(item)));
-    } else {
-      render();
     }
-  } else {
-    render();
   }
+  render();
 }
 function rewardItemName(item){
   if(!item) return '';
