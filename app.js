@@ -441,34 +441,53 @@ function renderIconArtAtCellPx(art, cellPx){
 function renderIconArt(art, cell){
   return renderIconArtAtCellPx(art, (cell || 1.3) * 1.5);
 }
-// Renders the given cat (same pose-grid animated rendering as renderPixelArt)
-// with the currently-equipped おめかし item composited directly on top, using
-// each item's `overlay` hint (see pixel-arts-outfits.js):
-//   - anchor 'full' -- drawn at the cat's own cell size, in the exact same
-//     top-left position as the cat's own 16x16 grid (item art was drawn to
-//     already line up 1:1, e.g. 首輪 sitting right at the neck).
-//   - anchor 'top-right' -- drawn at `scale` × the cat's cell size, anchored
-//     to the top-right corner of the cat's bounding box, which lands it on
+// Composites the currently-equipped おめかし item directly on top of an
+// already-rendered base sprite -- shared by renderCatWithOutfit() (the normal
+// walking/sitting cat) and renderStretchProgressBar() (the のびるねこ head
+// piece), so both go through the exact same anchor/scale/offset math instead
+// of two separate implementations drifting apart. `cols`/`rows` describe the
+// base sprite's own grid size (almost always 16x16) and `cellPx` its actual
+// on-screen cell size, so the overlay's bounding box lines up with it exactly.
+// Each item's `overlay` hint (see pixel-arts-outfits.js) controls placement:
+//   - anchor 'full' -- drawn at the base sprite's own cell size, in the exact
+//     same top-left position as its grid (item art was drawn to already line
+//     up 1:1, e.g. 首輪 sitting right at the neck).
+//   - anchor 'top-right' -- drawn at `scale` × the base sprite's cell size,
+//     anchored to the top-right corner of its bounding box, which lands it on
 //     top of the head (リボン／王冠).
-// Falls back to the plain cat (no overlay) whenever nothing is equipped, or
-// the equipped item has no grid to draw.
+//   - optional `offsetX`/`offsetY` -- a fixed pixel nudge on top of the
+//     anchor position (positive X = further right on screen, positive Y =
+//     further down), for fine-tuning once the anchor/scale alone isn't quite
+//     right (e.g. 王冠 sitting a little low/left of dead-center on the head).
+// Falls back to the plain base sprite (no overlay) whenever nothing is
+// equipped, or the equipped item has no grid to draw.
+function compositeOutfitOverlay(baseHtml, cols, rows, cellPx){
+  const outfitKey = rewards.equippedOutfit;
+  if(!outfitKey || typeof OUTFIT_ART === 'undefined' || !OUTFIT_ART[outfitKey]) return baseHtml;
+  const art = OUTFIT_ART[outfitKey];
+  if(!art || !art.grid) return baseHtml;
+  const boxW = cols * cellPx, boxH = rows * cellPx;
+  const overlay = art.overlay || { scale: 1, anchor: 'full' };
+  const overlayCellPx = cellPx * (overlay.scale != null ? overlay.scale : 1);
+  const overlayWidthPx = art.grid[0].length * overlayCellPx;
+  const offsetX = overlay.offsetX || 0, offsetY = overlay.offsetY || 0;
+  const left = (overlay.anchor === 'top-right' ? (boxW - overlayWidthPx) : 0) + offsetX;
+  const top = offsetY;
+  const overlayHtml = renderIconArtAtCellPx(art, overlayCellPx);
+  return `<div style="position:relative;width:${boxW}px;height:${boxH}px;">${baseHtml}<div style="position:absolute;left:${left}px;top:${top}px;pointer-events:none;z-index:2;">${overlayHtml}</div></div>`;
+}
+// Renders the given cat (same pose-grid animated rendering as renderPixelArt)
+// with the currently-equipped おめかし item composited on top via
+// compositeOutfitOverlay() -- see that function for how anchor/scale/offset
+// are applied.
 function renderCatWithOutfit(key, cell, pose){
   const catHtml = renderPixelArt(key, cell, pose);
-  const outfitKey = rewards.equippedOutfit;
-  if(!outfitKey || typeof OUTFIT_ART === 'undefined' || !OUTFIT_ART[outfitKey]) return catHtml;
-  const art = OUTFIT_ART[outfitKey];
-  if(!art || !art.grid) return catHtml;
   const actualCell = (cell || 1.8) * 1.5; // same scaling renderPixelArt() applies internally
   const catArt = getCatArt(key) || PIXEL_ART_GRIDS[Object.keys(PIXEL_ART_GRIDS)[0]];
   const poseGrid = (catArt.poses && catArt.poses[pose]) ? catArt.poses[pose] : (catArt.poses && catArt.poses.sitting);
   const cols = poseGrid ? poseGrid[0].length : 16;
   const rows = poseGrid ? poseGrid.length : 16;
-  const boxW = cols * actualCell, boxH = rows * actualCell;
-  const overlay = art.overlay || { scale: 1, anchor: 'full' };
-  const overlayCellPx = actualCell * (overlay.scale != null ? overlay.scale : 1);
-  const overlayHtml = renderIconArtAtCellPx(art, overlayCellPx);
-  const posStyle = overlay.anchor === 'top-right' ? 'top:0;right:0;' : 'top:0;left:0;';
-  return `<div style="position:relative;width:${boxW}px;height:${boxH}px;">${catHtml}<div style="position:absolute;${posStyle}pointer-events:none;z-index:2;">${overlayHtml}</div></div>`;
+  return compositeOutfitOverlay(catHtml, cols, rows, actualCell);
 }
 function pixelArtName(key){
   const art = getCatArt(key);
@@ -607,7 +626,13 @@ function renderStretchProgressBar(key, percent, isWorking, cell, showGoal, pause
   const midCropped = midGrid.slice(mR.min, mR.max + 1);
   const midTileWidth = midGrid[0].length * cell;
   const frontHTML = renderStretchPart(fixedGrid, colors, cell);
-  const backHTML = renderStretchPart(movingGrid, colors, cell);
+  // The moving (head) piece carries the equipped おめかし item composited
+  // directly onto it (same anchor/scale/offset math as the walking/sitting
+  // cat, see compositeOutfitOverlay()) -- since the whole composited unit
+  // sits inside .stretchbar-back below, the outfit rides along automatically
+  // as that div's `left` advances with progress, instead of needing separate
+  // position tracking.
+  const backHTML = compositeOutfitOverlay(renderStretchPart(movingGrid, colors, cell), movingGrid[0].length, movingGrid.length, cell);
   const midTileURI = svgTileDataURI(midCropped, colors);
   const workingCls = isWorking ? ' working' : '';
   // The moving (head) box is `boxWidthPx` wide and its art sits to the right
@@ -1084,23 +1109,6 @@ function jumpToSettingsForGift(){
   if(categoryHasRoom('food')) showFoodPanel = true;
   setTab('settings');
 }
-// Small badge showing the currently-worn おめかし item, overlaid on the
-// Timecard tab's progress area -- used only for the "のびるねこ" stretch bar
-// style while a session is actually running/paused (renderStretchProgressBar
-// builds a custom stretch shape, not the cat's normal 16x16 pose grid, so
-// there's no cat-pixel position to composite the item onto there). Every
-// other case (normal walking/sitting bar style, and the stretch style's idle
-// sitting cat) renders the cat via the ordinary pose grid, so those go
-// through renderCatWithOutfit() instead, which composites the item directly
-// onto the cat sprite using each item's `overlay` hint.
-function renderEquippedOutfitBadge(){
-  const key = rewards.equippedOutfit;
-  if(!key || typeof OUTFIT_ART === 'undefined' || !OUTFIT_ART[key]) return '';
-  const art = OUTFIT_ART[key];
-  const name = escapeHtml(art.name[LANG] || art.name.en);
-  return `<div title="${name}" style="position:absolute;top:-6px;right:6px;z-index:5;">${renderIconArt(art, 1.3)}</div>`;
-}
-
 // ---------- Firebase sync (Firestore doc per user; anonymous by default, Google to sync across devices) ----------
 let fbUser = null;
 let fbSaveTimer = null;
@@ -1720,7 +1728,7 @@ function renderPunch(today, todayStr, weekday, suggested){
     </div>
     <div id="clockDisplay" class="clock" style="color:${status==='none'?'var(--faint)':sColor};">${msToHMS(ms)}</div>
     <div class="projlist">${chipsHtml}</div>
-    <div class="progresswrap${barStyleIsStretch?' stretch':''}" style="position:relative;">${barHTML}${stretchMode ? renderEquippedOutfitBadge() : ''}</div>
+    <div class="progresswrap${barStyleIsStretch?' stretch':''}" style="position:relative;">${barHTML}</div>
     <div class="goalline">${hmLabel(ms)} / ${taskGoalHoursLabel(goalHours)}${t('parenWrap')(escapeHtml(currentTask?currentTask.name:''))}</div>
     ${buttonsHtml}
   </div>`;

@@ -9,14 +9,21 @@
 // have a `name`, a `colors` palette map, and a 16x16 `grid`.
 //
 // おめかし items also carry an `overlay` hint used by app.js's
-// renderCatWithOutfit() to composite the equipped item directly onto the
-// cat sprite (see that function for how scale/anchor are applied):
-//   - { scale: 1, anchor: 'full' } -- drawn at the cat's own scale, in the
-//     exact same position as the cat's own 16x16 grid (used for 首輪, which
-//     was drawn to already line up with the cat's neck at 1:1).
-//   - { scale: 0.7, anchor: 'top-right' } -- drawn at 70% of the cat's size,
-//     anchored to the top-right corner of the cat's bounding box, which
-//     lands it on top of the head (used for リボン／王冠).
+// compositeOutfitOverlay() (called from both renderCatWithOutfit() for the
+// walking/sitting cat, and renderStretchProgressBar() for the のびるねこ
+// head piece) to composite the equipped item directly onto the base sprite
+// (see that function for exactly how scale/anchor/offset are applied):
+//   - { scale: 1, anchor: 'full' } -- drawn at the base sprite's own scale,
+//     in the exact same position as its 16x16 grid (used for 首輪, which was
+//     drawn to already line up with the cat's neck at 1:1).
+//   - { scale: 0.7, anchor: 'top-right' } -- drawn at 70% of the base
+//     sprite's size, anchored to the top-right corner of its bounding box,
+//     which lands it roughly on top of the head (used for リボン／王冠).
+//   - optional `offsetX`/`offsetY` (px) -- a fixed nudge on top of the
+//     anchor position for fine-tuning (positive X = right, positive Y =
+//     down), set from direct visual feedback rather than derived from the
+//     art. Currently: リボン `offsetY:-3` (3px up), 王冠 `offsetX:3,
+//     offsetY:-10` (3px right, 10px up).
 //
 // Loaded via <script> before app.js (and after pixel-arts.js), so these
 // become globals: OUTFIT_ART, FOOD_ART.
@@ -54,7 +61,7 @@ const OUTFIT_ART = {
   ribbon: {
     name: { ja: 'リボン', en: 'Ribbon' },
     colors: { 1: '#000000', 13: '#ff9a9a', 5: '#ff3b30', 29: '#c00000' },
-    overlay: { scale: 0.7, anchor: 'top-right' },
+    overlay: { scale: 0.7, anchor: 'top-right', offsetY: -3 },
     grid: [
       [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
       [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
@@ -77,7 +84,7 @@ const OUTFIT_ART = {
   crown: {
     name: { ja: '王冠', en: 'Crown' },
     colors: { 1: '#000000', 15: '#fff3a0', 7: '#ffcc00', 6: '#ff9500' },
-    overlay: { scale: 0.7, anchor: 'top-right' },
+    overlay: { scale: 0.7, anchor: 'top-right', offsetX: 3, offsetY: -10 },
     grid: [
       [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
       [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
@@ -108,19 +115,19 @@ const OUTFIT_ART = {
 const FOOD_ART = {
   karikari: {
     name: { ja: 'カリカリ', en: 'Kibble' },
-    colors: { 1: '#000000', 24: '#8b5e3c', 14: '#ffcb8e', 23: '#c47a5a', 3: '#aaaaaa', 22: '#e8a87c', 4: '#ffffff' },
+    colors: { 1: '#000000', 24: '#8b5e3c', 14: '#ffcb8e', 23: '#c47a5a', 4: '#ffffff', 3: '#aaaaaa', 22: '#e8a87c' },
     grid: [
       [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
       [0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0],
       [0, 0, 0, 0, 0, 1, 1, 24, 1, 0, 1, 1, 0, 0, 0, 0],
       [0, 0, 0, 1, 1, 14, 1, 24, 23, 1, 23, 23, 1, 0, 0, 0],
-      [0, 0, 1, 3, 1, 24, 14, 1, 1, 23, 1, 1, 3, 1, 0, 0],
-      [0, 1, 3, 1, 1, 14, 14, 1, 1, 1, 23, 24, 1, 3, 1, 0],
-      [1, 3, 1, 14, 23, 1, 1, 1, 23, 14, 1, 1, 23, 1, 3, 1],
-      [1, 3, 1, 14, 24, 1, 24, 23, 1, 1, 1, 22, 23, 1, 3, 1],
-      [0, 1, 3, 1, 1, 1, 23, 23, 1, 14, 14, 1, 1, 3, 1, 0],
-      [0, 0, 1, 3, 3, 4, 1, 1, 1, 1, 1, 3, 3, 1, 0, 0],
-      [0, 0, 0, 1, 1, 3, 3, 3, 3, 3, 3, 1, 1, 0, 0, 0],
+      [0, 0, 1, 4, 1, 24, 14, 1, 1, 23, 1, 1, 3, 1, 0, 0],
+      [0, 1, 4, 1, 1, 14, 14, 1, 1, 1, 23, 24, 1, 4, 1, 0],
+      [1, 4, 1, 14, 23, 1, 1, 1, 23, 14, 1, 1, 23, 1, 4, 1],
+      [1, 3, 1, 14, 24, 1, 24, 23, 1, 1, 1, 22, 23, 1, 4, 1],
+      [0, 1, 3, 1, 1, 1, 23, 23, 1, 14, 14, 1, 1, 4, 1, 0],
+      [0, 0, 1, 3, 4, 4, 1, 1, 1, 1, 1, 4, 4, 1, 0, 0],
+      [0, 0, 0, 1, 1, 3, 3, 3, 4, 4, 4, 1, 1, 0, 0, 0],
       [0, 0, 1, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0],
       [0, 1, 22, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
       [0, 0, 1, 0, 1, 23, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0],
@@ -174,23 +181,23 @@ const FOOD_ART = {
   },
   nekokusa: {
     name: { ja: '猫草', en: 'Cat Grass' },
-    colors: { 16: '#a8f0a4', 8: '#34c759', 30: '#4ea72e', 3: '#aaaaaa', 4: '#ffffff' },
+    colors: { 1: '#000000', 16: '#a8f0a4', 8: '#34c759', 30: '#4ea72e', 3: '#aaaaaa', 4: '#ffffff' },
     grid: [
-      [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-      [0, 0, 0, 0, 0, 16, 0, 8, 0, 16, 8, 0, 0, 0, 0, 0],
-      [0, 30, 0, 8, 30, 16, 8, 0, 16, 8, 0, 0, 0, 16, 0, 0],
-      [0, 0, 30, 0, 8, 30, 8, 16, 8, 0, 16, 30, 16, 30, 0, 0],
-      [0, 16, 30, 0, 16, 8, 30, 16, 8, 16, 30, 8, 30, 16, 8, 0],
-      [0, 0, 16, 30, 16, 8, 30, 16, 8, 30, 16, 8, 30, 8, 0, 0],
-      [0, 0, 0, 30, 16, 8, 30, 16, 8, 30, 16, 30, 16, 8, 0, 0],
-      [0, 0, 0, 30, 16, 8, 30, 16, 8, 30, 8, 30, 8, 0, 0, 0],
-      [0, 0, 3, 3, 16, 8, 30, 16, 8, 30, 8, 30, 3, 3, 0, 0],
-      [0, 3, 4, 4, 3, 3, 3, 3, 3, 3, 3, 3, 4, 4, 3, 0],
-      [0, 0, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 3, 0, 0],
-      [0, 0, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 3, 0, 0],
-      [0, 0, 0, 3, 4, 4, 4, 4, 4, 4, 4, 4, 3, 0, 0, 0],
-      [0, 0, 0, 3, 4, 4, 4, 4, 4, 4, 4, 4, 3, 0, 0, 0],
-      [0, 0, 0, 0, 3, 3, 3, 3, 3, 3, 3, 3, 0, 0, 0, 0],
+      [0, 0, 0, 0, 0, 1, 0, 1, 0, 1, 1, 0, 0, 0, 0, 0],
+      [0, 0, 1, 1, 1, 16, 1, 8, 1, 16, 8, 1, 0, 1, 1, 0],
+      [0, 1, 16, 8, 1, 16, 8, 1, 16, 8, 1, 16, 1, 16, 1, 0],
+      [0, 1, 30, 16, 8, 16, 1, 16, 8, 1, 16, 30, 16, 30, 1, 0],
+      [0, 0, 1, 30, 16, 8, 1, 16, 8, 16, 30, 8, 30, 16, 1, 0],
+      [0, 0, 1, 30, 16, 8, 30, 16, 8, 30, 16, 8, 30, 1, 0, 0],
+      [0, 0, 0, 1, 30, 8, 30, 16, 8, 30, 16, 30, 16, 1, 0, 0],
+      [0, 0, 0, 1, 30, 8, 30, 16, 8, 30, 8, 30, 1, 0, 0, 0],
+      [0, 0, 1, 1, 30, 8, 30, 16, 8, 30, 8, 30, 1, 1, 0, 0],
+      [0, 1, 3, 3, 1, 1, 1, 1, 1, 1, 1, 1, 4, 4, 1, 0],
+      [0, 0, 1, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 1, 0, 0],
+      [0, 0, 1, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 1, 0, 0],
+      [0, 0, 0, 1, 3, 4, 4, 4, 4, 4, 4, 4, 1, 0, 0, 0],
+      [0, 0, 0, 1, 3, 3, 3, 3, 3, 3, 3, 4, 1, 0, 0, 0],
+      [0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0],
       [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
     ],
   },
