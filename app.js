@@ -127,7 +127,7 @@ const I18N = {
     androidStep4: '画面の指示に従って追加',
     addRecordTodayShort: '＋ 今日にタスクを追加',
     addRecordDateShort: mmdd => `＋ ${mmdd}にタスクを追加`,
-    totalTime: '合計時間', unmetTime: '未達成時間',
+    totalTime: '今月の合計時間', unmetTime: '未達成時間',
     achievementByTask: 'タスクごとの達成率',
     actualGoal: (a,goalStr) => `実績 ${a}${goalStr}`,
     goalPart: g => ` / 目標 ${g}`,
@@ -136,6 +136,9 @@ const I18N = {
     noRecordsThisMonth: 'この月の記録はありません',
     calendarTitle: 'カレンダー（記録した時間）',
     monthAchievement: '今月の達成率',
+    giftGaugeLabel: 'つぎのプレゼントまで',
+    collectedSoFar: 'これまで集めた数',
+    collectedSummary: (stars,gifts) => `⭐×${stars} 🎁×${gifts}`,
     dayAchievement: '選択日の達成率',
     todayAchievement: '今日の達成率',
     dateAchievement: mmdd => `${mmdd}の達成率`,
@@ -300,7 +303,7 @@ const I18N = {
     androidStep4: 'Follow the on-screen instructions',
     addRecordTodayShort: '＋ Add task for today',
     addRecordDateShort: mmdd => `＋ Add task for ${mmdd}`,
-    totalTime: 'Total time', unmetTime: 'Shortfall',
+    totalTime: 'This month\'s total time', unmetTime: 'Shortfall',
     achievementByTask: 'Achievement rate by task',
     actualGoal: (a,goalStr) => `Actual ${a}${goalStr}`,
     goalPart: g => ` / Goal ${g}`,
@@ -309,6 +312,9 @@ const I18N = {
     noRecordsThisMonth: 'No records this month',
     calendarTitle: 'Calendar (recorded time)',
     monthAchievement: 'This month',
+    giftGaugeLabel: 'Until next present',
+    collectedSoFar: 'Collected so far',
+    collectedSummary: (stars,gifts) => `⭐×${stars} 🎁×${gifts}`,
     dayAchievement: 'Selected day',
     todayAchievement: 'Today',
     dateAchievement: mmdd => `${mmdd}`,
@@ -733,7 +739,17 @@ const THEME_PREVIEW_KEYS = {
 function applyTheme(){
   document.documentElement.setAttribute('data-theme', settings.theme || 'original');
 }
-function selectTheme(key){ settings.theme=key; persistSettings(); applyTheme(); render(); }
+// テーマごとに雰囲気の合う猫を「おすすめデフォルト」として用意しておき、
+// テーマ切り替えと同時に猫も自動で切り替える（モノクロ→白猫、ダーク→黒猫）。
+// あくまで初期値の提案なので、切り替え後もSettingsから普段通り別の猫を
+// 選び直せる（次にまたテーマを切り替えると、そのテーマのおすすめに戻る）。
+const THEME_DEFAULT_CAT = { mono: 'white', dark: 'black' };
+function selectTheme(key){
+  settings.theme=key;
+  const recommendedCat = THEME_DEFAULT_CAT[key];
+  if(recommendedCat && getCatArt(recommendedCat)) settings.pixelArt = recommendedCat;
+  persistSettings(); applyTheme(); render();
+}
 function selectBarStyle(key){ settings.barStyle=key; persistSettings(); render(); }
 
 let tasks = load('tt_tasks', null);
@@ -810,11 +826,41 @@ let expandedReportDates = new Set();
 let selectedReportDate = fmtDate(new Date());
 let toastMessage = null;
 let toastTimer = null;
+// flatKeys ("outfit:ribbon" etc.) already shown via rewardUnlockedToast this
+// page load -- see the guard inside evaluateRewards()'s auto-unlock branch
+// and chooseReward() below.
+const toastedRewardKeys = new Set();
 function showToast(msg, ms){
   toastMessage = msg;
-  render();
+  renderToastHost();
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(()=>{ toastMessage=null; render(); }, ms || 3500);
+  toastTimer = setTimeout(()=>{ toastMessage=null; renderToastHost(); }, ms || 3500);
+}
+// Renders into its own standalone DOM node (#toastHost, a sibling of #app in
+// index.html) instead of being part of the big innerHTML template render()
+// rebuilds on every state change. render() gets called very often while a
+// toast happens to be showing (any unrelated action -- switching tabs,
+// ticking the pomodoro, an unrelated persistRecords()/evaluateRewards() call
+// -- re-renders #app's whole innerHTML), and since the toast used to be
+// inline in that same template, EVERY one of those unrelated re-renders tore
+// the toast <div> down and recreated it -- restarting its CSS pop-in
+// animation from scratch each time even though the message hadn't changed.
+// That's what made a single "◯◯を手に入れました" look like it was popping up
+// several times in a row. Keeping it in a separate node that's only touched
+// when the message actually changes fixes that at the root, regardless of
+// how many times something else calls render() in the meantime.
+function renderToastHost(){
+  const host = document.getElementById('toastHost');
+  if(!host) return;
+  if(toastMessage){
+    if(host.dataset.msg !== toastMessage){
+      host.dataset.msg = toastMessage;
+      host.innerHTML = `<div class="toast">${escapeHtml(toastMessage)}</div>`;
+    }
+  } else if(host.innerHTML){
+    host.innerHTML = '';
+    delete host.dataset.msg;
+  }
 }
 let addDraft = null; // {date, taskId, segments:[{start,end}]}
 let showDuplicate = false;
@@ -938,11 +984,25 @@ function chooseReward(type){
   rewards.pendingChoices = Math.max(0, rewards.pendingChoices - 1);
   clampPendingChoices();
   persistRewards();
-  // showToast() already calls render() -- calling it again right after was
-  // a redundant second full-DOM rebuild for the same tap (see the render()
-  // comment above for why that mattered on touch devices).
-  if(item) showToast(t('rewardUnlockedToast')(rewardItemName(item)));
-  else render();
+  // showToast() already calls renderToastHost() -- calling render() again
+  // right after was a redundant second full-DOM rebuild for the same tap
+  // (see the render() comment above for why that mattered on touch devices).
+  // toastedRewardKeys guard: each item key can only ever be unlocked once
+  // (unlockFromCategory() won't re-return an already-unlocked item), so this
+  // can never wrongly suppress a legitimate toast -- it only protects
+  // against a redundant re-entry (e.g. a stale/duplicate Firebase apply)
+  // trying to pop the same "手に入れました" a second time.
+  if(item){
+    const flatKey = `${item.type}:${item.key}`;
+    if(!toastedRewardKeys.has(flatKey)){
+      toastedRewardKeys.add(flatKey);
+      showToast(t('rewardUnlockedToast')(rewardItemName(item)));
+    } else {
+      render();
+    }
+  } else {
+    render();
+  }
 }
 function rewardItemName(item){
   if(!item) return '';
@@ -1064,7 +1124,18 @@ function evaluateRewards(){
       // only one category has anything left, so there's no real choice to
       // make -- just unlock it.
       const unlocked = unlockFromCategory(outfitRoom ? 'outfit' : 'food');
-      if(unlocked) showToast(t('rewardUnlockedToast')(rewardItemName(unlocked)));
+      // Belt-and-suspenders against evaluateRewards() being re-entered for
+      // an item it already toasted this session (e.g. from a redundant
+      // Firebase apply that slips past the fbApplyRemote()/onSnapshot
+      // guards above) -- never show the exact same "◯◯を手に入れました"
+      // toast twice per load.
+      if(unlocked){
+        const flatKey = `${unlocked.type}:${unlocked.key}`;
+        if(!toastedRewardKeys.has(flatKey)){
+          toastedRewardKeys.add(flatKey);
+          showToast(t('rewardUnlockedToast')(rewardItemName(unlocked)));
+        }
+      }
     } // else: everything already unlocked, nothing more to bank
     rewards.giftsGrantedCount += 1;
   }
@@ -1094,6 +1165,17 @@ function giftProgressCountdownInfo(){
   const liveBonus = (!rewards.achievedDates.includes(todayStr) && isTodayAchievedLive()) ? 1 : 0;
   const daysRemaining = Math.max(0, GIFT_EVERY_DAYS - (rewards.giftProgressDays + liveBonus));
   return { daysRemaining };
+}
+// How many stars of the current GIFT_EVERY_DAYS-day cycle have been
+// collected so far, for the ★★★☆☆☆☆-style gauge on the Summary tab. Mirrors
+// giftProgressCountdownInfo()'s "preview today's live achievement" logic so
+// the gauge fills in the instant today's goal is hit, not only once the
+// session is stopped and persistRecords() re-runs evaluateRewards().
+function giftGaugeInfo(){
+  const todayStr = fmtDate(new Date());
+  const liveBonus = (!rewards.achievedDates.includes(todayStr) && isTodayAchievedLive()) ? 1 : 0;
+  const filled = Math.min(GIFT_EVERY_DAYS, rewards.giftProgressDays + liveBonus);
+  return { filled, total: GIFT_EVERY_DAYS };
 }
 const LEGENDARY_COUNTDOWN_SHOW_WITHIN_DAYS = 5; // only start nudging once this close, not for the whole month
 function legendaryCountdownInfo(){
@@ -1150,6 +1232,7 @@ let fbLocalVersion = 0;
 let fbConfirmedVersion = 0;
 function fbHasUnsyncedChange(){ return fbLocalVersion !== fbConfirmedVersion; }
 let userPlan = 'free'; // 'free' | 'paid' — set only by the server (Cloud Function), never written by the client
+let fbUnsubscribe = null; // unsubscribe fn for the currently-active onSnapshot listener, if any
 
 function fbDocRef(){
   const f = window.__fb;
@@ -1179,9 +1262,19 @@ function fbPushNow(){
   // and fbHasUnsyncedChange() correctly stays true for the newer edit
   // (rather than a shared flag getting blindly cleared for everything).
   const versionBeingPushed = fbLocalVersion;
-  // merge:true is important — without it, each save would overwrite the whole
-  // document and wipe out server-only fields like `plan` that Cloud Functions set.
-  f.setDoc(fbDocRef(), { tasks, records, settings, rewards, updatedAt: f.serverTimestamp() }, { merge: true })
+  // Use mergeFields (NOT merge:true) so each listed top-level field is
+  // replaced wholesale, rather than deep-merged. `records` is a map keyed by
+  // date (see deleteSession/removeTask etc.), and Firestore's merge:true
+  // recursively merges nested maps: a key that's present in the write gets
+  // overwritten, but a key that's *absent* (e.g. a day's last session was
+  // deleted, so that date was removed from `records` locally) is left
+  // untouched on the server instead of being cleared. The next onSnapshot
+  // (often from this very write's own round-trip) then pastes that
+  // still-there date back into local state, making the delete silently undo
+  // itself. mergeFields avoids that (each field is fully replaced) while
+  // still not clobbering server-only fields like `plan` (set by a Cloud
+  // Function), since `plan` isn't in this list.
+  f.setDoc(fbDocRef(), { tasks, records, settings, rewards, updatedAt: f.serverTimestamp() }, { mergeFields: ['tasks', 'records', 'settings', 'rewards', 'updatedAt'] })
     .then(()=>{ if(versionBeingPushed > fbConfirmedVersion) fbConfirmedVersion = versionBeingPushed; })
     .catch(e=>console.error('firebase save failed', e));
 }
@@ -1196,7 +1289,27 @@ function fbApplyRemote(data){
     if(!settings.theme || !THEME_NAMES[settings.theme]) settings.theme = 'original';
     if(!settings.pomodoro || !settings.pomodoro.templates || !settings.pomodoro.templates.length) settings.pomodoro = defaultSettings().pomodoro;
   }
-  if(data.rewards) rewards = Object.assign(defaultRewards(), data.rewards);
+  if(data.rewards){
+    const incoming = Object.assign(defaultRewards(), data.rewards);
+    // giftsGrantedCount (and the counts it gates) is documented in
+    // defaultRewards() as monotonic -- never decreases. But a remote apply
+    // can in principle carry an older snapshot (e.g. a race between getDoc()
+    // and onSnapshot's first delivery, or another device that hasn't caught
+    // up yet). Blindly overwriting `rewards` with that would walk these
+    // counts backward, and the very next evaluateRewards() call would then
+    // "discover" an already-unlocked item as newly unlocked again and re-pop
+    // its 🎁 toast. Never let these monotonic-by-design fields regress on a
+    // remote apply; take the max/union with whatever's already in memory
+    // instead of trusting the remote value outright.
+    if(rewards){
+      incoming.giftsGrantedCount = Math.max(incoming.giftsGrantedCount, rewards.giftsGrantedCount);
+      incoming.outfitUnlockedCount = Math.max(incoming.outfitUnlockedCount, rewards.outfitUnlockedCount);
+      incoming.foodUnlockedCount = Math.max(incoming.foodUnlockedCount, rewards.foodUnlockedCount);
+      incoming.legendaryUnlocked = incoming.legendaryUnlocked || rewards.legendaryUnlocked;
+      incoming.unlocked = Array.from(new Set([...rewards.unlocked, ...incoming.unlocked]));
+    }
+    rewards = incoming;
+  }
   userPlan = data.plan === 'paid' ? 'paid' : 'free';
   save('tt_tasks', tasks); save('tt_records', records); save('tt_settings', settings); save('tt_rewards', rewards);
   fbApplyingRemote = false;
@@ -1224,7 +1337,18 @@ async function fbLoadAndSubscribe(){
     }
   }catch(e){ console.error('firebase initial load failed', e); }
 
-  f.onSnapshot(ref, (snap)=>{
+  // onAuthStateChanged (see __loadFirebaseModule below) can fire more than
+  // once during a single page load -- e.g. once for the anonymous session,
+  // again once a Google redirect sign-in resolves, or just a redundant
+  // re-fire while auth state settles. Each fire re-runs this whole function
+  // via the 'fb-auth' listener. Without unsubscribing the previous listener
+  // first, every extra fire stacked ANOTHER onSnapshot() on top of the
+  // previous one(s), so a single Firestore update (including the echo of our
+  // own writes) ran fbApplyRemote() once per stacked listener -- popping the
+  // same "手に入れました" toast multiple times in a row. Always drop the old
+  // subscription before attaching a new one.
+  if(fbUnsubscribe){ fbUnsubscribe(); fbUnsubscribe = null; }
+  fbUnsubscribe = f.onSnapshot(ref, (snap)=>{
     if(fbApplyingRemote || fbHasUnsyncedChange() || snap.metadata.hasPendingWrites) return;
     if(snap.exists()) fbApplyRemote(snap.data());
   }, (e)=>console.error('firebase snapshot error', e));
@@ -1632,7 +1756,6 @@ function renderNow(){
     const isJa = /[^ -~]/.test(titlePrefix);
 
     let html = `
-    ${toastMessage ? `<div class="toast">${escapeHtml(toastMessage)}</div>` : ''}
     <header>
       <div class="eyebrow">
         <span id="header-username" class="user-name-part ${isJa ? 'is-ja' : ''}">${titlePrefix}</span>
@@ -1657,21 +1780,22 @@ function renderNow(){
   }
 
   // gamification nudges: a "プレゼントがあるよ" notice once a present is
-  // waiting to be spent on おめかし/えさ (tap it to jump to Settings), how
-  // many more successful days until the *next* present otherwise, and --
+  // waiting to be spent on おめかし/えさ (tap it to jump to Settings), and --
   // only once within LEGENDARY_COUNTDOWN_SHOW_WITHIN_DAYS days -- a
   // silhouette-teased countdown to the Legendary Cat. Shown on every tab,
-  // same as the unfinished-records banner above.
+  // same as the unfinished-records banner above. The day-by-day「プレゼント
+  // まであと〇日」nudge used to live here too, but it's been consolidated
+  // into the ⭐ gauge on the Summary tab instead (see giftGaugeInfo()), so the
+  // user can check streak/present progress in one stable place rather than a
+  // constantly-shifting top banner.
   const hasPendingGift = rewards.pendingChoices > 0;
-  const giftInfo = hasPendingGift ? null : giftProgressCountdownInfo();
   const legendaryInfo = legendaryCountdownInfo();
-  if(hasPendingGift || giftInfo || legendaryInfo){
+  if(hasPendingGift || legendaryInfo){
     html += `<div class="panel" style="padding:12px 14px;margin-bottom:16px;font-size:12px;color:var(--dim);display:flex;flex-direction:column;gap:8px;">
       ${hasPendingGift ? `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;cursor:pointer;" onclick="jumpToSettingsForGift()">
           <span>🎁 ${t('giftReadyBanner')}</span>
           <span style="color:var(--brassDim);font-weight:700;flex-shrink:0;">${t('giftReadyCta')} ›</span>
         </div>` : ''}
-      ${giftInfo ? `<div>🎁 ${t('giftProgressCountdown')(giftInfo.daysRemaining)}</div>` : ''}
       ${legendaryInfo ? `<div style="display:flex;align-items:center;gap:8px;">
           <span style="flex-shrink:0;line-height:0;">${renderPixelArtSilhouette('rainbow', 0.55, 'sitting', 0.3)}</span>
           <span>🌈 ${t('legendaryCountdown')(legendaryInfo.daysRemaining)}</span>
@@ -1875,7 +1999,7 @@ function renderTasks(){
 
   let html = `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
     <div style="font-size:13px;color:var(--dim);">${t('tasksIntro')}</div>
-    <button onclick="openTaskForm(null)" style="background:var(--brass);color:#fff;border:2px solid var(--brassDim);border-radius:9px;padding:8px 12px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;box-shadow:2px 2px 0 rgba(255,158,199,0.3);">${t('addBtn')}</button>
+    <button onclick="openTaskForm(null)" style="background:var(--accent);color:#fff;border:2px solid var(--accentDim);border-radius:9px;padding:8px 12px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;box-shadow:2px 2px 0 color-mix(in srgb, var(--accent) 30%, transparent);">${t('addBtn')}</button>
   </div>`;
 
   if(active.length===0){
@@ -2655,23 +2779,21 @@ function renderCalendar(rows, month, selectedDate){
   const daysInMonth = new Date(y, m, 0).getDate();
   const startWeekday = new Date(y, m-1, 1).getDay();
   const todayStr = fmtDate(new Date());
-  // achievedDates -> ⭐ (that day hit its combined daily goal), giftEarnedDates
-  // -> 🎁 (that day's success also banked/unlocked a present) -- see
-  // evaluateRewards()'s design notes for how these get populated. Today gets
-  // committed into these the moment persistRecords() re-runs evaluateRewards()
+  // achievedDates -> ⭐ (that day hit its combined daily goal) -- see
+  // evaluateRewards()'s design notes for how this gets populated. Today gets
+  // committed into it the moment persistRecords() re-runs evaluateRewards()
   // (e.g. once a running session is stopped), but while a session is still
   // actively ticking upward nothing has re-run evaluateRewards() yet -- show
-  // the star/gift live in that gap too via isTodayAchievedLive(), instead of
-  // only reflecting it once the session actually stops.
+  // the star live in that gap too via isTodayAchievedLive(), instead of only
+  // reflecting it once the session actually stops.
+  // (The calendar used to also show a 🎁 on the day each present was banked
+  // via giftEarnedDates, but that marker jumps around whenever a past date
+  // gets a record added retroactively -- since which day earns the 🎁
+  // depends on the achievedDates order, not a fixed date -- so it's been
+  // dropped as more confusing than useful. See collectedSoFar/giftGaugeInfo
+  // on the Summary tab for the cumulative present count instead.)
   const achievedSet = new Set(rewards.achievedDates || []);
-  const giftSet = new Set(rewards.giftEarnedDates || []);
-  const todayAlreadyCommitted = achievedSet.has(todayStr);
   const todayLiveAchieved = isTodayAchievedLive();
-  // Only preview the 🎁 while today isn't committed yet -- once it is,
-  // rewards.giftProgressDays already reflects today's own increment, so
-  // adding another +1 here would double-count it and could show a gift icon
-  // on a day that didn't actually cross GIFT_EVERY_DAYS.
-  const todayLiveGift = !todayAlreadyCommitted && todayLiveAchieved && (rewards.giftProgressDays + 1) >= GIFT_EVERY_DAYS;
 
   const cells = [];
   for(let i=0;i<startWeekday;i++) cells.push(null);
@@ -2686,8 +2808,7 @@ function renderCalendar(rows, month, selectedDate){
     const isSelected = dateStr === selectedDate;
     const cls = `cal-cell${isToday?' today':''}${isSelected?' selected':''}`;
     const isAchieved = achievedSet.has(dateStr) || (isToday && todayLiveAchieved);
-    const gotGift = giftSet.has(dateStr) || (isToday && todayLiveGift);
-    const badges = `${isAchieved ? '<span class="cal-star">⭐</span>' : ''}${gotGift ? '<span class="cal-gift">🎁</span>' : ''}`;
+    const badges = `${isAchieved ? '<span class="cal-star">⭐</span>' : ''}`;
     if(!info){
       return `<div class="${cls}" onclick="selectReportDate('${dateStr}')"><div class="cal-day">${d}${badges}</div></div>`;
     }
@@ -2720,14 +2841,6 @@ function selectReportDate(dateStr){
         const rows = monthSessions.map(r => ({ ...r, ms: computeWorkMs(r) }));
         const totalMs = rows.reduce((s, r) => s + r.ms, 0);
 
-        // 月全体の目標と実績を計算（月間達成率用）
-        let totalMonthGoalMinutes = 0;
-        tasks.filter(t => !t.archived && t.targetHours > 0).forEach(task => {
-            totalMonthGoalMinutes += monthlyGoalMinutes(task, reportMonth, todayStr);
-        });
-        const totalMonthActualMinutes = totalMs / 60000;
-        const monthAchievementRate = totalMonthGoalMinutes > 0 ? Math.min(100, totalMonthActualMinutes / totalMonthGoalMinutes * 100) : (totalMonthActualMinutes > 0 ? 100 : 0);
-
         // ターゲット日付を決定（選択日、なければ今日、過去月なら1日）
         let targetDate = selectedReportDate;
         if (!targetDate) {
@@ -2749,6 +2862,21 @@ function selectReportDate(dateStr){
         const dayActualMinutes = dayActualMs / 60000;
         const dayAchievementRate = dayGoalMinutes > 0 ? Math.min(100, dayActualMinutes / dayGoalMinutes * 100) : (dayActualMinutes > 0 ? 100 : 0);
         const dayLabel = targetDate === todayStr ? t('todayAchievement') : t('dateAchievement')(targetDate.slice(5).replace('-', '/'));
+        // 表示上「100%」に見えたら強調色にしたいので、生の割合ではなく実際に
+        // 画面に出す丸め後の値で判定する（例：99.6%は生の値だと100%未満だが
+        // Math.round()で「100%」と表示されるため、丸め後の値で判定しないと
+        // 見た目は100%なのに色が変わらないというズレが起きる）。
+        // テーマごとの --achieve100 を使用（ダークモードは黄色、それ以外は
+        // ピンクになるようindex.htmlのCSS側で定義）
+        const dayAchievementRatePct = Math.round(dayAchievementRate);
+        const dayRateStyle = dayAchievementRatePct >= 100 ? ' style="color:var(--achieve100);"' : '';
+
+        // 累計の⭐/🎁（月をまたいだ全期間の集計）と、今のプレゼントサイクル
+        // （7つ星ためると1個）の進捗ゲージ
+        const gauge = giftGaugeInfo();
+        const gaugeStr = '★'.repeat(gauge.filled) + '☆'.repeat(gauge.total - gauge.filled);
+        const totalStarsAllTime = rewards.achievedDates.length;
+        const totalGiftsAllTime = rewards.giftsGrantedCount;
         // Same "today vs. specific date" wording split as dayLabel above, so
         // the add-task button always names whichever date is currently
         // selected on the calendar (or today/the 1st of the month when
@@ -2762,13 +2890,14 @@ function selectReportDate(dateStr){
   </div>
   <button onclick="openAddRecord('${targetDate}')" style="width:100%;background:none;border:1px dashed var(--lineS);color:var(--dim);border-radius:10px;padding:10px;cursor:pointer;font-family:inherit;font-size:13px;margin-bottom:16px;">${addRecordLabel}</button>`;
 
-        html += `<div class="metrics" style="grid-template-columns:1fr;margin-bottom:10px;">
+        html += `<div class="metrics" style="grid-template-columns:1fr 1fr;margin-bottom:10px;">
     <div class="metric"><div class="lbl">${t('totalTime')}</div><div class="val mono">${hmLabel(totalMs)}</div></div>
+    <div class="metric"><div class="lbl">${dayLabel}</div><div class="val mono"${dayRateStyle}>${dayAchievementRatePct}%</div></div>
   </div>`;
 
         html += `<div class="metrics" style="grid-template-columns:1fr 1fr;margin-bottom:16px;">
-    <div class="metric"><div class="lbl">${t('monthAchievement')}</div><div class="val mono">${Math.round(monthAchievementRate)}%</div></div>
-    <div class="metric"><div class="lbl">${dayLabel}</div><div class="val mono">${Math.round(dayAchievementRate)}%</div></div>
+    <div class="metric"><div class="lbl">${t('giftGaugeLabel')}</div><div class="val mono">${gaugeStr}</div></div>
+    <div class="metric"><div class="lbl">${t('collectedSoFar')}</div><div class="val mono">${t('collectedSummary')(totalStarsAllTime, totalGiftsAllTime)}</div></div>
   </div>`;
 
         // カレンダー描画
