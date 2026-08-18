@@ -1168,6 +1168,17 @@ function fbScheduleSave(){
 function fbPushNow(){
   if(!fbUser || !window.__fb){ fbPendingPush = false; return; }
   const f = window.__fb;
+  // fbScheduleSave() sets fbPendingPush=true before the 1200ms debounce
+  // wait, but fbPushNow() also gets called DIRECTLY in a couple of places
+  // (a brand-new user's first push, and the "prefer local over stale
+  // remote" push in fbLoadAndSubscribe() below) that skip that debounce
+  // step entirely -- those calls used to leave fbPendingPush false for the
+  // whole setDoc() round-trip, so a concurrent onSnapshot delivery (Firestore
+  // commonly delivers one right after subscribing, from cache/server, before
+  // this device's own pending write has actually round-tripped) wasn't
+  // guarded against and could clobber the write in progress with stale data.
+  // Setting it here too, unconditionally, closes that gap for every caller.
+  fbPendingPush = true;
   // merge:true is important — without it, each save would overwrite the whole
   // document and wipe out server-only fields like `plan` that Cloud Functions set.
   f.setDoc(fbDocRef(), { tasks, records, settings, rewards, updatedAt: f.serverTimestamp() }, { merge: true })
