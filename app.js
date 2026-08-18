@@ -1116,36 +1116,39 @@ function jumpToSettingsForGift(){
 let fbUser = null;
 let fbSaveTimer = null;
 let fbApplyingRemote = false;
-// True from the moment a local change schedules a Firestore push until that
-// push actually resolves (covers both the 1200ms debounce wait *and* the
-// setDoc() round-trip itself). While true, incoming onSnapshot callbacks are
-// ignored below -- otherwise a delete (task, record, whatever) sits in memory
-// only, and if a snapshot carrying the still-old server copy arrives before
-// our own debounced write reaches Firestore, fbApplyRemote() would silently
-// paste that stale (pre-delete) data back over the local state, making the
-// deleted item "not actually disappear". snap.metadata.hasPendingWrites only
-// covers the case where *our own* write already left the client, not this
-// earlier debounce window, so it isn't enough on its own.
-let fbPendingPush = false;
-// Firebase itself (the SDK modules + auth) loads lazily, up to ~2s after
-// boot (see __loadFirebaseModule()'s requestIdleCallback/setTimeout near the
-// bottom of this file) -- fbUser is null the whole time it's loading/signing
-// in. Any local edit made during that window (e.g. tapping おめかし/えさ in
-// Settings right after opening the app) used to go through fbScheduleSave()
-// while `!fbUser` was true, which just silently returned -- the edit was
-// saved to localStorage but NEVER scheduled to reach Firestore. A moment
-// later, once Firebase finished waking up, fbLoadAndSubscribe()'s initial
-// getDoc() would fetch this device's *previous* (older) synced copy and
-// fbApplyRemote() would unconditionally overwrite the in-memory state with
-// it -- silently discarding that early edit, since nothing had told this
-// code an un-pushed local change existed. That's what made a just-unlocked
-// おめかし item (or any other early edit) flash and then revert a moment
-// later, only to "stick" the second time (by then fbUser was set, so the
-// edit was properly protected by fbPendingPush).
-// This flag remembers "a local edit happened while Firebase wasn't ready to
-// push it yet", so the first sync can push that edit up instead of pulling
-// old server data over it (see fbLoadAndSubscribe()).
-let localChangedBeforeFbReady = false;
+// ---- local-vs-remote sync guard (version-counter based) ----
+// Earlier this used two booleans (fbPendingPush / localChangedBeforeFbReady)
+// that each got set true when a push was needed and false once *a* push
+// finished. That worked for a single isolated edit, but broke down for a
+// SEQUENCE of edits made close together (exactly what choosing おめかし/えさ
+// several times in a row does): if edit #1's debounced push was still
+// in-flight when edit #2 happened, edit #2 correctly kept the guard up --
+// but the MOMENT edit #1's push resolved, its `.finally(()=>{ fbPendingPush
+// = false })` cleared the guard for the whole app, even though edit #2
+// hadn't been pushed yet. Any onSnapshot delivery landing in that window
+// (edit #1 confirmed, edit #2 still only local) would revert edit #2 right
+// back out -- matching exactly what was reported: the *first* choice in a
+// row always stuck, but the *second* (and later) ones flashed and reverted
+// once, then stuck on a retry (because by the retry, that edit was now the
+// newest one and nothing subsequent had reset the guard out from under it).
+//
+// Fixed by tracking versions instead of a shared on/off flag:
+// - fbLocalVersion bumps by 1 on every local change that should reach
+//   Firestore (every fbScheduleSave() call, whether or not Firebase is
+//   ready yet to actually send it).
+// - fbConfirmedVersion is set to the version a push captured, but only once
+//   that specific push's setDoc() has actually resolved -- and only ever
+//   moves forward (an older push resolving after a newer one can't step it
+//   backward).
+// - There's an unpushed/in-flight local change exactly when these two
+//   differ (fbHasUnsyncedChange()). That's true from the instant *any*
+//   edit happens until the push that actually covered the LATEST edit has
+//   confirmed -- surviving any number of edits made back-to-back, and
+//   naturally covering both original cases (Firebase not ready yet, and a
+//   push/getDoc still in flight) with one mechanism instead of two.
+let fbLocalVersion = 0;
+let fbConfirmedVersion = 0;
+function fbHasUnsyncedChange(){ return fbLocalVersion !== fbConfirmedVersion; }
 let userPlan = 'free'; // 'free' | 'paid' — set only by the server (Cloud Function), never written by the client
 
 function fbDocRef(){
@@ -1154,36 +1157,33 @@ function fbDocRef(){
 }
 function fbScheduleSave(){
   if(fbApplyingRemote) return; // this write came from applying a remote snapshot, not a real local edit
+  fbLocalVersion++;
   if(!fbUser || !window.__fb){
-    // Firebase isn't ready to accept a push yet -- remember this edit so the
-    // first sync (see fbLoadAndSubscribe()) pushes it up instead of
-    // overwriting it with whatever was on the server before it happened.
-    localChangedBeforeFbReady = true;
+    // Firebase isn't ready to accept a push yet. Nothing more to do here --
+    // fbHasUnsyncedChange() is already true (fbLocalVersion just moved past
+    // fbConfirmedVersion), so the first sync (see fbLoadAndSubscribe()) will
+    // push this edit up instead of overwriting it with whatever was on the
+    // server before it happened.
     return;
   }
-  fbPendingPush = true;
   clearTimeout(fbSaveTimer);
   fbSaveTimer = setTimeout(fbPushNow, 1200);
 }
 function fbPushNow(){
-  if(!fbUser || !window.__fb){ fbPendingPush = false; return; }
+  if(!fbUser || !window.__fb) return;
   const f = window.__fb;
-  // fbScheduleSave() sets fbPendingPush=true before the 1200ms debounce
-  // wait, but fbPushNow() also gets called DIRECTLY in a couple of places
-  // (a brand-new user's first push, and the "prefer local over stale
-  // remote" push in fbLoadAndSubscribe() below) that skip that debounce
-  // step entirely -- those calls used to leave fbPendingPush false for the
-  // whole setDoc() round-trip, so a concurrent onSnapshot delivery (Firestore
-  // commonly delivers one right after subscribing, from cache/server, before
-  // this device's own pending write has actually round-tripped) wasn't
-  // guarded against and could clobber the write in progress with stale data.
-  // Setting it here too, unconditionally, closes that gap for every caller.
-  fbPendingPush = true;
+  // Capture which version this specific push is sending. If a newer edit
+  // happens while this write is still in flight, fbLocalVersion moves past
+  // this number *before* the write resolves -- so when it does resolve,
+  // fbConfirmedVersion only advances to what THIS push actually covered,
+  // and fbHasUnsyncedChange() correctly stays true for the newer edit
+  // (rather than a shared flag getting blindly cleared for everything).
+  const versionBeingPushed = fbLocalVersion;
   // merge:true is important — without it, each save would overwrite the whole
   // document and wipe out server-only fields like `plan` that Cloud Functions set.
   f.setDoc(fbDocRef(), { tasks, records, settings, rewards, updatedAt: f.serverTimestamp() }, { merge: true })
-    .catch(e=>console.error('firebase save failed', e))
-    .finally(()=>{ fbPendingPush = false; });
+    .then(()=>{ if(versionBeingPushed > fbConfirmedVersion) fbConfirmedVersion = versionBeingPushed; })
+    .catch(e=>console.error('firebase save failed', e));
 }
 function fbApplyRemote(data){
   if(!data) return;
@@ -1208,16 +1208,14 @@ async function fbLoadAndSubscribe(){
   const ref = fbDocRef();
   try{
     const snap = await f.getDoc(ref);
-    // A local edit already happened before Firebase was ready to push it
-    // (localChangedBeforeFbReady), or happened after fbUser was set but
-    // while this very getDoc() call was still in flight (fbPendingPush) --
-    // either way there's an un-pushed local change sitting in memory right
-    // now. Applying the snapshot we just fetched would silently overwrite
-    // it with older server data, so push the local state up instead of
-    // pulling the snapshot down (see the comments on localChangedBeforeFbReady
-    // and fbPendingPush above for the full story).
-    if(localChangedBeforeFbReady || fbPendingPush){
-      localChangedBeforeFbReady = false;
+    // A local edit already happened that this device hasn't confirmed
+    // reaching Firestore yet (see fbHasUnsyncedChange() above) -- either
+    // because Firebase wasn't ready to push it when it happened, or because
+    // it happened while this very getDoc() call was in flight. Applying the
+    // snapshot we just fetched would silently overwrite it with older
+    // server data, so push the local state up instead of pulling the
+    // snapshot down.
+    if(fbHasUnsyncedChange()){
       fbPushNow();
     } else if(snap.exists() && snap.data() && (snap.data().tasks || snap.data().records)){
       fbApplyRemote(snap.data());
@@ -1227,7 +1225,7 @@ async function fbLoadAndSubscribe(){
   }catch(e){ console.error('firebase initial load failed', e); }
 
   f.onSnapshot(ref, (snap)=>{
-    if(fbApplyingRemote || fbPendingPush || snap.metadata.hasPendingWrites) return;
+    if(fbApplyingRemote || fbHasUnsyncedChange() || snap.metadata.hasPendingWrites) return;
     if(snap.exists()) fbApplyRemote(snap.data());
   }, (e)=>console.error('firebase snapshot error', e));
 }
@@ -1380,7 +1378,11 @@ function resetAllData(){
   // freshly-seeded cloud doc. That race is why "出荷時に戻す" could
   // sometimes come back with the old task list instead of just "Sample".
   clearTimeout(fbSaveTimer);
-  fbPendingPush = false;
+  // Also drop tracking of any not-yet-confirmed local edit from before the
+  // reset (see fbHasUnsyncedChange() above) -- everything about to happen
+  // below is the fresh reset state, not a change that needs guarding.
+  fbLocalVersion = 0;
+  fbConfirmedVersion = 0;
 
   // "出荷時に戻す" = land back on exactly what a brand-new install shows, which is
   // one "Sample" task (see factorySampleTasks()) -- not a totally empty list.
@@ -1590,8 +1592,8 @@ function renderPomodoroPanel(session){
 // against whatever new element now sits at those same coordinates).
 // NOTE: this turned out NOT to be the cause of the "選んだものが一瞬で消える" /
 // "トーストが2〜3回連続で出る" report -- that was a separate Firebase-sync
-// race (see localChangedBeforeFbReady / fbLoadAndSubscribe() below), now
-// fixed there. This render() change is still a real, independent
+// race (see fbHasUnsyncedChange() / fbLoadAndSubscribe() below), now fixed
+// there. This render() change is still a real, independent
 // improvement (avoids redundant double DOM rebuilds and removes the touch
 // hazard described above) so it's kept, just no longer credited with fixing
 // the reported bug by itself.
