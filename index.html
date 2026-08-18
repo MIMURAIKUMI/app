@@ -283,6 +283,20 @@
   ::-webkit-scrollbar{height:6px; width:6px;}
   ::-webkit-scrollbar-thumb{background:var(--lineS); border-radius:4px;}
   @keyframes catBob{ 0%,100%{transform:translateX(-30%) translateY(0);} 50%{transform:translateX(-30%) translateY(-3px);} }
+  /* 伝説のねこ（黄金）専用の常時発光演出。renderPixelArt()/
+     renderStretchProgressBar()（app.js）が art.legendary===true のときだけ
+     このクラスを付与する。ドロップシャドウの色そのものを黄金にしつつ
+     brightnessも揺らすことで「ピカピカ光っている」質感を常時出す。 */
+  @keyframes legendaryGoldGlow{
+    0%   { filter: drop-shadow(0 0 6px rgba(255,215,0,0.45)) brightness(1); }
+    100% { filter: drop-shadow(0 0 18px rgba(255,231,133,0.95)) brightness(1.15); }
+  }
+  .legendary-glow{
+    animation: legendaryGoldGlow 1.1s ease-in-out infinite alternate;
+  }
+  @media (prefers-reduced-motion: reduce){
+    .legendary-glow{ animation:none; filter: drop-shadow(0 0 10px rgba(255,215,0,0.6)) brightness(1.08); }
+  }
   .pixrow{display:grid; grid-template-columns:repeat(5, 1fr); gap:5px; padding-bottom:2px;}
   .pixcard{display:flex; flex-direction:column; align-items:center; gap:4px; padding:8px 2px; border-radius:10px; background:var(--panel); border:2px solid var(--lineS); cursor:pointer; box-shadow:2px 2px 0 var(--line); min-width:0;}
   .pixcard.on{border-color:var(--brassDim); box-shadow:2px 2px 0 color-mix(in srgb, var(--brassDim) 35%, transparent);}

@@ -1,47 +1,204 @@
 // pixel-arts-legendary.js
-// The Legendary Cat (伝説のねこ) -- a rainbow-colored cat unlocked once the
-// user reaches a full month of consistent achievement (see app.js's
+// The Legendary Cat (伝説のねこ) -- a golden cat unlocked once the user
+// reaches a full month of consistent achievement (see app.js's
 // evaluateRewards(): LEGENDARY_STREAK_DAYS consecutive successful days).
 //
 // Kept in its own registry (LEGENDARY_ART_GRIDS) separate from
-// PIXEL_ART_GRIDS in pixel-arts.js, so it can be swapped for real hand-drawn
-// art later without touching the default-cat file. It uses the exact same
-// {name, colors, poses:{walking,sitting}} shape as entries in
-// PIXEL_ART_GRIDS, so it can be rendered with the same renderPixelArt() /
-// renderStretchProgressBar() as any other cat once app.js's getCatArt()
-// looks it up (see app.js).
+// PIXEL_ART_GRIDS in pixel-arts.js, so it can be swapped again later
+// without touching the default-cat file. It uses the exact same
+// {name, colors, poses:{walking,sitting}, stretchShape, stretchShapeSit}
+// shape as entries in PIXEL_ART_GRIDS, so it renders through the same
+// renderPixelArt() / renderCatWithOutfit() / renderStretchProgressBar() as
+// any other cat once app.js's getCatArt() looks it up (see app.js).
 //
-// Placeholder approach: rather than hand-authoring a full 16x16 sprite for a
-// sprite that's going to be replaced anyway, this derives a "rainbow" recolor
-// from the existing white cat's silhouette in pixel-arts.js (loaded before
-// this file) -- every non-outline pixel of the white cat's walking/sitting
-// pose gets banded into a 7-color rainbow by row. Swap this whole file out
-// for real art later; nothing else depends on *how* the grid was produced,
-// only that LEGENDARY_ART_GRIDS.rainbow exists in the right shape.
+// The key is "gold" (renamed from the old placeholder key "rainbow" now
+// that the art itself is a golden cat, not a rainbow one -- see app.js's
+// startup-banner teaser, renderPixelArtSilhouette('gold', ...), which was
+// updated to match).
+//
+// Hand-authored 16x16 art (walking/sitting + the custom "のびるねこ" stretch
+// pieces), golden palette: outline #000000, with fur bands #fff3a0 (pale
+// highlight) / #feec6a (light gold) / #ffcc00 (gold) / #fbaf05 (deep gold) /
+// #ff9500 (shadow gold).
+//
+// The constant shine (regardless of theme/idle state) is handled in app.js:
+// renderPixelArt() / renderStretchProgressBar() add a "legendary-glow" CSS
+// class whenever `art.legendary` is true, and the actual @keyframes /
+// .legendary-glow rule lives in index.html's <style> block, next to the
+// other pixel-art animations (see "legendaryGoldGlow").
 const LEGENDARY_ART_GRIDS = (function(){
-  const RAINBOW = ['#FF6B6B', '#FFA94D', '#FFE066', '#8CE99A', '#66D9E8', '#91A7FF', '#D0A6FF'];
-  const RAINBOW_BASE_INDEX = 100; // arbitrary palette indices unused by the base cat, so we don't clash with its outline (1) etc.
+  const GOLD_COLORS = { 1: '#000000', 15: '#fff3a0', 6: '#ff9500', 32: '#fbaf05', 7: '#ffcc00', 33: '#feec6a' };
 
-  function recolorRainbow(grid){
-    return grid.map((row, y) => row.map(v => (v === 4) ? (RAINBOW_BASE_INDEX + (y % RAINBOW.length)) : v));
-  }
-  function rainbowColors(outlineHex){
-    const colors = { 1: outlineHex || '#2B2A3A' };
-    RAINBOW.forEach((hex, i) => { colors[RAINBOW_BASE_INDEX + i] = hex; });
-    return colors;
-  }
+  const walking = [
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 1, 15, 1, 0, 0, 1, 6, 1, 0, 0],
+    [0, 0, 0, 0, 0, 1, 15, 32, 32, 1, 1, 6, 15, 1, 0, 0],
+    [0, 0, 0, 0, 0, 1, 15, 32, 7, 7, 15, 15, 33, 1, 0, 0],
+    [0, 0, 1, 0, 1, 15, 32, 7, 7, 33, 33, 33, 7, 6, 1, 0],
+    [0, 1, 32, 1, 1, 15, 32, 7, 1, 33, 33, 33, 1, 32, 1, 0],
+    [0, 1, 15, 1, 1, 15, 32, 15, 1, 33, 33, 7, 1, 15, 1, 0],
+    [0, 1, 15, 1, 1, 15, 32, 32, 15, 7, 7, 7, 15, 6, 1, 0],
+    [0, 0, 1, 6, 1, 1, 6, 32, 32, 32, 6, 6, 6, 1, 0, 0],
+    [0, 0, 0, 1, 15, 32, 1, 6, 1, 1, 1, 1, 1, 0, 0, 0],
+    [0, 0, 1, 15, 32, 33, 32, 32, 6, 6, 1, 0, 0, 0, 0, 0],
+    [0, 0, 1, 15, 1, 33, 1, 7, 1, 32, 1, 0, 0, 0, 0, 0],
+    [0, 0, 1, 1, 0, 1, 1, 1, 0, 1, 1, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+  ];
 
-  const base = (typeof PIXEL_ART_GRIDS !== 'undefined' && PIXEL_ART_GRIDS.white) ? PIXEL_ART_GRIDS.white : null;
-  const walking = base ? recolorRainbow(base.poses.walking) : [];
-  const sitting = base ? recolorRainbow(base.poses.sitting) : [];
-  const outline = base ? (base.colors && base.colors[1]) : '#2B2A3A';
+  const sitting = [
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 1, 15, 1, 0, 0, 1, 6, 1, 0, 0],
+    [0, 0, 0, 0, 0, 1, 15, 32, 32, 1, 1, 6, 15, 1, 0, 0],
+    [0, 0, 0, 0, 0, 1, 15, 32, 7, 7, 15, 15, 33, 1, 0, 0],
+    [0, 0, 0, 0, 1, 15, 7, 7, 33, 33, 33, 7, 7, 6, 1, 0],
+    [0, 0, 0, 1, 1, 15, 7, 1, 33, 33, 33, 1, 7, 32, 1, 0],
+    [0, 0, 1, 32, 1, 15, 15, 1, 33, 33, 7, 1, 15, 32, 1, 0],
+    [0, 0, 1, 15, 1, 15, 32, 15, 7, 7, 7, 15, 7, 6, 1, 0],
+    [0, 0, 1, 15, 1, 1, 1, 1, 7, 32, 6, 6, 6, 1, 0, 0],
+    [0, 0, 0, 1, 15, 6, 1, 1, 32, 32, 1, 1, 1, 1, 0, 0],
+    [0, 0, 0, 1, 15, 32, 32, 6, 6, 7, 15, 32, 15, 1, 0, 0],
+    [0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+  ];
+
+  const stretchWalkFront = [
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 1, 15, 1, 0, 0, 1, 6, 1, 0, 0],
+    [0, 0, 0, 0, 0, 1, 15, 32, 32, 1, 1, 6, 15, 1, 0, 0],
+    [0, 0, 0, 0, 0, 1, 15, 32, 7, 7, 15, 15, 33, 1, 0, 0],
+    [0, 0, 0, 0, 1, 15, 32, 7, 7, 33, 33, 33, 7, 6, 1, 0],
+    [0, 0, 0, 0, 1, 15, 32, 7, 1, 33, 33, 33, 1, 32, 1, 0],
+    [0, 0, 0, 0, 1, 15, 32, 15, 1, 33, 33, 7, 1, 15, 1, 0],
+    [0, 0, 0, 0, 1, 15, 32, 32, 15, 7, 7, 7, 15, 6, 1, 0],
+    [0, 0, 0, 1, 1, 1, 6, 32, 32, 32, 6, 6, 6, 1, 0, 0],
+    [0, 0, 0, 15, 15, 32, 1, 6, 1, 1, 1, 1, 1, 0, 0, 0],
+    [0, 0, 0, 7, 7, 33, 32, 32, 6, 6, 1, 0, 0, 0, 0, 0],
+    [0, 0, 0, 1, 1, 33, 1, 7, 1, 32, 1, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 1, 1, 1, 0, 1, 1, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+  ];
+
+  const stretchWalkMiddle = [
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+    [15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15],
+    [7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7],
+    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+  ];
+
+  const stretchWalkBack = [
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 1, 32, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 1, 15, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 1, 15, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 1, 6, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 1, 15, 32, 15, 15, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 1, 15, 32, 7, 7, 7, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 1, 15, 1, 7, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 1, 1, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+  ];
+
+  const stretchSitFront = [
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 1, 15, 1, 0, 0, 1, 6, 1, 0, 0],
+    [0, 0, 0, 0, 0, 1, 15, 32, 32, 1, 1, 6, 15, 1, 0, 0],
+    [0, 0, 0, 0, 0, 1, 15, 32, 7, 7, 15, 15, 33, 1, 0, 0],
+    [0, 0, 0, 0, 1, 15, 7, 7, 33, 33, 33, 7, 7, 6, 1, 0],
+    [0, 0, 0, 0, 1, 15, 7, 1, 33, 33, 33, 1, 7, 32, 1, 0],
+    [0, 0, 0, 0, 1, 15, 15, 1, 33, 33, 7, 1, 15, 32, 1, 0],
+    [0, 0, 0, 0, 1, 15, 32, 15, 7, 7, 7, 15, 7, 6, 1, 0],
+    [0, 0, 0, 1, 1, 1, 1, 1, 7, 32, 6, 6, 6, 1, 0, 0],
+    [0, 0, 0, 15, 15, 6, 1, 1, 32, 32, 1, 1, 1, 1, 0, 0],
+    [0, 0, 0, 7, 7, 7, 32, 6, 6, 7, 15, 32, 15, 1, 0, 0],
+    [0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+  ];
+
+  const stretchSitMiddle = [
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+    [15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15],
+    [7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7],
+    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+  ];
+
+  const stretchSitBack = [
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 1, 32, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 1, 15, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 1, 15, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 1, 6, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 1, 15, 6, 32, 32, 15, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 1, 15, 32, 32, 7, 7, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+  ];
 
   return {
-    rainbow: {
+    gold: {
       name: { ja: '伝説のねこ', en: 'Legendary Cat' },
       legendary: true,
-      colors: rainbowColors(outline),
-      poses: { walking, sitting }
+      colors: GOLD_COLORS,
+      poses: { walking: walking, sitting: sitting },
+      stretchShape: {
+        colors: GOLD_COLORS,
+        front: stretchWalkFront,
+        middle: stretchWalkMiddle,
+        back: stretchWalkBack
+      },
+      stretchShapeSit: {
+        colors: GOLD_COLORS,
+        front: stretchSitFront,
+        middle: stretchSitMiddle,
+        back: stretchSitBack
+      }
     }
   };
 })();

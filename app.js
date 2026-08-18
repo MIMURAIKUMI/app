@@ -416,7 +416,12 @@ function renderPixelArt(key, cell, pose){
     const bg = art.colors[v] || 'transparent';
     return `<div style="width:${cell}px;height:${cell}px;background:${bg};"></div>`;
   }).join('')).join('');
-  return `<div style="display:grid;grid-template-columns:repeat(${grid[0].length},${cell}px);grid-template-rows:repeat(${grid.length},${cell}px);filter:drop-shadow(1px 1px 0 var(--lineS));">${cellsHtml}</div>`;
+  // 伝説のねこ (art.legendary === true) always shines: the "legendary-glow"
+  // class (see index.html's @keyframes legendaryGoldGlow) animates the same
+  // filter property that the static drop-shadow below sets, so it simply
+  // takes over once the animation is running -- no extra markup needed.
+  const glowCls = art.legendary ? ' legendary-glow' : '';
+  return `<div class="pixelart${glowCls}" style="display:grid;grid-template-columns:repeat(${grid[0].length},${cell}px);grid-template-rows:repeat(${grid.length},${cell}px);filter:drop-shadow(1px 1px 0 var(--lineS));">${cellsHtml}</div>`;
 }
 // Renders a cat as a flat silhouette (shape only, fixed dim color) instead of
 // its real colors -- used for the "not unlocked yet" Legendary Cat teaser in
@@ -681,7 +686,11 @@ function renderStretchProgressBar(key, percent, isWorking, cell, showGoal, pause
   const reachedGoal = percent>=100;
   const goal = showGoal ? (reachedGoal ? (typeof STRETCH_GOAL_MARKER_DONE!=='undefined'?STRETCH_GOAL_MARKER_DONE:null) : currentGoalFishArt()) : null;
   const goalHTML = goal ? renderStretchPart(goal.grid, goal.colors, cell) : '';
-  return `<div class="stretchbar" style="height:${wrapH}px;" data-front-right="${frontRightPx}" data-back-anchor="${backAnchorPx}" data-right-margin="${rightMarginPx}">
+  // Same always-on shine as renderPixelArt() for 伝説のねこ, applied to the
+  // whole stretch bar (front/mid/back together) rather than each piece
+  // separately, so the body reads as one continuously glowing cat.
+  const glowCls = (art && art.legendary) ? ' legendary-glow' : '';
+  return `<div class="stretchbar${glowCls}" style="height:${wrapH}px;" data-front-right="${frontRightPx}" data-back-anchor="${backAnchorPx}" data-right-margin="${rightMarginPx}">
     ${goal ? `<div class="stretchbar-goal" data-goal-state="${reachedGoal?'done':'fish'}" style="left:calc(100% - 10px); top:8px;">${goalHTML}</div>` : ''}
     <div class="stretchbar-mid" style="left:${frontRightPx}px; top:${midTop}px; height:${midH}px; width:${midWidth}; background-image:url('${midTileURI}'); background-repeat:repeat-x; background-size:${midTileWidth}px ${midH}px;"></div>
     <div class="stretchbar-front" style="left:0;">${frontHTML}</div>
@@ -1810,7 +1819,7 @@ function renderNow(){
           <span style="color:var(--brassDim);font-weight:700;flex-shrink:0;">${t('giftReadyCta')} ›</span>
         </div>` : ''}
       ${legendaryInfo ? `<div style="display:flex;align-items:center;gap:8px;">
-          <span style="flex-shrink:0;line-height:0;">${renderPixelArtSilhouette('rainbow', 0.55, 'sitting', 0.3)}</span>
+          <span style="flex-shrink:0;line-height:0;">${renderPixelArtSilhouette('gold', 0.55, 'sitting', 0.3)}</span>
           <span>🌈 ${t('legendaryCountdown')(legendaryInfo.daysRemaining)}</span>
         </div>` : ''}
     </div>`;
