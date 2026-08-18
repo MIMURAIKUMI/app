@@ -111,7 +111,7 @@ const OUTFIT_ART = {
 // the end of the progress bar (see app.js's renderStretchProgressBar /
 // walkGoal), i.e. the fish the cat is stretching/walking toward changes to
 // whatever food is currently equipped.
-// Unlock order: カリカリ → ちゅーる → ささみ → 猫草.
+// Unlock order: カリカリ → あのおやつ → ささみ → 猫草.
 const FOOD_ART = {
   karikari: {
     name: { ja: 'カリカリ', en: 'Kibble' },
@@ -136,7 +136,7 @@ const FOOD_ART = {
     ],
   },
   churu: {
-    name: { ja: 'ちゅーる', en: 'Churu' },
+    name: { ja: 'あのおやつ', en: 'Squeeze Treat' },
     colors: { 21: '#fddcb5', 14: '#ffcb8e', 22: '#e8a87c', 1: '#000000', 13: '#ff9a9a', 5: '#ff3b30', 25: '#fee7ff', 29: '#c00000' },
     grid: [
       [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
