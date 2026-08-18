@@ -938,8 +938,11 @@ function chooseReward(type){
   rewards.pendingChoices = Math.max(0, rewards.pendingChoices - 1);
   clampPendingChoices();
   persistRewards();
+  // showToast() already calls render() -- calling it again right after was
+  // a redundant second full-DOM rebuild for the same tap (see the render()
+  // comment above for why that mattered on touch devices).
   if(item) showToast(t('rewardUnlockedToast')(rewardItemName(item)));
-  render();
+  else render();
 }
 function rewardItemName(item){
   if(!item) return '';
@@ -1529,7 +1532,35 @@ function renderPomodoroPanel(session){
 }
 
 // ---------- render ----------
+// render() is called from dozens of onclick="..." handlers, often more than
+// once for a single user action (e.g. chooseReward() below used to call it
+// twice). Each call tears down and rebuilds #app's innerHTML -- including
+// whatever element the user's finger/cursor is still on top of. Doing that
+// SYNCHRONOUSLY, inside the same click/touch event that's still being
+// dispatched, is what caused the "選んだものが一瞬で消える" /
+// "トーストが2〜3回連続で出る" symptoms: on touch devices, replacing the
+// tapped element mid-gesture makes the browser resolve the rest of that same
+// tap's event sequence (touchend/click) against whatever new element now
+// sits at those same screen coordinates, so a single tap can end up
+// re-triggering a DIFFERENT handler (or the same one again) right after the
+// first one already ran -- e.g. re-closing a panel that had just opened, or
+// re-firing the reward toast.
+//
+// Fix: renderNow() (the actual DOM rebuild) is deferred to the next
+// requestAnimationFrame, and repeated render() calls made before that frame
+// fires are coalesced into a single rebuild using the latest state. This
+// lets the browser finish dispatching the current tap against the original,
+// still-present element before the DOM underneath it changes, and also
+// makes back-to-back render() calls (like the old chooseReward() double
+// call) free instead of doing the work twice.
+let renderPending = false;
 function render(){
+  if(renderPending) return;
+  renderPending = true;
+  requestAnimationFrame(renderNow);
+}
+function renderNow(){
+  renderPending = false;
   const app = document.getElementById('app');
   const today = new Date();
   const todayStr = fmtDate(today);
