@@ -8,7 +8,7 @@
 // ---------- language detection ----------
 // Bump this string every time index.html is updated — shown in Settings so it's
 // easy to confirm which build is actually live (helps catch stale-deploy/cache issues).
-const APP_VERSION = 'v30-2026-08-17';
+const APP_VERSION = 'v23-2026-08-16';
 
 const LANG = (function(){
   const langs = (navigator.languages && navigator.languages.length) ? navigator.languages : [navigator.language || 'en'];
@@ -127,7 +127,7 @@ const I18N = {
     androidStep4: '画面の指示に従って追加',
     addRecordTodayShort: '＋ 今日にタスクを追加',
     addRecordDateShort: mmdd => `＋ ${mmdd}にタスクを追加`,
-    totalTime: '今月の合計時間', unmetTime: '未達成時間',
+    totalTime: '合計時間', unmetTime: '未達成時間',
     achievementByTask: 'タスクごとの達成率',
     actualGoal: (a,goalStr) => `実績 ${a}${goalStr}`,
     goalPart: g => ` / 目標 ${g}`,
@@ -135,9 +135,7 @@ const I18N = {
     thDate: '日付', thTask: 'タスク', thDuration: '所要時間', thRate: '達成率',
     noRecordsThisMonth: 'この月の記録はありません',
     calendarTitle: 'カレンダー（記録した時間）',
-    giftGaugeLabel: 'つぎのプレゼントまで',
-    collectedSoFar: 'これまで集めた数',
-    collectedSummary: (stars,gifts) => `⭐×${stars} 🎁×${gifts}`,
+    monthAchievement: '今月の達成率',
     dayAchievement: '選択日の達成率',
     todayAchievement: '今日の達成率',
     dateAchievement: mmdd => `${mmdd}の達成率`,
@@ -302,7 +300,7 @@ const I18N = {
     androidStep4: 'Follow the on-screen instructions',
     addRecordTodayShort: '＋ Add task for today',
     addRecordDateShort: mmdd => `＋ Add task for ${mmdd}`,
-    totalTime: 'This month\'s total time', unmetTime: 'Shortfall',
+    totalTime: 'Total time', unmetTime: 'Shortfall',
     achievementByTask: 'Achievement rate by task',
     actualGoal: (a,goalStr) => `Actual ${a}${goalStr}`,
     goalPart: g => ` / Goal ${g}`,
@@ -310,9 +308,7 @@ const I18N = {
     thDate: 'Date', thTask: 'Task', thDuration: 'Duration', thRate: 'Rate',
     noRecordsThisMonth: 'No records this month',
     calendarTitle: 'Calendar (recorded time)',
-    giftGaugeLabel: 'Until next present',
-    collectedSoFar: 'Collected so far',
-    collectedSummary: (stars,gifts) => `⭐×${stars} 🎁×${gifts}`,
+    monthAchievement: 'This month',
     dayAchievement: 'Selected day',
     todayAchievement: 'Today',
     dateAchievement: mmdd => `${mmdd}`,
@@ -425,17 +421,54 @@ function renderPixelArtSilhouette(key, cell, pose, alpha){
   }).join('')).join('');
   return `<div style="display:grid;grid-template-columns:repeat(${grid[0].length},${cell}px);grid-template-rows:repeat(${grid.length},${cell}px);">${cellsHtml}</div>`;
 }
-// Renders a single static 16x16 icon (おめかし/えさ item), as opposed to
-// renderPixelArt() which renders an animated cat with walking/sitting poses.
-function renderIconArt(art, cell){
+// Renders a single static 16x16 icon (おめかし/えさ item) at an exact pixel
+// cell size (no *1.5 scaling applied) -- shared by renderIconArt() below and
+// by renderCatWithOutfit()'s overlay compositing, which needs to line the
+// overlay's cell size up precisely with the cat's own cell size (or some
+// scaled fraction of it) rather than going through renderIconArt()'s implicit
+// *1.5 multiplier.
+function renderIconArtAtCellPx(art, cellPx){
   if(!art || !art.grid) return '';
-  cell = (cell || 1.3) * 1.5;
   const grid = art.grid;
   const cellsHtml = grid.map(row => row.map(v=>{
     const bg = art.colors[v] || 'transparent';
-    return `<div style="width:${cell}px;height:${cell}px;background:${bg};"></div>`;
+    return `<div style="width:${cellPx}px;height:${cellPx}px;background:${bg};"></div>`;
   }).join('')).join('');
-  return `<div style="display:grid;grid-template-columns:repeat(${grid[0].length},${cell}px);grid-template-rows:repeat(${grid.length},${cell}px);filter:drop-shadow(1px 1px 0 var(--lineS));">${cellsHtml}</div>`;
+  return `<div style="display:grid;grid-template-columns:repeat(${grid[0].length},${cellPx}px);grid-template-rows:repeat(${grid.length},${cellPx}px);filter:drop-shadow(1px 1px 0 var(--lineS));">${cellsHtml}</div>`;
+}
+// Renders a single static 16x16 icon (おめかし/えさ item), as opposed to
+// renderPixelArt() which renders an animated cat with walking/sitting poses.
+function renderIconArt(art, cell){
+  return renderIconArtAtCellPx(art, (cell || 1.3) * 1.5);
+}
+// Renders the given cat (same pose-grid animated rendering as renderPixelArt)
+// with the currently-equipped おめかし item composited directly on top, using
+// each item's `overlay` hint (see pixel-arts-outfits.js):
+//   - anchor 'full' -- drawn at the cat's own cell size, in the exact same
+//     top-left position as the cat's own 16x16 grid (item art was drawn to
+//     already line up 1:1, e.g. 首輪 sitting right at the neck).
+//   - anchor 'top-right' -- drawn at `scale` × the cat's cell size, anchored
+//     to the top-right corner of the cat's bounding box, which lands it on
+//     top of the head (リボン／王冠).
+// Falls back to the plain cat (no overlay) whenever nothing is equipped, or
+// the equipped item has no grid to draw.
+function renderCatWithOutfit(key, cell, pose){
+  const catHtml = renderPixelArt(key, cell, pose);
+  const outfitKey = rewards.equippedOutfit;
+  if(!outfitKey || typeof OUTFIT_ART === 'undefined' || !OUTFIT_ART[outfitKey]) return catHtml;
+  const art = OUTFIT_ART[outfitKey];
+  if(!art || !art.grid) return catHtml;
+  const actualCell = (cell || 1.8) * 1.5; // same scaling renderPixelArt() applies internally
+  const catArt = getCatArt(key) || PIXEL_ART_GRIDS[Object.keys(PIXEL_ART_GRIDS)[0]];
+  const poseGrid = (catArt.poses && catArt.poses[pose]) ? catArt.poses[pose] : (catArt.poses && catArt.poses.sitting);
+  const cols = poseGrid ? poseGrid[0].length : 16;
+  const rows = poseGrid ? poseGrid.length : 16;
+  const boxW = cols * actualCell, boxH = rows * actualCell;
+  const overlay = art.overlay || { scale: 1, anchor: 'full' };
+  const overlayCellPx = actualCell * (overlay.scale != null ? overlay.scale : 1);
+  const overlayHtml = renderIconArtAtCellPx(art, overlayCellPx);
+  const posStyle = overlay.anchor === 'top-right' ? 'top:0;right:0;' : 'top:0;left:0;';
+  return `<div style="position:relative;width:${boxW}px;height:${boxH}px;">${catHtml}<div style="position:absolute;${posStyle}pointer-events:none;z-index:2;">${overlayHtml}</div></div>`;
 }
 function pixelArtName(key){
   const art = getCatArt(key);
@@ -675,17 +708,7 @@ const THEME_PREVIEW_KEYS = {
 function applyTheme(){
   document.documentElement.setAttribute('data-theme', settings.theme || 'original');
 }
-// テーマごとに雰囲気の合う猫を「おすすめデフォルト」として用意しておき、
-// テーマ切り替えと同時に猫も自動で切り替える（モノクロ→白猫、ダーク→黒猫）。
-// あくまで初期値の提案なので、切り替え後もSettingsから普段通り別の猫を
-// 選び直せる（次にまたテーマを切り替えると、そのテーマのおすすめに戻る）。
-const THEME_DEFAULT_CAT = { mono: 'white', dark: 'black' };
-function selectTheme(key){
-  settings.theme=key;
-  const recommendedCat = THEME_DEFAULT_CAT[key];
-  if(recommendedCat && getCatArt(recommendedCat)) settings.pixelArt = recommendedCat;
-  persistSettings(); applyTheme(); render();
-}
+function selectTheme(key){ settings.theme=key; persistSettings(); applyTheme(); render(); }
 function selectBarStyle(key){ settings.barStyle=key; persistSettings(); render(); }
 
 let tasks = load('tt_tasks', null);
@@ -762,40 +785,11 @@ let expandedReportDates = new Set();
 let selectedReportDate = fmtDate(new Date());
 let toastMessage = null;
 let toastTimer = null;
-// flatKeys ("outfit:ribbon" etc.) already shown via rewardUnlockedToast this
-// page load -- see the guard inside evaluateRewards()'s auto-unlock branch.
-const toastedRewardKeys = new Set();
-// Renders into its own standalone DOM node (#toastHost, a sibling of #app in
-// index.html) instead of being part of the big innerHTML template render()
-// rebuilds on every state change. render() gets called very often while a
-// toast happens to be showing (any unrelated action -- switching tabs,
-// ticking the pomodoro, an unrelated persistRecords()/evaluateRewards() call
-// -- re-renders #app's whole innerHTML), and since the toast used to be
-// inline in that same template, EVERY one of those unrelated re-renders tore
-// the toast <div> down and recreated it -- restarting its CSS pop-in
-// animation from scratch each time even though the message hadn't changed.
-// That's what made a single "◯◯を手に入れました" look like it was popping up
-// several times in a row. Keeping it in a separate node that's only touched
-// when the message actually changes fixes that at the root, regardless of
-// how many times something else calls render() in the meantime.
 function showToast(msg, ms){
   toastMessage = msg;
-  renderToastHost();
+  render();
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(()=>{ toastMessage=null; renderToastHost(); }, ms || 3500);
-}
-function renderToastHost(){
-  const host = document.getElementById('toastHost');
-  if(!host) return;
-  if(toastMessage){
-    if(host.dataset.msg !== toastMessage){
-      host.dataset.msg = toastMessage;
-      host.innerHTML = `<div class="toast">${escapeHtml(toastMessage)}</div>`;
-    }
-  } else if(host.innerHTML){
-    host.innerHTML = '';
-    delete host.dataset.msg;
-  }
+  toastTimer = setTimeout(()=>{ toastMessage=null; render(); }, ms || 3500);
 }
 let addDraft = null; // {date, taskId, segments:[{start,end}]}
 let showDuplicate = false;
@@ -880,7 +874,7 @@ function addDaysStr(dateStr, n){
   return fmtDate(d);
 }
 // The unlock order within a category is just that category's own key order
-// in pixel-arts-outfits.js (ribbon→collar→crown, karikari→churu→catgrass→sasami).
+// in pixel-arts-outfits.js (collar→ribbon→crown, karikari→churu→sasami).
 function categoryOrder(type){
   if(type === 'outfit') return (typeof OUTFIT_ART !== 'undefined') ? Object.keys(OUTFIT_ART) : [];
   if(type === 'food') return (typeof FOOD_ART !== 'undefined') ? Object.keys(FOOD_ART) : [];
@@ -1042,17 +1036,7 @@ function evaluateRewards(){
       // only one category has anything left, so there's no real choice to
       // make -- just unlock it.
       const unlocked = unlockFromCategory(outfitRoom ? 'outfit' : 'food');
-      // Belt-and-suspenders against evaluateRewards() being re-entered for
-      // an item it already toasted this session (e.g. from a redundant
-      // Firebase apply that slips past the fbApplyRemote() guards above) --
-      // never show the exact same "◯◯を手に入れました" toast twice per load.
-      if(unlocked){
-        const flatKey = `${unlocked.type}:${unlocked.key}`;
-        if(!toastedRewardKeys.has(flatKey)){
-          toastedRewardKeys.add(flatKey);
-          showToast(t('rewardUnlockedToast')(rewardItemName(unlocked)));
-        }
-      }
+      if(unlocked) showToast(t('rewardUnlockedToast')(rewardItemName(unlocked)));
     } // else: everything already unlocked, nothing more to bank
     rewards.giftsGrantedCount += 1;
   }
@@ -1083,17 +1067,6 @@ function giftProgressCountdownInfo(){
   const daysRemaining = Math.max(0, GIFT_EVERY_DAYS - (rewards.giftProgressDays + liveBonus));
   return { daysRemaining };
 }
-// How many stars of the current GIFT_EVERY_DAYS-day cycle have been
-// collected so far, for the ★★★☆☆☆☆-style gauge on the Summary tab. Mirrors
-// giftProgressCountdownInfo()'s "preview today's live achievement" logic so
-// the gauge fills in the instant today's goal is hit, not only once the
-// session is stopped and persistRecords() re-runs evaluateRewards().
-function giftGaugeInfo(){
-  const todayStr = fmtDate(new Date());
-  const liveBonus = (!rewards.achievedDates.includes(todayStr) && isTodayAchievedLive()) ? 1 : 0;
-  const filled = Math.min(GIFT_EVERY_DAYS, rewards.giftProgressDays + liveBonus);
-  return { filled, total: GIFT_EVERY_DAYS };
-}
 const LEGENDARY_COUNTDOWN_SHOW_WITHIN_DAYS = 5; // only start nudging once this close, not for the whole month
 function legendaryCountdownInfo(){
   if(rewards.legendaryUnlocked) return null;
@@ -1112,10 +1085,14 @@ function jumpToSettingsForGift(){
   setTab('settings');
 }
 // Small badge showing the currently-worn おめかし item, overlaid on the
-// Timecard tab's cat/progress area. Placeholder positioning (top-right
-// corner of the whole progress bar) rather than composited onto the cat
-// sprite itself, since the real accessory art (and per-cat anchor points)
-// hasn't been drawn yet -- see pixel-arts-outfits.js.
+// Timecard tab's progress area -- used only for the "のびるねこ" stretch bar
+// style while a session is actually running/paused (renderStretchProgressBar
+// builds a custom stretch shape, not the cat's normal 16x16 pose grid, so
+// there's no cat-pixel position to composite the item onto there). Every
+// other case (normal walking/sitting bar style, and the stretch style's idle
+// sitting cat) renders the cat via the ordinary pose grid, so those go
+// through renderCatWithOutfit() instead, which composites the item directly
+// onto the cat sprite using each item's `overlay` hint.
 function renderEquippedOutfitBadge(){
   const key = rewards.equippedOutfit;
   if(!key || typeof OUTFIT_ART === 'undefined' || !OUTFIT_ART[key]) return '';
@@ -1127,7 +1104,6 @@ function renderEquippedOutfitBadge(){
 // ---------- Firebase sync (Firestore doc per user; anonymous by default, Google to sync across devices) ----------
 let fbUser = null;
 let fbSaveTimer = null;
-let fbUnsubscribe = null; // unsubscribe fn for the currently-active onSnapshot listener, if any
 let fbApplyingRemote = false;
 // True from the moment a local change schedules a Firestore push until that
 // push actually resolves (covers both the 1200ms debounce wait *and* the
@@ -1155,20 +1131,9 @@ function fbScheduleSave(){
 function fbPushNow(){
   if(!fbUser || !window.__fb){ fbPendingPush = false; return; }
   const f = window.__fb;
-  // Use mergeFields (NOT merge:true) so each listed top-level field is
-  // replaced wholesale, rather than deep-merged.
-  // `records` is a map keyed by date (see deleteSession/removeTask etc.), and
-  // Firestore's merge:true recursively merges nested maps: a key that's
-  // present in the write gets overwritten, but a key that's *absent* (e.g.
-  // deleteSession() did `delete records[date]` because it removed that day's
-  // last session) is left untouched on the server instead of being cleared.
-  // The next onSnapshot (often from this very write's own round-trip, ~1s
-  // later) then pastes that still-there date back into local state, making
-  // the delete silently undo itself. mergeFields avoids that (each field is
-  // fully replaced) while still not clobbering server-only fields like
-  // `plan` (set by a Cloud Function), since `plan` isn't in this list. Same
-  // fix already applied to the factory-reset path below — see its comment.
-  f.setDoc(fbDocRef(), { tasks, records, settings, rewards, updatedAt: f.serverTimestamp() }, { mergeFields: ['tasks', 'records', 'settings', 'rewards', 'updatedAt'] })
+  // merge:true is important — without it, each save would overwrite the whole
+  // document and wipe out server-only fields like `plan` that Cloud Functions set.
+  f.setDoc(fbDocRef(), { tasks, records, settings, rewards, updatedAt: f.serverTimestamp() }, { merge: true })
     .catch(e=>console.error('firebase save failed', e))
     .finally(()=>{ fbPendingPush = false; });
 }
@@ -1183,31 +1148,7 @@ function fbApplyRemote(data){
     if(!settings.theme || !THEME_NAMES[settings.theme]) settings.theme = 'original';
     if(!settings.pomodoro || !settings.pomodoro.templates || !settings.pomodoro.templates.length) settings.pomodoro = defaultSettings().pomodoro;
   }
-  if(data.rewards){
-    const incoming = Object.assign(defaultRewards(), data.rewards);
-    // giftsGrantedCount (and the counts it gates) is documented in
-    // defaultRewards() as monotonic -- never decreases. But
-    // fbLoadAndSubscribe() does an initial getDoc() *and* then attaches
-    // onSnapshot(), whose first delivery is often the same still-stale
-    // server copy getDoc() just fetched, since our own newer local grant
-    // hasn't reached the server yet (fbScheduleSave() debounces pushes by
-    // 1200ms). Blindly overwriting `rewards` with that stale copy walked
-    // giftsGrantedCount backward, so the evaluateRewards() call right below
-    // "discovered" the very gift we just granted as new again and re-popped
-    // its 🎁 toast -- often 2-3 times in a row as getDoc() and onSnapshot's
-    // cache/server deliveries all raced in before our own write landed.
-    // Never let these monotonic-by-design fields regress on a remote apply;
-    // take the max/union with whatever's already in memory instead of
-    // trusting the remote value outright.
-    if(rewards){
-      incoming.giftsGrantedCount = Math.max(incoming.giftsGrantedCount, rewards.giftsGrantedCount);
-      incoming.outfitUnlockedCount = Math.max(incoming.outfitUnlockedCount, rewards.outfitUnlockedCount);
-      incoming.foodUnlockedCount = Math.max(incoming.foodUnlockedCount, rewards.foodUnlockedCount);
-      incoming.legendaryUnlocked = incoming.legendaryUnlocked || rewards.legendaryUnlocked;
-      incoming.unlocked = Array.from(new Set([...rewards.unlocked, ...incoming.unlocked]));
-    }
-    rewards = incoming;
-  }
+  if(data.rewards) rewards = Object.assign(defaultRewards(), data.rewards);
   userPlan = data.plan === 'paid' ? 'paid' : 'free';
   save('tt_tasks', tasks); save('tt_records', records); save('tt_settings', settings); save('tt_rewards', rewards);
   fbApplyingRemote = false;
@@ -1226,19 +1167,7 @@ async function fbLoadAndSubscribe(){
     }
   }catch(e){ console.error('firebase initial load failed', e); }
 
-  // onAuthStateChanged (see __loadFirebaseModule below) can fire more than
-  // once during a single page load -- e.g. once for the anonymous session,
-  // again once a Google redirect sign-in resolves, or just a redundant
-  // re-fire while auth state settles. Each fire re-runs this whole function
-  // via the 'fb-auth' listener. Without unsubscribing the previous listener
-  // first, every extra fire stacked ANOTHER onSnapshot() on top of the
-  // previous one(s), so a single Firestore update (including the echo of our
-  // own writes) ran fbApplyRemote()/evaluateRewards() once per stacked
-  // listener -- this is what was popping the same "手に入れました" toast
-  // multiple times in a row. Always drop the old subscription before
-  // attaching a new one.
-  if(fbUnsubscribe){ fbUnsubscribe(); fbUnsubscribe = null; }
-  fbUnsubscribe = f.onSnapshot(ref, (snap)=>{
+  f.onSnapshot(ref, (snap)=>{
     if(fbApplyingRemote || fbPendingPush || snap.metadata.hasPendingWrites) return;
     if(snap.exists()) fbApplyRemote(snap.data());
   }, (e)=>console.error('firebase snapshot error', e));
@@ -1612,6 +1541,7 @@ function render(){
     const isJa = /[^ -~]/.test(titlePrefix);
 
     let html = `
+    ${toastMessage ? `<div class="toast">${escapeHtml(toastMessage)}</div>` : ''}
     <header>
       <div class="eyebrow">
         <span id="header-username" class="user-name-part ${isJa ? 'is-ja' : ''}">${titlePrefix}</span>
@@ -1636,22 +1566,21 @@ function render(){
   }
 
   // gamification nudges: a "プレゼントがあるよ" notice once a present is
-  // waiting to be spent on おめかし/えさ (tap it to jump to Settings), and --
+  // waiting to be spent on おめかし/えさ (tap it to jump to Settings), how
+  // many more successful days until the *next* present otherwise, and --
   // only once within LEGENDARY_COUNTDOWN_SHOW_WITHIN_DAYS days -- a
   // silhouette-teased countdown to the Legendary Cat. Shown on every tab,
-  // same as the unfinished-records banner above. The day-by-day "プレゼント
-  // まであと〇日" nudge used to live here too, but it's been consolidated
-  // into the ⭐ gauge on the Summary tab instead (see giftGaugeInfo()), so the
-  // user can check streak/present progress in one stable place rather than a
-  // constantly-shifting top banner.
+  // same as the unfinished-records banner above.
   const hasPendingGift = rewards.pendingChoices > 0;
+  const giftInfo = hasPendingGift ? null : giftProgressCountdownInfo();
   const legendaryInfo = legendaryCountdownInfo();
-  if(hasPendingGift || legendaryInfo){
+  if(hasPendingGift || giftInfo || legendaryInfo){
     html += `<div class="panel" style="padding:12px 14px;margin-bottom:16px;font-size:12px;color:var(--dim);display:flex;flex-direction:column;gap:8px;">
       ${hasPendingGift ? `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;cursor:pointer;" onclick="jumpToSettingsForGift()">
           <span>🎁 ${t('giftReadyBanner')}</span>
           <span style="color:var(--brassDim);font-weight:700;flex-shrink:0;">${t('giftReadyCta')} ›</span>
         </div>` : ''}
+      ${giftInfo ? `<div>🎁 ${t('giftProgressCountdown')(giftInfo.daysRemaining)}</div>` : ''}
       ${legendaryInfo ? `<div style="display:flex;align-items:center;gap:8px;">
           <span style="flex-shrink:0;line-height:0;">${renderPixelArtSilhouette('rainbow', 0.55, 'sitting', 0.3)}</span>
           <span>🌈 ${t('legendaryCountdown')(legendaryInfo.daysRemaining)}</span>
@@ -1779,8 +1708,8 @@ function renderPunch(today, todayStr, weekday, suggested){
   const barHTML = stretchMode
     ? renderStretchProgressBar(settings.pixelArt, stretchDisplayPercent, status==='working', undefined, undefined, status==='paused')
     : (barStyleIsStretch
-        ? `<div class="catwalk stretch-idle" style="left:0%;">${renderPixelArt(settings.pixelArt, 1.8, 'sitting')}</div>`
-        : `<div class="catwalk ${status==='working'?'walking':''}" style="left:${walkCappedLeft};">${renderPixelArt(settings.pixelArt, 1.8, status==='working'?'walking':'sitting')}</div>
+        ? `<div class="catwalk stretch-idle" style="left:0%;">${renderCatWithOutfit(settings.pixelArt, 1.8, 'sitting')}</div>`
+        : `<div class="catwalk ${status==='working'?'walking':''}" style="left:${walkCappedLeft};">${renderCatWithOutfit(settings.pixelArt, 1.8, status==='working'?'walking':'sitting')}</div>
        <div class="progresstrack"><div class="progressfill" style="width:${percent}%;"></div></div>
        ${walkGoal ? `<div class="stretchbar-goal" data-goal-state="${walkReachedGoal?'done':'fish'}" style="left:calc(100% - 10px); top:-37px;">${walkGoalHTML}</div>` : ''}`);
 
@@ -1791,7 +1720,7 @@ function renderPunch(today, todayStr, weekday, suggested){
     </div>
     <div id="clockDisplay" class="clock" style="color:${status==='none'?'var(--faint)':sColor};">${msToHMS(ms)}</div>
     <div class="projlist">${chipsHtml}</div>
-    <div class="progresswrap${barStyleIsStretch?' stretch':''}" style="position:relative;">${barHTML}${renderEquippedOutfitBadge()}</div>
+    <div class="progresswrap${barStyleIsStretch?' stretch':''}" style="position:relative;">${barHTML}${stretchMode ? renderEquippedOutfitBadge() : ''}</div>
     <div class="goalline">${hmLabel(ms)} / ${taskGoalHoursLabel(goalHours)}${t('parenWrap')(escapeHtml(currentTask?currentTask.name:''))}</div>
     ${buttonsHtml}
   </div>`;
@@ -1855,7 +1784,7 @@ function renderTasks(){
 
   let html = `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
     <div style="font-size:13px;color:var(--dim);">${t('tasksIntro')}</div>
-    <button onclick="openTaskForm(null)" style="background:var(--accent);color:#fff;border:2px solid var(--accentDim);border-radius:9px;padding:8px 12px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;box-shadow:2px 2px 0 color-mix(in srgb, var(--accent) 30%, transparent);">${t('addBtn')}</button>
+    <button onclick="openTaskForm(null)" style="background:var(--brass);color:#fff;border:2px solid var(--brassDim);border-radius:9px;padding:8px 12px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;box-shadow:2px 2px 0 rgba(255,158,199,0.3);">${t('addBtn')}</button>
   </div>`;
 
   if(active.length===0){
@@ -2635,21 +2564,23 @@ function renderCalendar(rows, month, selectedDate){
   const daysInMonth = new Date(y, m, 0).getDate();
   const startWeekday = new Date(y, m-1, 1).getDay();
   const todayStr = fmtDate(new Date());
-  // achievedDates -> ⭐ (that day hit its combined daily goal) -- see
-  // evaluateRewards()'s design notes for how this gets populated. Today gets
-  // committed into it the moment persistRecords() re-runs evaluateRewards()
+  // achievedDates -> ⭐ (that day hit its combined daily goal), giftEarnedDates
+  // -> 🎁 (that day's success also banked/unlocked a present) -- see
+  // evaluateRewards()'s design notes for how these get populated. Today gets
+  // committed into these the moment persistRecords() re-runs evaluateRewards()
   // (e.g. once a running session is stopped), but while a session is still
   // actively ticking upward nothing has re-run evaluateRewards() yet -- show
-  // the star live in that gap too via isTodayAchievedLive(), instead of only
-  // reflecting it once the session actually stops.
-  // (The calendar used to also show a 🎁 on the day each present was banked
-  // via giftEarnedDates, but that marker jumps around whenever a past date
-  // gets a record added retroactively -- since which day earns the 🎁
-  // depends on the achievedDates order, not a fixed date -- so it's been
-  // dropped as more confusing than useful. See collectedSoFar/giftGaugeInfo
-  // on the Summary tab for the cumulative present count instead.)
+  // the star/gift live in that gap too via isTodayAchievedLive(), instead of
+  // only reflecting it once the session actually stops.
   const achievedSet = new Set(rewards.achievedDates || []);
+  const giftSet = new Set(rewards.giftEarnedDates || []);
+  const todayAlreadyCommitted = achievedSet.has(todayStr);
   const todayLiveAchieved = isTodayAchievedLive();
+  // Only preview the 🎁 while today isn't committed yet -- once it is,
+  // rewards.giftProgressDays already reflects today's own increment, so
+  // adding another +1 here would double-count it and could show a gift icon
+  // on a day that didn't actually cross GIFT_EVERY_DAYS.
+  const todayLiveGift = !todayAlreadyCommitted && todayLiveAchieved && (rewards.giftProgressDays + 1) >= GIFT_EVERY_DAYS;
 
   const cells = [];
   for(let i=0;i<startWeekday;i++) cells.push(null);
@@ -2664,7 +2595,8 @@ function renderCalendar(rows, month, selectedDate){
     const isSelected = dateStr === selectedDate;
     const cls = `cal-cell${isToday?' today':''}${isSelected?' selected':''}`;
     const isAchieved = achievedSet.has(dateStr) || (isToday && todayLiveAchieved);
-    const badges = `${isAchieved ? '<span class="cal-star">⭐</span>' : ''}`;
+    const gotGift = giftSet.has(dateStr) || (isToday && todayLiveGift);
+    const badges = `${isAchieved ? '<span class="cal-star">⭐</span>' : ''}${gotGift ? '<span class="cal-gift">🎁</span>' : ''}`;
     if(!info){
       return `<div class="${cls}" onclick="selectReportDate('${dateStr}')"><div class="cal-day">${d}${badges}</div></div>`;
     }
@@ -2697,6 +2629,14 @@ function selectReportDate(dateStr){
         const rows = monthSessions.map(r => ({ ...r, ms: computeWorkMs(r) }));
         const totalMs = rows.reduce((s, r) => s + r.ms, 0);
 
+        // 月全体の目標と実績を計算（月間達成率用）
+        let totalMonthGoalMinutes = 0;
+        tasks.filter(t => !t.archived && t.targetHours > 0).forEach(task => {
+            totalMonthGoalMinutes += monthlyGoalMinutes(task, reportMonth, todayStr);
+        });
+        const totalMonthActualMinutes = totalMs / 60000;
+        const monthAchievementRate = totalMonthGoalMinutes > 0 ? Math.min(100, totalMonthActualMinutes / totalMonthGoalMinutes * 100) : (totalMonthActualMinutes > 0 ? 100 : 0);
+
         // ターゲット日付を決定（選択日、なければ今日、過去月なら1日）
         let targetDate = selectedReportDate;
         if (!targetDate) {
@@ -2718,21 +2658,6 @@ function selectReportDate(dateStr){
         const dayActualMinutes = dayActualMs / 60000;
         const dayAchievementRate = dayGoalMinutes > 0 ? Math.min(100, dayActualMinutes / dayGoalMinutes * 100) : (dayActualMinutes > 0 ? 100 : 0);
         const dayLabel = targetDate === todayStr ? t('todayAchievement') : t('dateAchievement')(targetDate.slice(5).replace('-', '/'));
-        // 表示上「100%」に見えたら強調色にしたいので、生の割合ではなく実際に
-        // 画面に出す丸め後の値で判定する（例：99.6%は生の値だと100%未満だが
-        // Math.round()で「100%」と表示されるため、丸め後の値で判定しないと
-        // 見た目は100%なのに色が変わらないというズレが起きる）。
-        // テーマごとの --achieve100 を使用（ダークモードは黄色、それ以外は
-        // ピンクになるようindex.htmlのCSS側で定義）
-        const dayAchievementRatePct = Math.round(dayAchievementRate);
-        const dayRateStyle = dayAchievementRatePct >= 100 ? ' style="color:var(--achieve100);"' : '';
-
-        // 累計の⭐/🎁（月をまたいだ全期間の集計）と、今のプレゼントサイクル
-        // （7つ星ためると1個）の進捗ゲージ
-        const gauge = giftGaugeInfo();
-        const gaugeStr = '★'.repeat(gauge.filled) + '☆'.repeat(gauge.total - gauge.filled);
-        const totalStarsAllTime = rewards.achievedDates.length;
-        const totalGiftsAllTime = rewards.giftsGrantedCount;
         // Same "today vs. specific date" wording split as dayLabel above, so
         // the add-task button always names whichever date is currently
         // selected on the calendar (or today/the 1st of the month when
@@ -2746,14 +2671,13 @@ function selectReportDate(dateStr){
   </div>
   <button onclick="openAddRecord('${targetDate}')" style="width:100%;background:none;border:1px dashed var(--lineS);color:var(--dim);border-radius:10px;padding:10px;cursor:pointer;font-family:inherit;font-size:13px;margin-bottom:16px;">${addRecordLabel}</button>`;
 
-        html += `<div class="metrics" style="grid-template-columns:1fr 1fr;margin-bottom:10px;">
+        html += `<div class="metrics" style="grid-template-columns:1fr;margin-bottom:10px;">
     <div class="metric"><div class="lbl">${t('totalTime')}</div><div class="val mono">${hmLabel(totalMs)}</div></div>
-    <div class="metric"><div class="lbl">${dayLabel}</div><div class="val mono"${dayRateStyle}>${dayAchievementRatePct}%</div></div>
   </div>`;
 
         html += `<div class="metrics" style="grid-template-columns:1fr 1fr;margin-bottom:16px;">
-    <div class="metric"><div class="lbl">${t('giftGaugeLabel')}</div><div class="val mono">${gaugeStr}</div></div>
-    <div class="metric"><div class="lbl">${t('collectedSoFar')}</div><div class="val mono">${t('collectedSummary')(totalStarsAllTime, totalGiftsAllTime)}</div></div>
+    <div class="metric"><div class="lbl">${t('monthAchievement')}</div><div class="val mono">${Math.round(monthAchievementRate)}%</div></div>
+    <div class="metric"><div class="lbl">${dayLabel}</div><div class="val mono">${Math.round(dayAchievementRate)}%</div></div>
   </div>`;
 
         // カレンダー描画

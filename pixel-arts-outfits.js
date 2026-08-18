@@ -1,45 +1,102 @@
 // pixel-arts-outfits.js
-// Placeholder art for the unlockable "おめかし" (outfit/accessory) and "えさ"
-// (food) rewards, kept in its own file (separate from pixel-arts.js and
-// pixel-arts-legendary.js) so real art can be dropped in later without
-// touching the default-cat registry or the app logic in app.js.
+// Real art for the unlockable "おめかし" (outfit/accessory) and "えさ" (food)
+// rewards, kept in its own file (separate from pixel-arts.js and
+// pixel-arts-legendary.js) so it can keep evolving without touching the
+// default-cat registry or the app logic in app.js.
 //
-// Every item below is a plain dummy 16x16 red circle -- only the name and
-// (loosely) the tint differ -- on purpose: the real sprites will be supplied
-// later and swapped in item-by-item. Nothing in app.js cares what the grid
-// actually looks like, only that OUTFIT_ART[key] / FOOD_ART[key] exist with
-// a `name` and a single 16x16 `grid` + `colors` map (unlike the cats in
-// pixel-arts.js, these are single static icons, not walking/sitting poses).
+// Each item is a single static 16x16 icon (unlike the cats in pixel-arts.js,
+// which have multiple named poses) -- OUTFIT_ART[key] / FOOD_ART[key] each
+// have a `name`, a `colors` palette map, and a 16x16 `grid`.
+//
+// おめかし items also carry an `overlay` hint used by app.js's
+// renderCatWithOutfit() to composite the equipped item directly onto the
+// cat sprite (see that function for how scale/anchor are applied):
+//   - { scale: 1, anchor: 'full' } -- drawn at the cat's own scale, in the
+//     exact same position as the cat's own 16x16 grid (used for 首輪, which
+//     was drawn to already line up with the cat's neck at 1:1).
+//   - { scale: 0.7, anchor: 'top-right' } -- drawn at 70% of the cat's size,
+//     anchored to the top-right corner of the cat's bounding box, which
+//     lands it on top of the head (used for リボン／王冠).
 //
 // Loaded via <script> before app.js (and after pixel-arts.js), so these
 // become globals: OUTFIT_ART, FOOD_ART.
-
-// A simple filled circle in a 16x16 grid, palette index 1. Generated once at
-// load time instead of hand-authored so every placeholder item can share the
-// exact same "dummy" shape.
-function _dummyCircleGrid16(){
-  const grid = [];
-  const cx = 7.5, cy = 7.5, r = 6.5;
-  for(let y = 0; y < 16; y++){
-    const row = [];
-    for(let x = 0; x < 16; x++){
-      row.push((Math.hypot(x - cx, y - cy) <= r) ? 1 : 0);
-    }
-    grid.push(row);
-  }
-  return grid;
-}
-const DUMMY_CIRCLE_GRID = _dummyCircleGrid16();
 
 // おめかし (worn accessories). Each category unlocks independently, in this
 // object's key order (app.js reads Object.keys(OUTFIT_ART) as "the order to
 // unlock おめかし in") -- see app.js's unlockFromCategory(). Which category
 // advances on any given successful week is the user's own choice (a
 // 2-choice "おめかし or えさ" prompt shown in Settings), not automatic.
+// Unlock order: 首輪 → リボン → 王冠.
 const OUTFIT_ART = {
-  ribbon: { name: { ja: 'リボン', en: 'Ribbon' }, colors: { 1: '#FF4D4D' }, grid: DUMMY_CIRCLE_GRID },
-  collar: { name: { ja: '首輪', en: 'Collar' }, colors: { 1: '#FF4D4D' }, grid: DUMMY_CIRCLE_GRID },
-  crown:  { name: { ja: '王冠', en: 'Crown' }, colors: { 1: '#FF4D4D' }, grid: DUMMY_CIRCLE_GRID },
+  collar: {
+    name: { ja: '首輪', en: 'Collar' },
+    colors: { 5: '#ff3b30', 7: '#ffcc00' },
+    overlay: { scale: 1, anchor: 'full' },
+    grid: [
+      [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      [0, 0, 0, 0, 0, 0, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      [0, 0, 0, 0, 0, 0, 0, 5, 5, 7, 7, 5, 0, 0, 0, 0],
+      [0, 0, 0, 0, 0, 0, 0, 0, 0, 7, 7, 0, 0, 0, 0, 0],
+      [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    ],
+  },
+  ribbon: {
+    name: { ja: 'リボン', en: 'Ribbon' },
+    colors: { 1: '#000000', 13: '#ff9a9a', 5: '#ff3b30', 29: '#c00000' },
+    overlay: { scale: 0.7, anchor: 'top-right' },
+    grid: [
+      [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      [0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0],
+      [0, 1, 13, 13, 1, 0, 0, 0, 0, 0, 0, 1, 13, 5, 1, 0],
+      [0, 1, 5, 5, 5, 1, 0, 1, 1, 0, 1, 13, 5, 5, 1, 0],
+      [0, 1, 5, 5, 5, 5, 1, 13, 5, 1, 13, 5, 5, 1, 0, 0],
+      [0, 0, 1, 5, 5, 5, 1, 5, 5, 1, 5, 5, 5, 1, 0, 0],
+      [0, 0, 1, 5, 29, 29, 1, 29, 29, 1, 29, 29, 29, 5, 1, 0],
+      [0, 1, 29, 29, 29, 1, 29, 1, 1, 29, 1, 29, 29, 29, 1, 0],
+      [0, 1, 5, 29, 1, 29, 5, 5, 1, 5, 29, 1, 29, 5, 1, 0],
+      [0, 0, 1, 1, 29, 5, 5, 1, 0, 1, 5, 29, 1, 1, 0, 0],
+      [0, 0, 1, 13, 5, 5, 1, 0, 0, 1, 13, 5, 29, 1, 0, 0],
+      [0, 0, 0, 1, 1, 13, 1, 0, 0, 0, 1, 13, 1, 0, 0, 0],
+      [0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0],
+      [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    ],
+  },
+  crown: {
+    name: { ja: '王冠', en: 'Crown' },
+    colors: { 1: '#000000', 15: '#fff3a0', 7: '#ffcc00', 6: '#ff9500' },
+    overlay: { scale: 0.7, anchor: 'top-right' },
+    grid: [
+      [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      [0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0],
+      [0, 0, 0, 0, 0, 0, 1, 15, 7, 1, 0, 0, 0, 0, 0, 0],
+      [0, 0, 0, 0, 0, 0, 1, 7, 6, 1, 0, 0, 0, 0, 0, 0],
+      [0, 1, 1, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 1, 1, 0],
+      [1, 15, 7, 1, 0, 0, 1, 15, 15, 1, 0, 0, 1, 15, 7, 1],
+      [1, 7, 6, 1, 1, 0, 1, 15, 7, 1, 0, 1, 1, 7, 6, 1],
+      [0, 1, 1, 6, 1, 1, 15, 7, 7, 6, 1, 1, 6, 1, 1, 0],
+      [0, 0, 1, 6, 15, 1, 15, 7, 7, 6, 1, 15, 6, 1, 0, 0],
+      [0, 0, 1, 6, 7, 15, 7, 7, 7, 7, 15, 7, 6, 1, 0, 0],
+      [0, 0, 1, 6, 7, 7, 7, 7, 7, 7, 7, 7, 6, 1, 0, 0],
+      [0, 0, 0, 1, 7, 7, 7, 7, 7, 7, 7, 7, 1, 0, 0, 0],
+      [0, 0, 0, 1, 6, 6, 6, 6, 6, 6, 6, 6, 1, 0, 0, 0],
+      [0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0],
+      [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    ],
+  },
 };
 
 // えさ (food). Same independent per-category unlock order as OUTFIT_ART.
@@ -47,9 +104,72 @@ const OUTFIT_ART = {
 // the end of the progress bar (see app.js's renderStretchProgressBar /
 // walkGoal), i.e. the fish the cat is stretching/walking toward changes to
 // whatever food is currently equipped.
+// Unlock order: カリカリ → ちゅーる → ささみ.
 const FOOD_ART = {
-  karikari: { name: { ja: 'カリカリ', en: 'Kibble' }, colors: { 1: '#FF4D4D' }, grid: DUMMY_CIRCLE_GRID },
-  churu:    { name: { ja: 'ちゅーる', en: 'Churu' }, colors: { 1: '#FF4D4D' }, grid: DUMMY_CIRCLE_GRID },
-  catgrass: { name: { ja: '猫草', en: 'Cat Grass' }, colors: { 1: '#FF4D4D' }, grid: DUMMY_CIRCLE_GRID },
-  sasami:   { name: { ja: 'とりささみ', en: 'Chicken Breast' }, colors: { 1: '#FF4D4D' }, grid: DUMMY_CIRCLE_GRID },
+  karikari: {
+    name: { ja: 'カリカリ', en: 'Kibble' },
+    colors: { 1: '#000000', 24: '#8b5e3c', 14: '#ffcb8e', 23: '#c47a5a', 3: '#aaaaaa', 4: '#ffffff' },
+    grid: [
+      [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      [0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0],
+      [0, 0, 0, 0, 0, 1, 1, 24, 1, 0, 1, 1, 0, 0, 0, 0],
+      [0, 0, 0, 1, 1, 14, 24, 24, 23, 1, 23, 23, 1, 0, 0, 0],
+      [0, 0, 1, 3, 23, 24, 14, 23, 24, 23, 24, 23, 3, 1, 0, 0],
+      [0, 1, 3, 24, 23, 14, 14, 24, 23, 24, 23, 24, 4, 3, 1, 0],
+      [1, 3, 23, 14, 23, 24, 23, 23, 14, 14, 24, 23, 14, 23, 3, 1],
+      [1, 3, 23, 14, 24, 24, 24, 23, 24, 23, 23, 24, 23, 24, 3, 1],
+      [0, 1, 3, 4, 23, 24, 23, 23, 24, 14, 14, 23, 23, 3, 1, 0],
+      [0, 0, 1, 3, 3, 4, 23, 24, 23, 23, 4, 3, 3, 1, 0, 0],
+      [0, 0, 0, 1, 1, 3, 3, 3, 3, 3, 3, 1, 1, 0, 0, 0],
+      [0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0],
+      [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    ],
+  },
+  churu: {
+    name: { ja: 'ちゅーる', en: 'Churu' },
+    colors: { 21: '#fddcb5', 14: '#ffcb8e', 22: '#e8a87c', 1: '#000000', 13: '#ff9a9a', 5: '#ff3b30', 25: '#fee7ff', 29: '#c00000' },
+    grid: [
+      [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      [0, 0, 0, 0, 21, 21, 0, 0, 14, 14, 21, 0, 0, 0, 0, 0],
+      [0, 0, 0, 0, 14, 14, 14, 14, 22, 0, 22, 1, 0, 0, 0, 0],
+      [0, 0, 0, 0, 0, 22, 22, 0, 0, 1, 1, 13, 1, 0, 0, 0],
+      [0, 0, 0, 0, 0, 0, 0, 0, 1, 13, 13, 5, 5, 1, 0, 0],
+      [0, 0, 0, 0, 0, 0, 0, 1, 13, 5, 25, 5, 5, 1, 0, 0],
+      [0, 0, 0, 0, 0, 0, 1, 13, 5, 25, 25, 5, 1, 0, 0, 0],
+      [0, 0, 0, 0, 0, 1, 13, 5, 25, 5, 5, 1, 0, 0, 0, 0],
+      [0, 0, 0, 0, 1, 13, 5, 25, 25, 5, 1, 0, 0, 0, 0, 0],
+      [0, 0, 0, 1, 13, 25, 5, 25, 5, 1, 0, 0, 0, 0, 0, 0],
+      [0, 0, 1, 13, 5, 25, 25, 29, 1, 0, 0, 0, 0, 0, 0, 0],
+      [0, 1, 13, 5, 5, 5, 29, 1, 0, 0, 0, 0, 0, 0, 0, 0],
+      [0, 0, 1, 29, 29, 29, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      [0, 0, 0, 1, 29, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      [0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    ],
+  },
+  sasami: {
+    name: { ja: 'ささみ', en: 'Chicken' },
+    colors: { 1: '#000000', 21: '#fddcb5', 14: '#ffcb8e', 4: '#ffffff', 22: '#e8a87c' },
+    grid: [
+      [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0],
+      [0, 0, 0, 0, 0, 0, 0, 1, 21, 21, 14, 14, 1, 1, 1, 0],
+      [0, 0, 0, 0, 0, 1, 1, 21, 4, 4, 21, 21, 14, 14, 1, 0],
+      [0, 0, 0, 0, 1, 21, 21, 4, 21, 21, 21, 21, 21, 1, 0, 0],
+      [0, 0, 0, 0, 1, 21, 4, 21, 21, 14, 14, 21, 22, 1, 0, 0],
+      [0, 0, 0, 1, 1, 21, 21, 14, 14, 14, 21, 22, 1, 0, 0, 0],
+      [0, 0, 0, 1, 21, 14, 14, 14, 21, 22, 22, 1, 0, 0, 0, 0],
+      [0, 0, 1, 14, 21, 21, 22, 22, 22, 1, 1, 0, 0, 0, 0, 0],
+      [0, 0, 1, 22, 22, 22, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0],
+      [0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    ],
+  },
 };
