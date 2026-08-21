@@ -835,6 +835,21 @@ let showTaskForm = false;
 let editingRecordDate = null; // for segment-edit modal
 let editingSessionId = null;
 let editingSegmentsDraft = null;
+// バグ修正: <input type="time"> のネイティブピッカーをタップして時刻を選ぶと、
+// ピッカーの出現でモーダル内のレイアウトがわずかに動き、指を離した瞬間の
+// click イベントの target が「押し始めた要素」ではなく「今その座標にある要素」
+// (=modal-bg 自身) になってしまうことがあった。これまでは click 時の
+// target だけを見て「背景がクリックされた」と判定していたため、時刻選択の
+// 操作がそのまま「モーダルの外側をタップした」と誤認され、即座に閉じてしまう
+// バグの原因になっていた。押し始め(mousedown/touchstart)と押し終わり(click)の
+// 両方が実際に背景要素上だった場合にのみ閉じるようにして、これを防ぐ。
+let modalBgPressedOnBg = false;
+function modalBgPress(e){ modalBgPressedOnBg = (e.target === e.currentTarget); }
+function modalBgClick(e, closeFn){
+  const wasBg = modalBgPressedOnBg;
+  modalBgPressedOnBg = false;
+  if(e.target === e.currentTarget && wasBg) closeFn();
+}
 let showAddRecord = false;
 let showArchived = false;
 let showHowTo = false;
@@ -2118,7 +2133,7 @@ function removeTask(id){
 function renderTaskModal(){
   const e = editingTask;
   const modalHtml = `
-    <div class="modal-bg" onclick="if(event.target===this) closeTaskForm()">
+    <div class="modal-bg" onmousedown="modalBgPress(event)" ontouchstart="modalBgPress(event)" onclick="modalBgClick(event, closeTaskForm)">
       <div class="modal" onclick="event.stopPropagation()">
         <div style="font-weight:700;font-size:15px;margin-bottom:14px;">${tasks.some(t=>t.id===e.id)?t('editTaskTitle'):t('addTaskTitle')}</div>
         <div class="field"><label>${t('nameLabel')}</label><input id="f_name" value="${escapeHtml(e.name)}" placeholder="${t('namePlaceholder')}" oninput="updateEditingField('name', this.value)"></div>
@@ -2193,7 +2208,7 @@ function renderRecordEditModal(){
   const s = (records[date]||[]).find(x=>x.id===editingSessionId);
   if(!s){ closeRecordEdit(); return; }
   const modalHtml = `
-    <div class="modal-bg" onclick="if(event.target===this) closeRecordEdit()">
+    <div class="modal-bg" onmousedown="modalBgPress(event)" ontouchstart="modalBgPress(event)" onclick="modalBgClick(event, closeRecordEdit)">
       <div class="modal" onclick="event.stopPropagation()">
         <div style="font-weight:700;font-size:15px;margin-bottom:4px;">${t('editElapsedTitle')}</div>
         <div class="mono" style="font-size:12px;color:var(--faint);margin-bottom:14px;">${date}　${escapeHtml(s.taskName)}</div>
@@ -2237,7 +2252,7 @@ function renderMemoModal(){
   const s = (records[editingMemoDate]||[]).find(x=>x.id===editingMemoSessionId);
   if(!s){ closeMemoEdit(); return; }
   const modalHtml = `
-    <div class="modal-bg" onclick="if(event.target===this) closeMemoEdit()">
+    <div class="modal-bg" onmousedown="modalBgPress(event)" ontouchstart="modalBgPress(event)" onclick="modalBgClick(event, closeMemoEdit)">
       <div class="modal" onclick="event.stopPropagation()">
         <div style="font-weight:700;font-size:15px;margin-bottom:4px;">${t('memoTitle')}</div>
         <div class="mono" style="font-size:12px;color:var(--faint);margin-bottom:14px;">${editingMemoDate}　${escapeHtml(s.taskName)}</div>
@@ -2303,7 +2318,7 @@ function saveAddRecord(){
 function renderAddRecordModal(){
   const d = addDraft;
   const modalHtml = `
-    <div class="modal-bg" onclick="if(event.target===this) closeAddRecord()">
+    <div class="modal-bg" onmousedown="modalBgPress(event)" ontouchstart="modalBgPress(event)" onclick="modalBgClick(event, closeAddRecord)">
       <div class="modal" onclick="event.stopPropagation()">
         <div style="font-weight:700;font-size:15px;margin-bottom:14px;">${t('addRecordTitle')}</div>
         <div class="field"><label>${t('dateLabel')}</label><input type="date" value="${d.date}" oninput="updateAddDraft('date', this.value)"></div>
@@ -2365,7 +2380,7 @@ function confirmDuplicate(){
 function renderDuplicateModal(){
   const src = duplicateSource;
   const modalHtml = `
-    <div class="modal-bg" onclick="if(event.target===this) closeDuplicate()">
+    <div class="modal-bg" onmousedown="modalBgPress(event)" ontouchstart="modalBgPress(event)" onclick="modalBgClick(event, closeDuplicate)">
       <div class="modal" onclick="event.stopPropagation()">
         <div style="font-weight:700;font-size:15px;margin-bottom:4px;">${t('duplicateRecordTitle')}</div>
         <div class="mono" style="font-size:12px;color:var(--faint);margin-bottom:14px;">${escapeHtml(src.taskName)}　${src.segmentsTimes.map(tm=>`${tm.start}–${tm.end}`).join('、')}</div>
@@ -2384,7 +2399,7 @@ function renderDuplicateModal(){
 function renderPomodoroFormModal(){
   const d = pomodoroDraft;
   const modalHtml = `
-    <div class="modal-bg" onclick="if(event.target===this) closePomodoroForm()">
+    <div class="modal-bg" onmousedown="modalBgPress(event)" ontouchstart="modalBgPress(event)" onclick="modalBgClick(event, closePomodoroForm)">
       <div class="modal" onclick="event.stopPropagation()">
         <div style="font-weight:700;font-size:15px;margin-bottom:14px;">${t('addPomodoroTemplateTitle')}</div>
         <div class="field"><label>${t('nameLabel')}</label><input value="${escapeHtml(d.name)}" placeholder="${t('pomodoroNamePlaceholder')}" oninput="updatePomodoroDraft('name', this.value)"></div>
