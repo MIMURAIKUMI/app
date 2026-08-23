@@ -233,7 +233,7 @@
   .locrow{padding:14px; margin-bottom:12px;}
   .loc-name{font-weight:700; font-size:15px;}
   .dot-sm{width:9px; height:9px; border-radius:3px; display:inline-block; margin-right:6px;}
-  .icobtn {display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 32px; padding: 0; margin: 0; background: var(--panel2); border: 2px solid var(--lineS); border-radius: 8px; color: var(--dim); cursor: pointer; box-shadow: 2px 2px 0 var(--line); font-size: 12px; font-family: 'Press Start 2P', monospace; }  
+  .icobtn {display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 32px; padding: 0; margin: 0; background: var(--panel2); border: 2px solid var(--lineS); border-radius: 8px; color: var(--dim); cursor: pointer; box-shadow: 2px 2px 0 var(--line); font-size: 12px; font-family: 'Press Start 2P', monospace; }
   .field{margin-bottom:12px;}
   .field label{font-size:11px; color:var(--dim); display:block; margin-bottom:5px;}
   .days-picker{display:flex; gap:6px; flex-wrap:wrap;}
@@ -316,6 +316,18 @@
   .legendary-glow{
     animation: legendaryGoldGlow 1.1s ease-in-out infinite alternate;
   }
+  /* バグ修正: のびるねこの「頭」パーツ(.stretchbar-back)には常時、輪郭用の
+     小さな固定drop-shadow(上の.stretchbar-back規則)が別途かかっている。
+     伝説のねこの常時発光(.legendary-glow)は親の.stretchbarにアニメーション
+     付きのfilterとして付与しているが、子要素である.stretchbar-back自身が
+     すでに自分のfilterを持っていると、そちらが優先して描画されてしまい、
+     頭パーツだけ親の発光アニメーションがほとんど見えなくなっていた
+     （尻尾・胴体は自前のfilterを持たないので正しく光る）。伝説のねこの
+     ときだけ、頭パーツの固定filterを外して親の発光に完全に任せることで
+     頭も含めて全身が同じように光るようにする。
+     (Playwrightで .stretchbar-back の computed filter を検証し、この
+     子要素側の固定filterが原因であることを確認済み) */
+  .stretchbar.legendary-glow .stretchbar-back{ filter:none; }
   @media (prefers-reduced-motion: reduce){
     .legendary-glow{ animation:none; filter: drop-shadow(0 0 10px rgba(255,215,0,0.6)) brightness(1.08); }
   }
