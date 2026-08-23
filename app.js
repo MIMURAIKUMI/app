@@ -2219,20 +2219,6 @@ function openRecordEdit(date, sessionId){
   render();
 }
 function closeRecordEdit(){ editingRecordDate=null; editingSessionId=null; editingSegmentsDraft=null; render(); }
-// 時刻入力: <input type="time"> のネイティブピッカーが端末やブラウザによって
-// 選択中に閉じてしまう不具合が解消できなかったため、ネイティブピッカーに
-// 依存しない時/分プルダウン方式に変更した。
-function timeSelectHtml(idx, field, value, updateFnName){
-  const parts = (value||'00:00').split(':');
-  const h = parts[0]||'00', m = parts[1]||'00';
-  const hOpts = Array.from({length:24},(_,i)=>pad(i))
-    .map(hh=>`<option value="${hh}" ${hh===h?'selected':''}>${hh}</option>`).join('');
-  const mOpts = Array.from({length:60},(_,i)=>pad(i))
-    .map(mm=>`<option value="${mm}" ${mm===m?'selected':''}>${mm}</option>`).join('');
-  return `<select class="time-h" style="flex:1;" onchange="${updateFnName}(${idx},'${field}', this.value+':'+this.nextElementSibling.nextElementSibling.value)">${hOpts}</select>` +
-    `<span style="color:var(--faint);">:</span>` +
-    `<select class="time-m" style="flex:1;" onchange="${updateFnName}(${idx},'${field}', this.previousElementSibling.previousElementSibling.value+':'+this.value)">${mOpts}</select>`;
-}
 function updateSegDraft(idx, field, value){ editingSegmentsDraft[idx][field]=value; }
 function addSegDraft(){ editingSegmentsDraft.push({start:'09:00', end:'10:00'}); render(); }
 function removeSegDraft(idx){ editingSegmentsDraft.splice(idx,1); render(); }
@@ -2272,9 +2258,9 @@ function renderRecordEditModal(){
         <div class="mono" style="font-size:12px;color:var(--faint);margin-bottom:14px;">${date}　${escapeHtml(s.taskName)}</div>
         ${editingSegmentsDraft.map((seg,idx)=>`
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
-            ${timeSelectHtml(idx,'start',seg.start,'updateSegDraft')}
+            <input type="time" value="${seg.start}" style="flex:1;" oninput="updateSegDraft(${idx},'start',this.value)">
             <span style="color:var(--faint);">–</span>
-            ${timeSelectHtml(idx,'end',seg.end,'updateSegDraft')}
+            <input type="time" value="${seg.end}" style="flex:1;" oninput="updateSegDraft(${idx},'end',this.value)">
             <button class="icobtn" style="color:var(--rust);" onclick="removeSegDraft(${idx})">🗑</button>
           </div>`).join('')}
         ${editingSegmentsDraft.length===0? `<div style="font-size:12px;color:var(--faint);margin-bottom:10px;">${t('noSegments')}</div>` : ''}
@@ -2388,9 +2374,9 @@ function renderAddRecordModal(){
         <div class="field"><label>${t('segmentsLabel')}</label>
           ${d.segments.map((seg,idx)=>`
             <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
-              ${timeSelectHtml(idx,'start',seg.start,'addDraftSegUpdate')}
+              <input type="time" value="${seg.start}" style="flex:1;" oninput="addDraftSegUpdate(${idx},'start',this.value)">
               <span style="color:var(--faint);">–</span>
-              ${timeSelectHtml(idx,'end',seg.end,'addDraftSegUpdate')}
+              <input type="time" value="${seg.end}" style="flex:1;" oninput="addDraftSegUpdate(${idx},'end',this.value)">
               <button class="icobtn" style="color:var(--rust);" onclick="addDraftSegRemove(${idx})">🗑</button>
             </div>`).join('')}
           <button onclick="addDraftSegAdd()" style="background:none;border:1px dashed var(--lineS);color:var(--dim);border-radius:8px;padding:8px;width:100%;cursor:pointer;font-family:inherit;font-size:13px;">${t('addSegment')}</button>
