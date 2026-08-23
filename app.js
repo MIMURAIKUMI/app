@@ -908,6 +908,27 @@ let showPomodoroForm = false;
 let pomodoroDraft = null; // {name, work, break}
 let pomodoroState = null; // transient, not persisted: {sessionId, templateId, phase, remainingMs, running, cycleCount}
 
+// 「プルダウンを開いてすぐに閉じちゃう」バグの本当の原因:
+// 記録編集モーダルを開いて時刻を編集している間、その編集内容(draft)は
+// まだ persistRecords() されていない = fbScheduleSave() も呼ばれていない
+// ため、fbHasUnsyncedChange() は false のまま。この状態で Firestore の
+// onSnapshot がどれか1回でも配信されると(他デバイスでの変更、あるいは
+// このプレゼント/リワード機能まわりの自動保存のエコーなど)、ガードに
+// 引っかからず fbApplyRemote() がそのまま呼ばれ、その中の render() が
+// #app の中身を丸ごと作り直してしまう。編集中の <select>/<input> はその
+// 瞬間に一度DOMから消えて作り直されるため、開いていたプルダウンや
+// ネイティブの時刻ピッカーがまだ選択している最中に閉じてしまう
+// ("すぐ閉じる"の正体はこれで、type=timeでもプルダウンでも起きていたのは
+// 入力コントロールの種類ではなく、この土台ごと作り直される方が原因だった)。
+// 対策: 保存前の編集中(モーダルが開いていてdraftがある)は fbApplyRemote()
+// を今すぐ適用せず、いったん保留しておく。モーダルを閉じる/保存すると
+// render() が呼ばれるので、そのタイミングで保留していたリモート更新を
+// 安全に適用する。
+let fbPendingRemoteData = null;
+function isEditingModalOpen(){
+  return !!(editingRecordDate || showAddRecord || showTaskForm || editingMemoDate || showDuplicate || showPomodoroForm);
+}
+
 // ---------- helpers ----------
 function pad(n){ return String(n).padStart(2,'0'); }
 function fmtDate(d){ return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; }
@@ -1375,7 +1396,11 @@ async function fbLoadAndSubscribe(){
     if(fbHasUnsyncedChange()){
       fbPushNow();
     } else if(snap.exists() && snap.data() && (snap.data().tasks || snap.data().records)){
-      fbApplyRemote(snap.data());
+      if(isEditingModalOpen()){
+        fbPendingRemoteData = snap.data();
+      } else {
+        fbApplyRemote(snap.data());
+      }
     } else {
       fbPushNow();
     }
@@ -1394,7 +1419,16 @@ async function fbLoadAndSubscribe(){
   if(fbUnsubscribe){ fbUnsubscribe(); fbUnsubscribe = null; }
   fbUnsubscribe = f.onSnapshot(ref, (snap)=>{
     if(fbApplyingRemote || fbHasUnsyncedChange() || snap.metadata.hasPendingWrites) return;
-    if(snap.exists()) fbApplyRemote(snap.data());
+    if(snap.exists()){
+      if(isEditingModalOpen()){
+        // 編集モーダルが開いている間はDOMを作り直さない (上の
+        // fbPendingRemoteData の説明を参照)。閉じた/保存したタイミングで
+        // renderNow() 側が拾って適用する。
+        fbPendingRemoteData = snap.data();
+      } else {
+        fbApplyRemote(snap.data());
+      }
+    }
   }, (e)=>console.error('firebase snapshot error', e));
 }
 function fbIsStandalone(){
@@ -1781,6 +1815,16 @@ function render(){
 }
 function renderNow(){
   renderPending = false;
+  // 編集モーダルが閉じた/保存されて renderNow() が呼ばれたタイミングで、
+  // 保留していたリモート更新があれば安全に適用する(上の
+  // fbPendingRemoteData の説明を参照)。fbApplyRemote() 自身も末尾で
+  // render() を呼ぶので、ここでは反映だけして今回のフレームの描画は
+  // そのまま続ける(次のrAFで最新状態を使って再描画される)。
+  if(fbPendingRemoteData && !isEditingModalOpen()){
+    const pending = fbPendingRemoteData;
+    fbPendingRemoteData = null;
+    fbApplyRemote(pending);
+  }
   const app = document.getElementById('app');
   const today = new Date();
   const todayStr = fmtDate(today);
