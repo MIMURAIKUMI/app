@@ -2793,6 +2793,29 @@ function setTab(t){
   }, {passive:true});
 })();
 
+// iOS Safari バグ対策: <input type="time"/"date"> にフォーカスしてネイティブの
+// 時刻ピッカー(ホイール)が開いている間、その入力欄を含む .modal が
+// overflow-y:auto でスクロール可能なままだと、キーボード/ピッカー分だけ
+// ビジュアルビューポートが縮む際にSafariが「入力欄が見えるように」と
+// この要素を自動でわずかにスクロールしてしまい、そのスクロールがトリガーと
+// なってピッカーが値を選んでいる途中で即座に閉じてしまう(既知のWebKit不具合)。
+// フォーカス中だけ .modal のスクロールを止めることでこの自動スクロールが
+// 起きないようにし、ピッカーが閉じてしまうのを防ぐ。
+document.addEventListener('focusin', (e)=>{
+  const el = e.target;
+  if(!el || el.tagName!=='INPUT') return;
+  if(el.type!=='time' && el.type!=='date') return;
+  const modal = el.closest('.modal');
+  if(modal) modal.style.overflowY = 'hidden';
+}, true);
+document.addEventListener('focusout', (e)=>{
+  const el = e.target;
+  if(!el || el.tagName!=='INPUT') return;
+  if(el.type!=='time' && el.type!=='date') return;
+  const modal = el.closest('.modal');
+  if(modal) modal.style.overflowY = '';
+}, true);
+
 // ---------- report / summary ----------
 function monthlyGoalMinutes(task, month, todayStr){
   const [y,m] = month.split('-').map(Number);
