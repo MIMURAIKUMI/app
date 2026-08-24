@@ -90,7 +90,8 @@ const I18N = {
     giftProgressCountdown: d => `プレゼントまであと${d}日`,
     legendaryCountdown: d => `1カ月達成まであと${d}日`,
     rewardUnlockedToast: name => `🎁「${name}」を手に入れました！`,
-    legendaryUnlockedToast: '✨ シークレットが解禁されたよ　Settingsへ',
+    legendaryUnlockedBanner: '✨ シークレットが解禁されたよ',
+    legendaryRevealedToast: '🌟 伝説のねこが仲間になったよ！',
     secretCatLockedToast: '🔒 30日達成で登場するよ',
     giftReadyBanner: 'プレゼントがあるよ',
     giftReadyCta: 'Settingsへ',
@@ -274,7 +275,8 @@ const I18N = {
     giftProgressCountdown: d => `${d} more successful day${d===1?'':'s'} until your next present`,
     legendaryCountdown: d => `${d} days left until you reach a full month`,
     rewardUnlockedToast: name => `🎁 You got "${name}"!`,
-    legendaryUnlockedToast: '✨ The secret has been unlocked! Check Settings',
+    legendaryUnlockedBanner: '✨ The secret has been unlocked!',
+    legendaryRevealedToast: '🌟 The Legendary Cat has joined you!',
     secretCatLockedToast: '🔒 Reach a 30-day streak to reveal this',
     giftReadyBanner: 'You have a present waiting',
     giftReadyCta: 'Go to Settings',
@@ -776,6 +778,7 @@ function defaultRewards(){
     dailyStreak: 0,             // consecutive successful days right now, recomputed backward from the latest scored day every call
     giftsGrantedCount: 0,       // total presents ever banked/unlocked (monotonic -- never decreases, even if a later edit shrinks achievedDates)
     legendaryUnlocked: false,
+    legendaryRevealed: false,   // true once the user has actually tapped the ？？？ card to open it (see revealLegendaryCat()) -- stays false while legendaryUnlocked is already true but the "ta-da" tap hasn't happened yet, which is what keeps the top banner + the pink "ready" card showing
     achievedDates: [],          // fmtDate() strings of every day that hit its goal, fully recomputed every evaluateRewards() call (calendar ⭐)
     giftEarnedDates: [],        // fmtDate() strings of the day each present was banked/unlocked, also recomputed (calendar 🎁)
   };
@@ -1243,9 +1246,15 @@ function evaluateRewards(){
     }
   }
   rewards.dailyStreak = streak;
+  // No toast here anymore -- the unlock can land while the user isn't even
+  // looking at the screen (this runs on every render/data change), so a
+  // toast that vanishes in a few seconds could easily be missed entirely.
+  // Instead this just flips the flag; the persistent top banner (see
+  // render()'s hasLegendaryReady) and the pink "ready to open" ？？？ card in
+  // Settings (see renderSettings()) both react to legendaryUnlocked directly
+  // and stay up until the user actually taps the card open (revealLegendaryCat()).
   if(!rewards.legendaryUnlocked && streak >= LEGENDARY_STREAK_DAYS){
     rewards.legendaryUnlocked = true;
-    showToast(t('legendaryUnlockedToast'));
   }
 
   // --- presents: bank/unlock however many newly-completed groups of GIFT_EVERY_DAYS exist ---
@@ -1331,10 +1340,37 @@ function jumpToSettingsForGift(){
   if(categoryHasRoom('food')) showFoodPanel = true;
   setTab('settings');
 }
+// Jumps to Settings from the "✨ シークレットが解禁されたよ" top banner (see
+// render()'s hasLegendaryReady) and opens the ねこ panel so the pink "ready to
+// open" ？？？ card is immediately visible, mirroring jumpToSettingsForGift()
+// above.
+function jumpToSettingsForLegendary(){
+  showCatPanel = true;
+  setTab('settings');
+}
 // Tapped while the シークレット (SECRET_CAT_ART) card is still locked, i.e.
 // before rewards.legendaryUnlocked -- the card itself has no click handler
 // beyond this, since it can't be selected yet.
 function tapSecretCat(){ showToast(t('secretCatLockedToast')); }
+// Tapped on the ？？？ card once rewards.legendaryUnlocked is already true but
+// rewards.legendaryRevealed is still false, i.e. the "ready to open" pink
+// state (see renderSettings()'s secretReady branch). This is the actual
+// reveal moment: flips legendaryRevealed to true for good (persisted, and
+// carried through Firebase sync -- see fbApplyRemote()'s monotonic merge),
+// equips the Legendary Cat immediately so it's visible right away on the
+// Timecard tab too instead of staying just a selectable card, and fires a
+// one-time celebratory toast for the tap itself (unlike the silent
+// background unlock in evaluateRewards(), this always happens while the user
+// is looking right at it, so a toast is a good fit here).
+function revealLegendaryCat(){
+  if(!rewards.legendaryUnlocked || rewards.legendaryRevealed) return;
+  rewards.legendaryRevealed = true;
+  settings.pixelArt = 'gold';
+  persistRewards();
+  persistSettings();
+  showToast(t('legendaryRevealedToast'));
+  render();
+}
 // ---------- Firebase sync (Firestore doc per user; anonymous by default, Google to sync across devices) ----------
 let fbUser = null;
 let fbSaveTimer = null;
@@ -1447,6 +1483,7 @@ function fbApplyRemote(data){
       incoming.outfitUnlockedCount = Math.max(incoming.outfitUnlockedCount, rewards.outfitUnlockedCount);
       incoming.foodUnlockedCount = Math.max(incoming.foodUnlockedCount, rewards.foodUnlockedCount);
       incoming.legendaryUnlocked = incoming.legendaryUnlocked || rewards.legendaryUnlocked;
+      incoming.legendaryRevealed = incoming.legendaryRevealed || rewards.legendaryRevealed;
       incoming.unlocked = Array.from(new Set([...rewards.unlocked, ...incoming.unlocked]));
     }
     rewards = incoming;
@@ -1967,10 +2004,20 @@ function renderNow(){
   // constantly-shifting top banner.
   const hasPendingGift = rewards.pendingChoices > 0;
   const legendaryInfo = legendaryCountdownInfo();
-  if(hasPendingGift || legendaryInfo){
+  // Same slot/style as the "🎁 プレゼントがあるよ" row above -- shown once
+  // legendaryUnlocked flips true and stays up (on every tab, like the gift
+  // row) until the user actually taps the ？？？ card open in Settings (see
+  // revealLegendaryCat()), instead of the old one-shot toast that could be
+  // missed entirely if the unlock happened while the user wasn't looking.
+  const hasLegendaryReady = rewards.legendaryUnlocked && !rewards.legendaryRevealed;
+  if(hasPendingGift || hasLegendaryReady || legendaryInfo){
     html += `<div class="panel" style="padding:12px 14px;margin-bottom:16px;font-size:12px;color:var(--dim);display:flex;flex-direction:column;gap:8px;">
       ${hasPendingGift ? `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;cursor:pointer;" onclick="jumpToSettingsForGift()">
           <span>🎁 ${t('giftReadyBanner')}</span>
+          <span style="color:var(--brassDim);font-weight:700;flex-shrink:0;">${t('giftReadyCta')} ›</span>
+        </div>` : ''}
+      ${hasLegendaryReady ? `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;cursor:pointer;" onclick="jumpToSettingsForLegendary()">
+          <span>${t('legendaryUnlockedBanner')}</span>
           <span style="color:var(--brassDim);font-weight:700;flex-shrink:0;">${t('giftReadyCta')} ›</span>
         </div>` : ''}
       ${legendaryInfo ? `<div style="display:flex;align-items:center;gap:8px;">
@@ -2646,8 +2693,12 @@ function renderSettings(){
   const unlockedFoodKeys = rewards.unlocked.filter(k=>k.startsWith('food:')).map(k=>k.slice(5)).filter(k=>typeof FOOD_ART!=='undefined' && FOOD_ART[k]);
   const hasPendingChoiceUI = rewards.pendingChoices > 0 && REWARD_CATEGORIES.some(categoryHasRoom);
   const catKeys = Object.keys(PIXEL_ART_GRIDS);
-  // 6枠目: 伝説のねこが解禁済みならgold、まだならシークレット(ロック済み表示)。
+  // 6枠目: 状態は3通り。①未解禁 = シークレット(ロック済み表示、opacity 0.55)、
+  // ②解禁済みだがまだ本人が開けていない = 同じシークレット(？？？)の絵のまま、
+  // 「えさ/ごはんを選ぶ時」と同じピンクの選択色でハイライトして開封を促す状態
+  // (secret-ready、revealLegendaryCat()参照)、③開封済み = 通常のgoldねこ。
   const secretLocked = !rewards.legendaryUnlocked;
+  const secretReady = rewards.legendaryUnlocked && !rewards.legendaryRevealed;
 
   html += `<div class="panel" style="padding:16px;margin-bottom:16px;">
     <div class="settitle">${t('appearancePixelArt')}</div>
@@ -2679,6 +2730,10 @@ function renderSettings(){
         </div>`).join('')}
       ${secretLocked ? `
         <div class="pixcard secret-locked" onclick="tapSecretCat()">
+          ${renderIconArt(SECRET_CAT_ART, 1.0)}
+          <div class="name">${escapeHtml(SECRET_CAT_ART.name[LANG]||SECRET_CAT_ART.name.en)}</div>
+        </div>` : secretReady ? `
+        <div class="pixcard secret-ready" onclick="revealLegendaryCat()">
           ${renderIconArt(SECRET_CAT_ART, 1.0)}
           <div class="name">${escapeHtml(SECRET_CAT_ART.name[LANG]||SECRET_CAT_ART.name.en)}</div>
         </div>` : `

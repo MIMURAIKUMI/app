@@ -352,6 +352,27 @@
      タップ自体はできる(tapSecretCat()がトーストを出す)が、まだ選べない
      ことが一目でわかるよう他のpixcardより薄く見せる。 */
   .pixcard.secret-locked{opacity:0.55;}
+  /* シークレットねこが解禁済み(rewards.legendaryUnlocked)だが、まだ本人が
+     タップして開けていない(!rewards.legendaryRevealed)間の「開封待ち」表示。
+     おめかし/ごはんを選ぶ時の.pixcard.onと同じピンクの縁取り・影を使い、
+     もう選べる状態になったことを一目でわかるようにする。さらにpixcard.on
+     より一段強いピンクの背景と、開けてねと誘う控えめな拡大縮小の点滅を
+     加えて、タップ前のロック済み表示(secret-locked)ともタップ後の通常表示
+     (.on)ともはっきり区別できるようにしてある。タップするとrevealLegendaryCat()
+     が呼ばれ、legendaryRevealedがtrueになって通常のgoldねこ表示に切り替わる。 */
+  .pixcard.secret-ready{
+    border-color:var(--brassDim);
+    background:color-mix(in srgb, var(--brass) 20%, var(--panel));
+    box-shadow:2px 2px 0 color-mix(in srgb, var(--brassDim) 45%, transparent);
+    animation:secretReadyPulse 1.4s ease-in-out infinite;
+  }
+  @keyframes secretReadyPulse{
+    0%,100%{ transform:scale(1); }
+    50%{ transform:scale(1.05); }
+  }
+  @media (prefers-reduced-motion: reduce){
+    .pixcard.secret-ready{ animation:none; }
+  }
   .pixcard .name{font-size:10px; font-weight:600; text-align:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%;}
   .settitle{font-weight:700; font-size:14px; margin-bottom:12px; display:flex; align-items:center; gap:6px;}
   .themecard{display:flex; flex-direction:column; gap:8px; padding:12px; border-radius:12px; border:2px solid var(--lineS); cursor:pointer; flex:1; min-width:100px; box-shadow:2px 2px 0 var(--line);}
