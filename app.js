@@ -175,7 +175,7 @@ const I18N = {
     howToIcons: [
       { art: 'edit', label: '編集' }, { art: 'duplicate', label: '複製' }, { art: 'trash', label: '削除' },
       { art: 'archive', label: 'アーカイブ（一時的に非表示にする）' }, { art: 'undo', label: '復元' },
-      { icon: '⭐', label: '集中タイマーの回数' }, { art: 'memo', label: '完了したタスクにメモを残せます' }
+      { icon: '⏱', label: '集中タイマーの回数' }, { art: 'memo', label: '完了したタスクにメモを残せます' }
     ],
     syncSignedInAnon: '端末内に保存中（未ログイン）',
     syncSignedInGoogle: name => `Googleアカウントで同期中：${name}`,
@@ -358,7 +358,7 @@ const I18N = {
     howToIcons: [
       {art:'edit', label:'Edit'}, {art:'duplicate', label:'Duplicate'}, {art:'trash', label:'Delete'},
       {art:'archive', label:'Archive (hide temporarily)'}, {art:'undo', label:'Restore'},
-      {icon:'⭐', label:'Focus timer count'}, {art:'memo', label:'Leave a memo on a finished task'}
+      {icon:'⏱', label:'Focus timer count'}, {art:'memo', label:'Leave a memo on a finished task'}
     ],
     syncSignedInAnon: 'Saved on this device (not signed in)',
     syncSignedInGoogle: name => `Synced with Google account: ${name}`,
@@ -1847,7 +1847,7 @@ function renderPomodoroPanel(session){
     </div>
     ${ps? `
       <div style="text-align:center;margin-top:10px;">
-        <div class="mono" style="font-size:11px;color:var(--dim);margin-bottom:4px;">${phaseLabel[ps.phase]} ・ ⭐×${ps.cycleCount}</div>
+        <div class="mono" style="font-size:11px;color:var(--dim);margin-bottom:4px;">${phaseLabel[ps.phase]} ・ ⏱×${ps.cycleCount}</div>
         <div id="pomoTimer" class="pixnum" style="font-size:20px;color:${phaseColor};">${msToHMS(Math.max(0,ps.remainingMs)).slice(3)}</div>
       </div>` : `
       <div class="field" style="margin:10px 0 0;"><label>${t('templateLabel')}</label>
@@ -2350,7 +2350,7 @@ function renderRecordEditModal(){
             <input type="time" value="${seg.start}" style="flex:1;" oninput="updateSegDraft(${idx},'start',this.value)">
             <span style="color:var(--faint);">–</span>
             <input type="time" value="${seg.end}" style="flex:1;" oninput="updateSegDraft(${idx},'end',this.value)">
-            <button class="icobtn" style="color:var(--rust);" onclick="removeSegDraft(${idx})">🗑</button>
+            <button style="background:none;border:none;cursor:pointer;padding:2px;line-height:0;" onclick="removeSegDraft(${idx})">${renderIconArt(TASK_ICON_ART.trash, 0.7)}</button>
           </div>`).join('')}
         ${editingSegmentsDraft.length===0? `<div style="font-size:12px;color:var(--faint);margin-bottom:10px;">${t('noSegments')}</div>` : ''}
         <button onclick="addSegDraft()" style="background:none;border:1px dashed var(--lineS);color:var(--dim);border-radius:8px;padding:8px;width:100%;cursor:pointer;font-family:inherit;font-size:13px;margin-bottom:16px;">${t('addSegment')}</button>
@@ -2466,7 +2466,7 @@ function renderAddRecordModal(){
               <input type="time" value="${seg.start}" style="flex:1;" oninput="addDraftSegUpdate(${idx},'start',this.value)">
               <span style="color:var(--faint);">–</span>
               <input type="time" value="${seg.end}" style="flex:1;" oninput="addDraftSegUpdate(${idx},'end',this.value)">
-              <button class="icobtn" style="color:var(--rust);" onclick="addDraftSegRemove(${idx})">🗑</button>
+              <button style="background:none;border:none;cursor:pointer;padding:2px;line-height:0;" onclick="addDraftSegRemove(${idx})">${renderIconArt(TASK_ICON_ART.trash, 0.7)}</button>
             </div>`).join('')}
           <button onclick="addDraftSegAdd()" style="background:none;border:1px dashed var(--lineS);color:var(--dim);border-radius:8px;padding:8px;width:100%;cursor:pointer;font-family:inherit;font-size:13px;">${t('addSegment')}</button>
         </div>
@@ -2631,7 +2631,7 @@ function renderSettings(){
           <div class="mono" style="font-size:11px;color:var(--dim);">${t('templateDetail')(tp.work, tp.break, tp.longBreakEvery, tp.longBreak)}</div>
         </div>
         ${settings.pomodoro.activeTemplateId===tp.id? `<span style="color:var(--brassDim);font-size:16px;">✓</span>`:''}
-        ${!tp.builtin? `<button class="icobtn" style="color:var(--rust);" onclick="event.stopPropagation();deletePomodoroTemplate('${tp.id}')">🗑</button>` : ''}
+        ${!tp.builtin? `<button style="background:none;border:none;cursor:pointer;padding:2px;line-height:0;" onclick="event.stopPropagation();deletePomodoroTemplate('${tp.id}')">${renderIconArt(TASK_ICON_ART.trash, 0.7)}</button>` : ''}
       </div>`).join('')}
     <button onclick="openPomodoroForm()" style="width:100%;background:none;border:1px dashed var(--lineS);color:var(--dim);border-radius:8px;padding:8px;cursor:pointer;font-family:inherit;font-size:12px;margin-top:4px;">${t('addTemplate')}</button>
   </div>`;
