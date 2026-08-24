@@ -1931,7 +1931,20 @@ function renderNow(){
   if(fbPendingRemoteData && !isEditingModalOpen()){
     const pending = fbPendingRemoteData;
     fbPendingRemoteData = null;
-    fbApplyRemote(pending);
+    // バグ修正(2026-08-24): ここが呼ばれるのはモーダルが閉じた/保存された直後
+    // だが、保留していたスナップショット(pending)は「モーダルが開いている間に
+    // 届いた=保存前」のものなので、まさにこのタイミングで保存した編集より
+    // 古い可能性がある。fbHasUnsyncedChange()を確認せずに無条件でfbApplyRemote()
+    // していたため、「Save→モーダルは閉じるが一覧に反映されない/元に戻る」という
+    // 不具合が起きていた(タスクの追加・編集がこの経路を必ず通るため、症状として
+    // 追加・編集全般が効かないように見えていた)。ライブの onSnapshot 側は同じ
+    // 状況を fbHasUnsyncedChange() で正しくガードしているので、ここも同じガードを
+    // 適用する: 保存直後で未同期の変更がまだ残っている場合は、この古いスナップ
+    // ショットを破棄し、上書きしない。この編集自体のプッシュが確定すれば、次に
+    // 届く onSnapshot が最新状態を運んでくるので、データが失われることはない。
+    if(!fbHasUnsyncedChange()){
+      fbApplyRemote(pending);
+    }
   }
   const app = document.getElementById('app');
   const today = new Date();
