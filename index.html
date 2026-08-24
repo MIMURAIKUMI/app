@@ -6,6 +6,7 @@
 <link rel="preload" as="script" href="./pixel-arts.js">
 <link rel="preload" as="script" href="./pixel-arts-outfits.js">
 <link rel="preload" as="script" href="./pixel-arts-legendary.js">
+<link rel="preload" as="script" href="./pixel-arts-decorations.js">
 <link rel="preload" as="script" href="./app.js">
 <title>MyTimecard</title>
 <!-- ファビコン。ねこアート(sns_share_cats.png)から生成した正方形版
@@ -347,6 +348,23 @@
   .pixrow{display:grid; grid-template-columns:repeat(5, 1fr); gap:5px; padding-bottom:2px;}
   .pixcard{display:flex; flex-direction:column; align-items:center; gap:4px; padding:8px 2px; border-radius:10px; background:var(--panel); border:2px solid var(--lineS); cursor:pointer; box-shadow:2px 2px 0 var(--line); min-width:0;}
   .pixcard.on{border-color:var(--brassDim); box-shadow:2px 2px 0 color-mix(in srgb, var(--brassDim) 35%, transparent);}
+  /* シークレットのねこ(SECRET_CAT_ART)の未解禁カード。タップはできる(トースト
+     が出る)が選択はできないので、見た目だけ他のねこと違う「まだ選べない」
+     印象にするために不透明度を落とし、選択中を示す枠のホバー感（cursorの
+     pointer）は残しつつ選択済み風のハイライトが付かないようにする。 */
+  .pixcard.secret-locked{opacity:0.55;}
+  /* かざりつけ(DECORATION_ART)を装着中のねこに重ねて出す、ふわふわ浮遊する
+     演出。compositeDecorationOverlay()(app.js)がこのクラスをオーバーレイの
+     ラッパーdivに付与する。単純な上下バウンドだけでなく、きらきら系の
+     アイテムでも視認しやすいようごくわずかに透明度も揺らす。 */
+  @keyframes decoFloat{
+    0%, 100%{ transform:translateY(0); opacity:0.92; }
+    50%{ transform:translateY(-3px); opacity:1; }
+  }
+  .deco-float{ animation:decoFloat 2.2s ease-in-out infinite; }
+  @media (prefers-reduced-motion: reduce){
+    .deco-float{ animation:none; }
+  }
   .pixcard .name{font-size:10px; font-weight:600; text-align:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%;}
   .settitle{font-weight:700; font-size:14px; margin-bottom:12px; display:flex; align-items:center; gap:6px;}
   .themecard{display:flex; flex-direction:column; gap:8px; padding:12px; border-radius:12px; border:2px solid var(--lineS); cursor:pointer; flex:1; min-width:100px; box-shadow:2px 2px 0 var(--line);}
@@ -385,6 +403,7 @@
 <script src="./pixel-arts.js" defer></script>
 <script src="./pixel-arts-outfits.js" defer></script>
 <script src="./pixel-arts-legendary.js" defer></script>
+<script src="./pixel-arts-decorations.js" defer></script>
 <script src="./app.js" defer></script>
 </body>
 </html>

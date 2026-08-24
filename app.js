@@ -8,7 +8,7 @@
 // ---------- language detection ----------
 // Bump this string every time index.html is updated — shown in Settings so it's
 // easy to confirm which build is actually live (helps catch stale-deploy/cache issues).
-const APP_VERSION = 'v24-2026-08-24';
+const APP_VERSION = 'v25-2026-08-24';
 
 const LANG = (function(){
   const langs = (navigator.languages && navigator.languages.length) ? navigator.languages : [navigator.language || 'en'];
@@ -80,18 +80,22 @@ const I18N = {
     settingsIntro: 'アプリの見た目や機能を項目別に調整します',
     appearancePixelArt: '🎨 ピクセルアート',
         morePixelArtSoon: 'あなたのがんばりでピクセルアートが増えます<br>猫のピクセル素材参考：kohacu (https://kohacu.com/)',
+    pixelArtRowCat: 'ねこ',
     pixelArtRowOutfit: 'おめかし',
-    pixelArtRowFood: 'えさ',
+    pixelArtRowFood: 'ごはん',
+    pixelArtRowDecoration: 'かざりつけ',
     pixelArtRowLegendary: '伝説のねこ',
     outfitNoneOption: 'なし',
+    foodNoneOption: 'いつもの',
     countSuffix: n => `（${n}）`,
     giftProgressCountdown: d => `プレゼントまであと${d}日`,
     legendaryCountdown: d => `1カ月達成まであと${d}日`,
     rewardUnlockedToast: name => `🎁「${name}」を手に入れました！`,
-    legendaryUnlockedToast: '🌈 伝説のねこが仲間になりました！',
+    legendaryUnlockedToast: '✨ シークレットが解禁されたよ　Settingsへ',
+    secretCatLockedToast: '🔒 30日達成で登場するよ',
     giftReadyBanner: 'プレゼントがあるよ',
     giftReadyCta: 'Settingsへ',
-    giftChoicePrompt: 'おめかしとえさ、どっちのピクセルを解禁する？',
+    giftChoicePrompt: 'おめかし・ごはん・かざりつけ、どれのピクセルを解禁する？',
     // n はrewards.pendingChoicesそのもの(今から選ぶ1回を含めた残り総数)。
     // 以前は「ほかにn回、選べます」(pendingChoices-1、今回を除いた残り)だったが、
     // 「今から選ぶのも含めて残り何回か」の方がわかりやすいというフィードバックを
@@ -106,8 +110,9 @@ const I18N = {
     dataSection: '💾 データ',
     exportBtn: '書き出す', importBtn: '読み込む',
     backupSection: '💾 バックアップ',
-    backupMethod1Title: '方法1: ログインして自動同期',
-    backupMethod2Title: '方法2: 手動でバックアップ',
+    backupSectionDesc: 'ログインまたはデータを書き出してバックアップします',
+    backupMethod1Title: 'ログインしてデータを引き継ぐ',
+    backupMethod2Title: '手動でバックアップ',
     backupManualNote: 'ログインなしでローカルにデータを手動で保存します',
     importConfirm: '現在のデータを上書きしてバックアップを読み込みますか？',
     importSuccess: 'バックアップを読み込みました!',
@@ -260,18 +265,22 @@ const I18N = {
     settingsIntro: "Adjust the app's look and features",
     appearancePixelArt: '🎨 Pixel Art',
     morePixelArtSoon: 'Your effort unlocks more pixel art<br>Cat pixel art reference: kohacu (https://kohacu.com/)',
+    pixelArtRowCat: 'Cats',
     pixelArtRowOutfit: 'Outfits',
     pixelArtRowFood: 'Food',
+    pixelArtRowDecoration: 'Decorations',
     pixelArtRowLegendary: 'Legendary Cat',
     outfitNoneOption: 'None',
+    foodNoneOption: 'Usual',
     countSuffix: n => ` (${n})`,
     giftProgressCountdown: d => `${d} more successful day${d===1?'':'s'} until your next present`,
     legendaryCountdown: d => `${d} days left until you reach a full month`,
     rewardUnlockedToast: name => `🎁 You got "${name}"!`,
-    legendaryUnlockedToast: '🌈 The Legendary Cat has joined you!',
+    legendaryUnlockedToast: '✨ The secret has been unlocked! Check Settings',
+    secretCatLockedToast: '🔒 Reach a 30-day streak to reveal this',
     giftReadyBanner: 'You have a present waiting',
     giftReadyCta: 'Go to Settings',
-    giftChoicePrompt: 'Choose a category to unlock: Outfits or Food?',
+    giftChoicePrompt: 'Choose a category to unlock: Outfits, Food, or Decorations?',
     // n is rewards.pendingChoices itself (total remaining, including the one
     // being chosen right now) -- see the ja string's comment for why this
     // switched from an "other than this one" count.
@@ -285,8 +294,9 @@ const I18N = {
     dataSection: '💾 Data',
     exportBtn: 'Export', importBtn: 'Import',
     backupSection: '💾 Backup',
-    backupMethod1Title: 'Method 1: Sign in for automatic sync',
-    backupMethod2Title: 'Method 2: Manual backup',
+    backupSectionDesc: 'Sign in, or export your data, to back it up',
+    backupMethod1Title: 'Sign in to carry over your data',
+    backupMethod2Title: 'Manual backup',
     backupManualNote: 'Export or import a file. Works reliably even where sign-in is unavailable.',
     importConfirm: 'This will overwrite your current data with the backup. Continue?',
     importSuccess: 'Backup loaded!',
@@ -494,10 +504,31 @@ function compositeOutfitOverlay(baseHtml, cols, rows, cellPx){
   const overlayHtml = renderIconArtAtCellPx(art, overlayCellPx);
   return `<div style="position:relative;width:${boxW}px;height:${boxH}px;">${baseHtml}<div style="position:absolute;left:${left}px;top:${top}px;pointer-events:none;z-index:2;">${overlayHtml}</div></div>`;
 }
+// Composites the currently-equipped かざりつけ (DECORATION_ART, see
+// pixel-arts-decorations.js) on top of an already-rendered base sprite --
+// same shape/role as compositeOutfitOverlay() above, but for the separate
+// "decoration" reward category. Unlike おめかし items, かざりつけ art has no
+// per-item `overlay` hint (it's not a wearable that needs to line up with a
+// specific body part), so a single fixed placement is used for all of them:
+// a small icon floating just outside the sprite's top-left corner (roughly
+// where a sparkle/note/cloud effect would hover near a cat's head), with a
+// gentle bob/twinkle animation (`.deco-float`, see index.html). Chained
+// after compositeOutfitOverlay() by callers so an おめかし item and a
+// かざりつけ effect can both show at once.
+function compositeDecorationOverlay(baseHtml, cols, rows, cellPx){
+  const decoKey = rewards.equippedDecoration;
+  if(!decoKey || typeof DECORATION_ART === 'undefined' || !DECORATION_ART[decoKey]) return baseHtml;
+  const art = DECORATION_ART[decoKey];
+  if(!art || !art.grid) return baseHtml;
+  const boxW = cols * cellPx, boxH = rows * cellPx;
+  const overlayCellPx = cellPx * 0.5;
+  const overlayHtml = renderIconArtAtCellPx(art, overlayCellPx);
+  return `<div style="position:relative;width:${boxW}px;height:${boxH}px;">${baseHtml}<div class="deco-float" style="position:absolute;left:-4px;top:-4px;pointer-events:none;z-index:3;">${overlayHtml}</div></div>`;
+}
 // Renders the given cat (same pose-grid animated rendering as renderPixelArt)
-// with the currently-equipped おめかし item composited on top via
-// compositeOutfitOverlay() -- see that function for how anchor/scale/offset
-// are applied.
+// with the currently-equipped おめかし item and かざりつけ effect composited
+// on top, via compositeOutfitOverlay()/compositeDecorationOverlay() -- see
+// those functions for how anchor/scale/offset are applied.
 function renderCatWithOutfit(key, cell, pose){
   const catHtml = renderPixelArt(key, cell, pose);
   const actualCell = (cell || 1.8) * 1.5; // same scaling renderPixelArt() applies internally
@@ -505,7 +536,8 @@ function renderCatWithOutfit(key, cell, pose){
   const poseGrid = (catArt.poses && catArt.poses[pose]) ? catArt.poses[pose] : (catArt.poses && catArt.poses.sitting);
   const cols = poseGrid ? poseGrid[0].length : 16;
   const rows = poseGrid ? poseGrid.length : 16;
-  return compositeOutfitOverlay(catHtml, cols, rows, actualCell);
+  const withOutfit = compositeOutfitOverlay(catHtml, cols, rows, actualCell);
+  return compositeDecorationOverlay(withOutfit, cols, rows, actualCell);
 }
 function pixelArtName(key){
   const art = getCatArt(key);
@@ -513,16 +545,21 @@ function pixelArtName(key){
   return (art.name && (art.name[LANG] || art.name.en)) || key;
 }
 // Renders a row of pixcard buttons (same look as the default-cat picker row
-// in Settings) for an おめかし/えさ/伝説のねこ list, instead of a native
-// <select> -- keeps the visual language identical to the cat picker.
+// in Settings) for an おめかし/ごはん/かざりつけ/伝説のねこ list, instead of
+// a native <select> -- keeps the visual language identical to the cat picker.
 // entries: [{key, iconHtml, name}]. selectFnName is called with the clicked
 // key (quoted) as its only argument, e.g. "selectOutfit". When includeNone
-// is true, a leading "なし" card is shown that calls selectFnName('').
-function rewardPixcardRow(entries, selectedKey, selectFnName, includeNone){
+// is true, a leading "なし" card is shown that calls selectFnName('') --
+// `noneOverride` ({label, iconHtml}) lets a caller swap that card's label/
+// icon (used by ごはん's "いつもの" card, which shows the default fish
+// instead of the plain "なし" placeholder -- see renderSettings()).
+function rewardPixcardRow(entries, selectedKey, selectFnName, includeNone, noneOverride){
+  const noneLabel = (noneOverride && noneOverride.label) || t('outfitNoneOption');
+  const noneIconHtml = (noneOverride && noneOverride.iconHtml) || `<div style="width:24px;height:24px;display:flex;align-items:center;justify-content:center;color:var(--faint);font-size:16px;">—</div>`;
   const noneCard = includeNone ? `
     <div class="pixcard ${!selectedKey?'on':''}" onclick="${selectFnName}('')">
-      <div style="width:24px;height:24px;display:flex;align-items:center;justify-content:center;color:var(--faint);font-size:16px;">—</div>
-      <div class="name">${t('outfitNoneOption')}</div>
+      ${noneIconHtml}
+      <div class="name">${escapeHtml(noneLabel)}</div>
     </div>` : '';
   return `<div class="pixrow">${noneCard}${entries.map(e=>`
     <div class="pixcard ${selectedKey===e.key?'on':''}" onclick="${selectFnName}('${e.key}')">
@@ -644,20 +681,24 @@ function renderStretchProgressBar(key, percent, isWorking, cell, showGoal, pause
   const midCropped = midGrid.slice(mR.min, mR.max + 1);
   const midTileWidth = midGrid[0].length * cell;
   const frontHTML = renderStretchPart(fixedGrid, colors, cell);
-  // The moving (head) piece carries the equipped おめかし item composited
-  // directly onto it (same anchor/scale/offset math as the walking/sitting
-  // cat, see compositeOutfitOverlay()) -- since the whole composited unit
-  // sits inside .stretchbar-back below, the outfit rides along automatically
-  // as that div's `left` advances with progress, instead of needing separate
+  // The moving (head) piece carries the equipped おめかし item and
+  // かざりつけ effect composited directly onto it (same anchor/scale/offset
+  // math as the walking/sitting cat, see compositeOutfitOverlay()/
+  // compositeDecorationOverlay()) -- since the whole composited unit sits
+  // inside .stretchbar-back below, both ride along automatically as that
+  // div's `left` advances with progress, instead of needing separate
   // position tracking.
   // `skipOutfit` opts a caller out of this compositing entirely -- used by
   // the Settings > Bar Style「のびるねこ」preview thumbnail, which should
   // just show the plain cat (matching the「あるくねこ」preview beside it,
-  // which also renders the bare cat via renderPixelArt() with no outfit)
-  // rather than whatever おめかし happens to be equipped right now.
+  // which also renders the bare cat via renderPixelArt() with no extras)
+  // rather than whatever おめかし/かざりつけ happens to be equipped right now.
   const backHTML = skipOutfit
     ? renderStretchPart(movingGrid, colors, cell)
-    : compositeOutfitOverlay(renderStretchPart(movingGrid, colors, cell), movingGrid[0].length, movingGrid.length, cell);
+    : compositeDecorationOverlay(
+        compositeOutfitOverlay(renderStretchPart(movingGrid, colors, cell), movingGrid[0].length, movingGrid.length, cell),
+        movingGrid[0].length, movingGrid.length, cell
+      );
   const midTileURI = svgTileDataURI(midCropped, colors);
   const workingCls = isWorking ? ' working' : '';
   // The moving (head) box is `boxWidthPx` wide and its art sits to the right
@@ -691,7 +732,7 @@ function renderStretchProgressBar(key, percent, isWorking, cell, showGoal, pause
   // for the idle sway's peak) rather than a separate natural/capped pair.
   const midWidth = `calc(${backLeft} - ${frontRightPx}px + ${backAnchorPx + 3}px)`;
   const reachedGoal = percent>=100;
-  const goal = showGoal ? (reachedGoal ? (typeof STRETCH_GOAL_MARKER_DONE!=='undefined'?STRETCH_GOAL_MARKER_DONE:null) : currentGoalFishArt()) : null;
+  const goal = showGoal ? (reachedGoal ? currentGoalDoneArt() : currentGoalFishArt()) : null;
   const goalHTML = goal ? renderStretchPart(goal.grid, goal.colors, cell) : '';
   // Same always-on shine as renderPixelArt() for 伝説のねこ, applied to an
   // inner wrapper around front/mid/back (the cat's body) rather than to
@@ -743,10 +784,12 @@ function defaultRewards(){
     giftProgressDays: 0,        // achievedDates.length % GIFT_EVERY_DAYS -- recomputed every evaluateRewards() call
     unlocked: [],                // flat "type:key" strings, e.g. "outfit:ribbon", in unlock order
     outfitUnlockedCount: 0,      // how many おめかし items unlocked so far (indexes Object.keys(OUTFIT_ART))
-    foodUnlockedCount: 0,        // how many えさ items unlocked so far (indexes Object.keys(FOOD_ART))
-    pendingChoices: 0,           // presents whose "おめかし or えさ?" choice hasn't been made yet
+    foodUnlockedCount: 0,        // how many ごはん items unlocked so far (indexes Object.keys(FOOD_ART))
+    decorationUnlockedCount: 0,  // how many かざりつけ items unlocked so far (indexes Object.keys(DECORATION_ART))
+    pendingChoices: 0,           // presents whose "おめかし/ごはん/かざりつけ?" choice hasn't been made yet
     equippedOutfit: null,       // currently worn おめかし key, or null
-    equippedFood: null,         // currently equipped えさ key, or null
+    equippedFood: null,         // currently equipped ごはん key, or null ("いつもの" when null)
+    equippedDecoration: null,   // currently equipped かざりつけ key, or null
     dailyStreak: 0,             // consecutive successful days right now, recomputed backward from the latest scored day every call
     giftsGrantedCount: 0,       // total presents ever banked/unlocked (monotonic -- never decreases, even if a later edit shrinks achievedDates)
     legendaryUnlocked: false,
@@ -862,9 +905,13 @@ let showAddRecord = false;
 let showArchived = false;
 let showHowTo = false;
 let showInstall = false;
+let showCatPanel = false;
 let showOutfitPanel = false;
 let showFoodPanel = false;
-let showLegendaryPanel = false;
+let showDecorationPanel = false;
+let showLegendaryPanel = false; // unused now that 伝説のねこ is merged into the ねこ picker (see renderSettings()), kept so any stale localStorage reference doesn't error
+let showLoginPanel = false;
+let showManualBackupPanel = false;
 let editingMemoDate = null;
 let editingMemoSessionId = null;
 let editingMemoDraft = '';
@@ -1012,14 +1059,20 @@ function addDaysStr(dateStr, n){
   return fmtDate(d);
 }
 // The unlock order within a category is just that category's own key order
-// in pixel-arts-outfits.js (collar→ribbon→crown, karikari→churu→sasami→nekokusa).
+// in pixel-arts-outfits.js (collar→ribbon→crown, karikari→churu→sasami→nekokusa)
+// / pixel-arts-decorations.js (sparkle→cloud→note).
+const REWARD_CATEGORIES = ['outfit', 'food', 'decoration'];
 function categoryOrder(type){
   if(type === 'outfit') return (typeof OUTFIT_ART !== 'undefined') ? Object.keys(OUTFIT_ART) : [];
   if(type === 'food') return (typeof FOOD_ART !== 'undefined') ? Object.keys(FOOD_ART) : [];
+  if(type === 'decoration') return (typeof DECORATION_ART !== 'undefined') ? Object.keys(DECORATION_ART) : [];
   return [];
 }
 function categoryUnlockedCount(type){
-  return type === 'outfit' ? rewards.outfitUnlockedCount : rewards.foodUnlockedCount;
+  if(type === 'outfit') return rewards.outfitUnlockedCount;
+  if(type === 'food') return rewards.foodUnlockedCount;
+  if(type === 'decoration') return rewards.decorationUnlockedCount;
+  return 0;
 }
 function categoryHasRoom(type){
   return categoryUnlockedCount(type) < categoryOrder(type).length;
@@ -1033,18 +1086,20 @@ function unlockFromCategory(type){
   const key = order[count];
   const flatKey = `${type}:${key}`;
   if(!rewards.unlocked.includes(flatKey)) rewards.unlocked.push(flatKey);
-  if(type === 'outfit') rewards.outfitUnlockedCount += 1; else rewards.foodUnlockedCount += 1;
+  if(type === 'outfit') rewards.outfitUnlockedCount += 1;
+  else if(type === 'food') rewards.foodUnlockedCount += 1;
+  else if(type === 'decoration') rewards.decorationUnlockedCount += 1;
   return { type, key };
 }
-// Once neither category has anything left, any leftover banked choices
-// (e.g. from successful weeks that piled up before the user visited
-// Settings) have nothing left to spend on -- drop them rather than leaving
-// a "プレゼントがあるよ" banner stuck on permanently with no buttons to press.
+// Once no category has anything left, any leftover banked choices (e.g. from
+// successful weeks that piled up before the user visited Settings) have
+// nothing left to spend on -- drop them rather than leaving a "プレゼントが
+// あるよ" banner stuck on permanently with no buttons to press.
 function clampPendingChoices(){
-  if(!categoryHasRoom('outfit') && !categoryHasRoom('food')) rewards.pendingChoices = 0;
+  if(!REWARD_CATEGORIES.some(categoryHasRoom)) rewards.pendingChoices = 0;
 }
-// Called when the user picks おめかし or えさ from the Settings choice
-// prompt (see renderSettings()) in response to a banked pending choice.
+// Called when the user picks おめかし／ごはん／かざりつけ from the Settings
+// choice prompt (see renderSettings()) in response to a banked pending choice.
 function chooseReward(type){
   if(rewards.pendingChoices <= 0 || !categoryHasRoom(type)) return;
   const item = unlockFromCategory(type);
@@ -1079,15 +1134,29 @@ function chooseReward(type){
 }
 function rewardItemName(item){
   if(!item) return '';
-  const art = item.type === 'outfit' ? (typeof OUTFIT_ART!=='undefined' && OUTFIT_ART[item.key]) : (typeof FOOD_ART!=='undefined' && FOOD_ART[item.key]);
+  const artMap = item.type === 'outfit' ? (typeof OUTFIT_ART!=='undefined' && OUTFIT_ART)
+    : item.type === 'food' ? (typeof FOOD_ART!=='undefined' && FOOD_ART)
+    : (typeof DECORATION_ART!=='undefined' && DECORATION_ART);
+  const art = artMap && artMap[item.key];
   return art ? (art.name[LANG] || art.name.en) : item.key;
 }
 // The item currently shown as the "goal fish" at the end of the progress bar
-// while it hasn't been reached yet: whatever えさ is equipped, or the
-// original fish if none is (see FOOD_ART's comment in pixel-arts-outfits.js).
+// while it hasn't been reached yet: whatever ごはん is equipped, or the
+// original fish ("いつもの") if none is (see FOOD_ART's comment in
+// pixel-arts-outfits.js).
 function currentGoalFishArt(){
   if(rewards.equippedFood && typeof FOOD_ART!=='undefined' && FOOD_ART[rewards.equippedFood]) return FOOD_ART[rewards.equippedFood];
   return (typeof STRETCH_GOAL_MARKER!=='undefined') ? STRETCH_GOAL_MARKER : null;
+}
+// The item shown once the goal is actually reached (100%): the equipped
+// ごはん's own "eaten" sprite (FOOD_ART[key].fin, see pixel-arts-outfits.js
+// and pixel-arts_feeds.txt) if one is equipped and has a fin variant,
+// otherwise the original bone marker used for "いつもの".
+function currentGoalDoneArt(){
+  if(rewards.equippedFood && typeof FOOD_ART!=='undefined' && FOOD_ART[rewards.equippedFood] && FOOD_ART[rewards.equippedFood].fin){
+    return FOOD_ART[rewards.equippedFood].fin;
+  }
+  return (typeof STRETCH_GOAL_MARKER_DONE!=='undefined') ? STRETCH_GOAL_MARKER_DONE : null;
 }
 // Fully recomputes achievedDates/dailyStreak/giftProgressDays/legendaryUnlocked
 // -- and banks/unlocks any newly-completed presents -- from scratch, from
@@ -1187,16 +1256,15 @@ function evaluateRewards(){
   rewards.giftProgressDays = achievedDates.length % GIFT_EVERY_DAYS;
   const newGifts = Math.max(0, totalGiftsNow - rewards.giftsGrantedCount);
   for(let i=0; i<newGifts; i++){
-    const outfitRoom = categoryHasRoom('outfit');
-    const foodRoom = categoryHasRoom('food');
-    if(outfitRoom && foodRoom){
-      // both categories still have something left -- bank a choice for the
-      // user to make in Settings instead of picking for them.
+    const roomCategories = REWARD_CATEGORIES.filter(categoryHasRoom);
+    if(roomCategories.length >= 2){
+      // two or more categories still have something left -- bank a choice
+      // for the user to make in Settings instead of picking for them.
       rewards.pendingChoices += 1;
-    } else if(outfitRoom || foodRoom){
+    } else if(roomCategories.length === 1){
       // only one category has anything left, so there's no real choice to
       // make -- just unlock it.
-      const unlocked = unlockFromCategory(outfitRoom ? 'outfit' : 'food');
+      const unlocked = unlockFromCategory(roomCategories[0]);
       // Belt-and-suspenders against evaluateRewards() being re-entered for
       // an item it already toasted this session (e.g. from a redundant
       // Firebase apply that slips past the fbApplyRemote()/onSnapshot
@@ -1228,7 +1296,7 @@ function evaluateRewards(){
 // shown in the startup banner as a little nudge, since a present no longer
 // arrives from a single day's success.
 function giftProgressCountdownInfo(){
-  if(!categoryHasRoom('outfit') && !categoryHasRoom('food')) return null; // everything already unlocked
+  if(!REWARD_CATEGORIES.some(categoryHasRoom)) return null; // everything already unlocked
   const todayStr = fmtDate(new Date());
   // Preview one day ahead while today is achieved but not yet officially
   // committed (a session is still actively running, so persistRecords()
@@ -1259,14 +1327,21 @@ function legendaryCountdownInfo(){
 }
 function selectOutfit(key){ rewards.equippedOutfit = key || null; persistRewards(); render(); }
 function selectFood(key){ rewards.equippedFood = key || null; persistRewards(); render(); }
+function selectDecoration(key){ rewards.equippedDecoration = key || null; persistRewards(); render(); }
 // Jumps to Settings from the "プレゼントがあるよ" banner and opens whichever
-// category panels still have something left, so the おめかし/えさ choice
-// buttons are immediately visible without the user having to hunt for them.
+// category panels still have something left, so the おめかし/ごはん/
+// かざりつけ choice buttons are immediately visible without the user having
+// to hunt for them.
 function jumpToSettingsForGift(){
   if(categoryHasRoom('outfit')) showOutfitPanel = true;
   if(categoryHasRoom('food')) showFoodPanel = true;
+  if(categoryHasRoom('decoration')) showDecorationPanel = true;
   setTab('settings');
 }
+// Called when the secret ねこ card (SECRET_CAT_ART, in the ねこ picker's 6th
+// slot) is tapped before 30日 (LEGENDARY_STREAK_DAYS) is reached -- it can't
+// be selected yet, so tapping it just teases that it's coming.
+function tapSecretCat(){ showToast(t('secretCatLockedToast')); }
 // ---------- Firebase sync (Firestore doc per user; anonymous by default, Google to sync across devices) ----------
 let fbUser = null;
 let fbSaveTimer = null;
@@ -1378,6 +1453,7 @@ function fbApplyRemote(data){
       incoming.giftsGrantedCount = Math.max(incoming.giftsGrantedCount, rewards.giftsGrantedCount);
       incoming.outfitUnlockedCount = Math.max(incoming.outfitUnlockedCount, rewards.outfitUnlockedCount);
       incoming.foodUnlockedCount = Math.max(incoming.foodUnlockedCount, rewards.foodUnlockedCount);
+      incoming.decorationUnlockedCount = Math.max(incoming.decorationUnlockedCount||0, rewards.decorationUnlockedCount||0);
       incoming.legendaryUnlocked = incoming.legendaryUnlocked || rewards.legendaryUnlocked;
       incoming.unlocked = Array.from(new Set([...rewards.unlocked, ...incoming.unlocked]));
     }
@@ -2014,7 +2090,7 @@ function renderPunch(today, todayStr, weekday, suggested){
   // Match stretch mode: the fish/bone only appears once a session has
   // actually started (はじめる pressed), not before.
   const walkShowGoal = status!=='none';
-  const walkGoal = !walkShowGoal ? null : (walkReachedGoal ? (typeof STRETCH_GOAL_MARKER_DONE!=='undefined'?STRETCH_GOAL_MARKER_DONE:null) : currentGoalFishArt());
+  const walkGoal = !walkShowGoal ? null : (walkReachedGoal ? currentGoalDoneArt() : currentGoalFishArt());
   const walkGoalHTML = walkGoal ? renderStretchPart(walkGoal.grid, walkGoal.colors, 2.5) : '';
   const barHTML = stretchMode
     ? renderStretchProgressBar(settings.pixelArt, stretchDisplayPercent, status==='working', undefined, undefined, status==='paused')
@@ -2471,9 +2547,12 @@ function renderPomodoroFormModal(){
 // ---------- Settings tab ----------
 function toggleHowTo(){ showHowTo=!showHowTo; render(); }
 function toggleInstall(){ showInstall=!showInstall; render(); }
+function toggleCatPanel(){ showCatPanel=!showCatPanel; render(); }
 function toggleOutfitPanel(){ showOutfitPanel=!showOutfitPanel; render(); }
 function toggleFoodPanel(){ showFoodPanel=!showFoodPanel; render(); }
-function toggleLegendaryPanel(){ showLegendaryPanel=!showLegendaryPanel; render(); }
+function toggleDecorationPanel(){ showDecorationPanel=!showDecorationPanel; render(); }
+function toggleLoginPanel(){ showLoginPanel=!showLoginPanel; render(); }
+function toggleManualBackupPanel(){ showManualBackupPanel=!showManualBackupPanel; render(); }
 
 function renderSyncBar(){
   if(!window.__fb || !window.__fb.ready){
@@ -2553,17 +2632,30 @@ function renderSettings(){
     <button onclick="openPomodoroForm()" style="width:100%;background:none;border:1px dashed var(--lineS);color:var(--dim);border-radius:8px;padding:8px;cursor:pointer;font-family:inherit;font-size:12px;margin-top:4px;">${t('addTemplate')}</button>
   </div>`;
 
-  // 2. Pixel art. The 5 default cats keep their original, unlabeled pixrow
-  // grid exactly as before the rewards feature. おめかし／えさ／伝説のねこ
-  // are collapsible sections (same ▶/▼ pattern as "アプリの使い方" /
-  // "ホーム画面に追加" further down in this same tab) so they stay tucked
-  // away until opened, and each one's contents are a pixcard button row --
-  // visually the same as the cat row above -- instead of a native <select>.
-  // Each section only appears at all once the user has unlocked something in it.
+  // 2. Pixel art. ねこ／おめかし／ごはん／かざりつけ are all collapsible
+  // "hidden door" sections (same ▶/▼ pattern as "アプリの使い方" /
+  // "ホーム画面に追加" further down in this same tab), each one's contents a
+  // pixcard button row -- visually the same as the old always-open cat row
+  // -- instead of a native <select>. おめかし／ごはん／かざりつけ only
+  // appear once the user has unlocked something in them; ねこ always shows
+  // (it has 6 slots from the start: the 5 default cats plus a 6th "シークレ
+  // ット/伝説のねこ" slot -- see below).
+  // 伝説のねこ used to have its own separate collapsible section here; that's
+  // been folded into the ねこ picker's 6th slot instead (see below), so the
+  // dedicated section is gone.
   const unlockedOutfitKeys = rewards.unlocked.filter(k=>k.startsWith('outfit:')).map(k=>k.slice(7)).filter(k=>typeof OUTFIT_ART!=='undefined' && OUTFIT_ART[k]);
   const unlockedFoodKeys = rewards.unlocked.filter(k=>k.startsWith('food:')).map(k=>k.slice(5)).filter(k=>typeof FOOD_ART!=='undefined' && FOOD_ART[k]);
-  const legendaryKeys = (rewards.legendaryUnlocked && typeof LEGENDARY_ART_GRIDS!=='undefined') ? Object.keys(LEGENDARY_ART_GRIDS) : [];
-  const hasPendingChoiceUI = rewards.pendingChoices > 0 && (categoryHasRoom('outfit') || categoryHasRoom('food'));
+  const unlockedDecorationKeys = rewards.unlocked.filter(k=>k.startsWith('decoration:')).map(k=>k.slice(11)).filter(k=>typeof DECORATION_ART!=='undefined' && DECORATION_ART[k]);
+  const hasPendingChoiceUI = rewards.pendingChoices > 0 && REWARD_CATEGORIES.some(categoryHasRoom);
+  // ねこの6枠: 通常の5匹 + 6枠目(シークレット→伝説のねこ)。5列グリッドな
+  // ので6件だと自動的に「5列2行(2行目はシークレット/伝説のねこ1件だけ)」
+  // になる。
+  const catEntries = Object.keys(PIXEL_ART_GRIDS).map(key=>({ key, iconHtml: renderPixelArt(key,1.0,'walking'), name: pixelArtName(key), locked:false }));
+  if(rewards.legendaryUnlocked && typeof LEGENDARY_ART_GRIDS!=='undefined' && LEGENDARY_ART_GRIDS.gold){
+    catEntries.push({ key:'gold', iconHtml: renderPixelArt('gold',1.0,'walking'), name: pixelArtName('gold'), locked:false });
+  } else if(typeof SECRET_CAT_ART !== 'undefined'){
+    catEntries.push({ key:'__secret', iconHtml: renderIconArt(SECRET_CAT_ART,1.0), name: SECRET_CAT_ART.name[LANG]||SECRET_CAT_ART.name.en, locked:true });
+  }
 
   html += `<div class="panel" style="padding:16px;margin-bottom:16px;">
     <div class="settitle">${t('appearancePixelArt')}</div>
@@ -2571,24 +2663,31 @@ function renderSettings(){
     ${hasPendingChoiceUI ? `
     <div style="margin-bottom:16px;">
       <div style="font-size:12px;font-weight:700;margin-bottom:8px;">🎁 ${t('giftChoicePrompt')}</div>
-      <div style="display:flex;gap:10px;">
-        ${categoryHasRoom('outfit') ? `<div class="themecard" style="flex:0 0 47%;min-width:100px;padding:12px 6px;background:var(--paleblue);border-color:#8FCBEA;justify-content:center;" onclick="chooseReward('outfit')">
+      <div style="display:flex;gap:10px;flex-wrap:wrap;">
+        ${categoryHasRoom('outfit') ? `<div class="themecard" style="flex:1;min-width:90px;padding:12px 6px;background:var(--paleblue);border-color:#8FCBEA;justify-content:center;" onclick="chooseReward('outfit')">
           <div class="name" style="margin:0;text-align:center;">${t('pixelArtRowOutfit')}</div>
         </div>` : ''}
-        ${categoryHasRoom('food') ? `<div class="themecard" style="flex:0 0 47%;min-width:100px;padding:12px 6px;background:var(--paleblue);border-color:#8FCBEA;justify-content:center;" onclick="chooseReward('food')">
+        ${categoryHasRoom('food') ? `<div class="themecard" style="flex:1;min-width:90px;padding:12px 6px;background:var(--paleblue);border-color:#8FCBEA;justify-content:center;" onclick="chooseReward('food')">
           <div class="name" style="margin:0;text-align:center;">${t('pixelArtRowFood')}</div>
+        </div>` : ''}
+        ${categoryHasRoom('decoration') ? `<div class="themecard" style="flex:1;min-width:90px;padding:12px 6px;background:var(--paleblue);border-color:#8FCBEA;justify-content:center;" onclick="chooseReward('decoration')">
+          <div class="name" style="margin:0;text-align:center;">${t('pixelArtRowDecoration')}</div>
         </div>` : ''}
       </div>
       ${rewards.pendingChoices > 1 ? `<div style="font-size:11px;color:var(--faint);margin-top:8px;">${t('giftPendingCount')(rewards.pendingChoices)}</div>` : ''}
     </div>` : ''}
 
-    <div class="pixrow">
-      ${Object.keys(PIXEL_ART_GRIDS).map((key)=>`
-        <div class="pixcard ${settings.pixelArt===key?'on':''}" onclick="selectPixelArt('${key}')">
-          ${renderPixelArt(key,1.0,'walking')}
-          <div class="name">${escapeHtml(pixelArtName(key))}</div>
-        </div>`).join('')}
+    <div class="collapsehead" onclick="toggleCatPanel()">
+      <div style="font-size:13px;font-weight:600;">${t('pixelArtRowCat')}${t('countSuffix')(catEntries.length)}</div>
+      <div class="tri">${showCatPanel?'▼':'▶'}</div>
     </div>
+    ${showCatPanel ? `<div class="collapsebody"><div class="pixrow">
+      ${catEntries.map(e=>`
+        <div class="pixcard ${e.locked ? 'secret-locked' : (settings.pixelArt===e.key?'on':'')}" onclick="${e.locked ? 'tapSecretCat()' : `selectPixelArt('${e.key}')`}">
+          ${e.iconHtml}
+          <div class="name">${escapeHtml(e.name)}</div>
+        </div>`).join('')}
+    </div></div>` : ''}
 
     ${unlockedOutfitKeys.length ? `
     <div style="height:1px;background:var(--line);margin:14px 0;"></div>
@@ -2609,18 +2708,19 @@ function renderSettings(){
     </div>
     ${showFoodPanel ? `<div class="collapsebody">${rewardPixcardRow(
       unlockedFoodKeys.map(k=>({ key:k, iconHtml: renderIconArt(FOOD_ART[k],1.0), name: FOOD_ART[k].name[LANG]||FOOD_ART[k].name.en })),
-      rewards.equippedFood, 'selectFood', true
+      rewards.equippedFood, 'selectFood', true,
+      { label: t('foodNoneOption'), iconHtml: (typeof STRETCH_GOAL_MARKER!=='undefined') ? renderIconArt(STRETCH_GOAL_MARKER,1.0) : undefined }
     )}</div>` : ''}` : ''}
 
-    ${legendaryKeys.length ? `
+    ${unlockedDecorationKeys.length ? `
     <div style="height:1px;background:var(--line);margin:14px 0;"></div>
-    <div class="collapsehead" onclick="toggleLegendaryPanel()">
-      <div style="font-size:13px;font-weight:600;">${t('pixelArtRowLegendary')}${t('countSuffix')(legendaryKeys.length)}</div>
-      <div class="tri">${showLegendaryPanel?'▼':'▶'}</div>
+    <div class="collapsehead" onclick="toggleDecorationPanel()">
+      <div style="font-size:13px;font-weight:600;">${t('pixelArtRowDecoration')}${t('countSuffix')(unlockedDecorationKeys.length)}</div>
+      <div class="tri">${showDecorationPanel?'▼':'▶'}</div>
     </div>
-    ${showLegendaryPanel ? `<div class="collapsebody">${rewardPixcardRow(
-      legendaryKeys.map(k=>({ key:k, iconHtml: renderPixelArt(k,1.0,'walking'), name: LEGENDARY_ART_GRIDS[k].name[LANG]||LEGENDARY_ART_GRIDS[k].name.en })),
-      settings.pixelArt, 'selectPixelArt', false
+    ${showDecorationPanel ? `<div class="collapsebody">${rewardPixcardRow(
+      unlockedDecorationKeys.map(k=>({ key:k, iconHtml: renderIconArt(DECORATION_ART[k],1.0), name: DECORATION_ART[k].name[LANG]||DECORATION_ART[k].name.en })),
+      rewards.equippedDecoration, 'selectDecoration', true
     )}</div>` : ''}` : ''}
 
     <div style="font-size:11px;color:var(--faint);margin-top:14px;">${t('morePixelArtSoon')}</div>
@@ -2712,21 +2812,34 @@ function renderSettings(){
     <div class="mono" style="font-size:10px;color:var(--faint);margin-top:10px;">Build: ${APP_VERSION}</div>
   </div>`;
 
-  // 5. Backup (two independent methods: Google sign-in sync, and manual export/import)
+  // 5. Backup (two independent methods: Google sign-in sync, and manual
+  // export/import). Both methods are now their own hidden-door(隠し扉)
+  // collapsible sections (same ▶/▼ pattern used elsewhere in Settings)
+  // instead of always-open "方法1/方法2" blocks -- the existing description
+  // text inside each is unchanged, just tucked behind the fold.
   html += `<div class="panel" style="padding:16px;margin-bottom:16px;">
     <div class="settitle">${t('backupSection')}</div>
+    <div style="font-size:11px;color:var(--faint);margin-bottom:14px;">${t('backupSectionDesc')}</div>
 
-    <div style="font-size:12px;font-weight:700;margin-bottom:8px;">${t('backupMethod1Title')}</div>
-    ${renderSyncBar()}
+    <div class="collapsehead" onclick="toggleLoginPanel()">
+      <div style="font-size:13px;font-weight:600;">${t('backupMethod1Title')}</div>
+      <div class="tri">${showLoginPanel?'▼':'▶'}</div>
+    </div>
+    ${showLoginPanel ? `<div class="collapsebody">${renderSyncBar()}</div>` : ''}
 
     <div style="height:1px;background:var(--line);margin:14px 0;"></div>
 
-    <div style="font-size:12px;font-weight:700;margin-bottom:4px;">${t('backupMethod2Title')}</div>
-    <div style="font-size:11px;color:var(--faint);margin-bottom:10px;">${t('backupManualNote')}</div>
-    <div style="display:flex;gap:10px;">
-      <button class="btn-ghost" onclick="exportData()">${t('exportBtn')}</button>
-      <label class="btn-ghost" style="text-align:center;cursor:pointer;">${t('importBtn')}<input type="file" accept="application/json" style="display:none;" onchange="importDataFile(event)"></label>
+    <div class="collapsehead" onclick="toggleManualBackupPanel()">
+      <div style="font-size:13px;font-weight:600;">${t('backupMethod2Title')}</div>
+      <div class="tri">${showManualBackupPanel?'▼':'▶'}</div>
     </div>
+    ${showManualBackupPanel ? `<div class="collapsebody">
+      <div style="font-size:11px;color:var(--faint);margin-bottom:10px;">${t('backupManualNote')}</div>
+      <div style="display:flex;gap:10px;">
+        <button class="btn-ghost" onclick="exportData()">${t('exportBtn')}</button>
+        <label class="btn-ghost" style="text-align:center;cursor:pointer;">${t('importBtn')}<input type="file" accept="application/json" style="display:none;" onchange="importDataFile(event)"></label>
+      </div>
+    </div>` : ''}
   </div>`;
 
   // 6. Danger zone: factory reset. Kept as its own visually-separated panel at the
@@ -2991,9 +3104,12 @@ function selectReportDate(dateStr){
         const dayRateStyle = dayAchievementRatePct >= 100 ? ' style="color:var(--achieve100);"' : '';
 
         // 累計の⭐/🎁（月をまたいだ全期間の集計）と、今のプレゼントサイクル
-        // （7つ星ためると1個）の進捗ゲージ
+        // （7つ星ためると1個）の進捗ゲージ。
+        // 記号「★／☆」だとこのアプリの他の表示がすべて絵文字なのに対して
+        // ここだけ浮いて見えるため、絵文字の⭐と全角ドット「・」に変更した
+        // （2026-08-24）。日英共通のグリフなので、英語版でも同じ記号を使う。
         const gauge = giftGaugeInfo();
-        const gaugeStr = '★'.repeat(gauge.filled) + '☆'.repeat(gauge.total - gauge.filled);
+        const gaugeStr = '⭐'.repeat(gauge.filled) + '・'.repeat(gauge.total - gauge.filled);
         const totalStarsAllTime = rewards.achievedDates.length;
         const totalGiftsAllTime = rewards.giftsGrantedCount;
         // Same "today vs. specific date" wording split as dayLabel above, so
@@ -3113,7 +3229,8 @@ function triggerGoalDone(goalEl, delayMs){
   setTimeout(() => {
     if(!goalEl.isConnected) return;
     playGoalPop(goalEl, () => {
-      if(typeof STRETCH_GOAL_MARKER_DONE!=='undefined'){ goalEl.innerHTML = renderStretchPart(STRETCH_GOAL_MARKER_DONE.grid, STRETCH_GOAL_MARKER_DONE.colors, 2.5); goalEl.dataset.goalState = 'done'; }
+      const doneMarker = currentGoalDoneArt();
+      if(doneMarker){ goalEl.innerHTML = renderStretchPart(doneMarker.grid, doneMarker.colors, 2.5); goalEl.dataset.goalState = 'done'; }
     });
   }, delayMs);
 }

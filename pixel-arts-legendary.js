@@ -202,3 +202,36 @@ const LEGENDARY_ART_GRIDS = (function(){
     }
   };
 })();
+
+// SECRET_CAT_ART -- the black silhouette shown in the "ねこ" picker's 6th
+// slot (see app.js's renderSettings()) before 伝説のねこ is unlocked (30-day
+// streak). Tapping it while still locked shows a teaser toast instead of
+// selecting it (app.js's tapSecretCat()); once LEGENDARY_STREAK_DAYS is
+// reached this slot swaps over to the real gold cat (LEGENDARY_ART_GRIDS.gold)
+// and behaves like any other selectable cat.
+//
+// Single static 16x16 icon (not a {poses:{walking,sitting}} cat like the
+// entries above) -- rendered via renderIconArtAtCellPx()/renderIconArt(),
+// same as an おめかし/えさ item icon.
+const SECRET_CAT_ART = {
+  name: { ja: '？？？', en: '???' },
+  colors: { 1: '#000000' },
+  grid: [
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 1, 1, 1, 0, 0],
+    [0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0],
+    [0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0],
+    [0, 0, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0],
+    [0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0],
+    [0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0],
+    [0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0],
+    [0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0],
+    [0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0],
+    [0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0],
+    [0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0],
+    [0, 0, 1, 1, 0, 1, 1, 1, 0, 1, 1, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+  ]
+};
