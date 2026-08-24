@@ -132,7 +132,7 @@ const OUTFIT_ART = {
     name: { ja: 'リボン', en: 'Ribbon' },
     colors: { 1: '#000000', 13: '#ff9a9a', 5: '#ff3b30', 29: '#c00000' },
     overlay: { scale: 0.7, anchor: 'top-right', byPose: {
-      sitting: { offsetX: -2, offsetY: 0 },
+      sitting: { offsetX: -3, offsetY: 1 },
       walking: { offsetY: -8 }
     } },
     grid: [
