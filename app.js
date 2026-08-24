@@ -173,9 +173,9 @@ const I18N = {
     ],
     howToIconsTitle: 'アイコンの意味',
     howToIcons: [
-      { icon: '✎', label: '編集' },{icon:'⧉', label:'複製'}, {icon:'🗑', label:'削除'},
-      {icon:'🗄', label:'アーカイブ（一時的に非表示にする）'}, {icon:'↩', label:'復元'},
-      { icon: '⭐', label: '集中タイマーの回数' }, { icon: '📝', label: '完了したタスクにメモを残せます' }
+      { art: 'edit', label: '編集' }, { art: 'duplicate', label: '複製' }, { art: 'trash', label: '削除' },
+      { art: 'archive', label: 'アーカイブ（一時的に非表示にする）' }, { art: 'undo', label: '復元' },
+      { icon: '⭐', label: '集中タイマーの回数' }, { art: 'memo', label: '完了したタスクにメモを残せます' }
     ],
     syncSignedInAnon: '端末内に保存中（未ログイン）',
     syncSignedInGoogle: name => `Googleアカウントで同期中：${name}`,
@@ -356,9 +356,9 @@ const I18N = {
     ],
     howToIconsTitle: 'Icon meanings',
     howToIcons: [
-      {icon:'✎', label:'Edit'}, {icon:'⧉', label:'Duplicate'}, {icon:'🗑', label:'Delete'},
-      {icon:'🗄', label:'Archive (hide temporarily)'}, {icon:'↩', label:'Restore'},
-      {icon:'⭐', label:'Focus timer count'}
+      {art:'edit', label:'Edit'}, {art:'duplicate', label:'Duplicate'}, {art:'trash', label:'Delete'},
+      {art:'archive', label:'Archive (hide temporarily)'}, {art:'undo', label:'Restore'},
+      {icon:'⭐', label:'Focus timer count'}, {art:'memo', label:'Leave a memo on a finished task'}
     ],
     syncSignedInAnon: 'Saved on this device (not signed in)',
     syncSignedInGoogle: name => `Synced with Google account: ${name}`,
@@ -2123,7 +2123,7 @@ function renderSessionCard(s, todayStr){
           ${s.segments.length? `
           <button class="icobtn" title="${t('editTime')}" onclick="openRecordEdit('${todayStr}','${s.id}')">${renderIconArt(TASK_ICON_ART.edit, 1.0)}</button>
           <button class="icobtn" title="${t('duplicate')}" onclick="openDuplicate('${todayStr}','${s.id}')">${renderIconArt(TASK_ICON_ART.duplicate, 1.0)}</button>` : ''}
-          <button class="icobtn" title="${s.memo? t('editMemo') : t('addMemo')}" style="opacity:${s.memo?1:0.55};" onclick="openMemoEdit('${todayStr}','${s.id}')">${renderIconArt(TASK_ICON_ART.memo, 1.0)}</button>
+          <button class="icobtn" title="${s.memo? t('editMemo') : t('addMemo')}" onclick="openMemoEdit('${todayStr}','${s.id}')">${renderIconArt(TASK_ICON_ART.memo, 1.0)}</button>
           ${s.status==='done'? `<button class="icobtn" title="${t('deleteBtn')}" onclick="deleteSession('${todayStr}','${s.id}')">${renderIconArt(TASK_ICON_ART.trash, 1.0)}</button>` : ''}
         </div>
       </div>
@@ -2196,7 +2196,7 @@ function renderTasks(){
             <div class="mono" style="font-size:12px;color:var(--faint);">${(tk.days||[]).map(d=>WEEKDAYS_JP[d]).join('・')||t('everyDay')}</div>
           </div>
           <div style="display:flex;gap:6px;">
-            <button class="icobtn" title="${t('restoreTitle')}" onclick="archiveTask('${tk.id}', false)">↩</button>
+            <button class="icobtn" title="${t('restoreTitle')}" onclick="archiveTask('${tk.id}', false)">${renderIconArt(TASK_ICON_ART.undo, 1.0)}</button>
             <button class="icobtn" onclick="removeTask('${tk.id}')">${renderIconArt(TASK_ICON_ART.trash, 1.0)}</button>
           </div>
         </div>
@@ -2752,7 +2752,7 @@ function renderSettings(){
         </div>`).join('')}
       <div style="font-size:12px;font-weight:700;margin:12px 0 8px;">${t('howToIconsTitle')}</div>
       ${t('howToIcons').map(ic=>`
-        <div class="howto-icon-row"><span class="ic">${ic.icon}</span><span>${escapeHtml(ic.label)}</span></div>`).join('')}
+        <div class="howto-icon-row"><span class="ic" style="display:inline-flex;align-items:center;justify-content:center;">${ic.art ? renderIconArt(TASK_ICON_ART[ic.art], 0.6) : ic.icon}</span><span>${escapeHtml(ic.label)}</span></div>`).join('')}
     </div>` : ''}
 
     <div style="height:1px;background:var(--line);margin:14px 0;"></div>
@@ -3128,7 +3128,7 @@ function selectReportDate(dateStr){
           <div class="mono" style="width:40px;text-align:right;color:${rate === null ? 'var(--faint)' : (rate >= 100 ? 'var(--teal)' : 'var(--text)')};font-weight:700;">${rate === null ? '—' : Math.round(rate) + '%'}</div>
           <div style="display:flex;align-items:center;gap:2px;flex-shrink:0;margin-left:4px;">
             <button onclick="openRecordEdit('${r.date}','${r.id}')" style="background:none;border:none;cursor:pointer;padding:2px;line-height:0;">${renderIconArt(TASK_ICON_ART.edit, 0.7)}</button>
-            <button onclick="openMemoEdit('${r.date}','${r.id}')" style="background:none;border:none;cursor:pointer;padding:2px;line-height:0;opacity:${r.memo ? 1 : 0.55};">${renderIconArt(TASK_ICON_ART.memo, 0.7)}</button>
+            <button onclick="openMemoEdit('${r.date}','${r.id}')" style="background:none;border:none;cursor:pointer;padding:2px;line-height:0;">${renderIconArt(TASK_ICON_ART.memo, 0.7)}</button>
             <button onclick="deleteSession('${r.date}','${r.id}')" style="background:none;border:none;cursor:pointer;padding:2px;line-height:0;">${renderIconArt(TASK_ICON_ART.trash, 0.7)}</button>
           </div>
         </div>
