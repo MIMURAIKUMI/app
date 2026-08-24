@@ -22,8 +22,21 @@
 //   - optional `offsetX`/`offsetY` (px) -- a fixed nudge on top of the
 //     anchor position for fine-tuning (positive X = right, positive Y =
 //     down), set from direct visual feedback rather than derived from the
-//     art. Currently: リボン `offsetY:-3` (3px up), 王冠 `offsetX:3,
-//     offsetY:-10` (3px right, 10px up).
+//     art. Used as the fallback whenever a pose-specific value below isn't
+//     given for the pose actually being rendered.
+//   - optional `byPose: { sitting: {offsetX,offsetY}, walking: {...} }` --
+//     since 座ってる/歩いてる姿勢でズレ方が違うアイテム（首輪・王冠）向けの
+//     姿勢別の上書き値。片方の姿勢しか書かなければ、もう片方は上の
+//     offsetX/offsetY（未指定なら0,0）にフォールバックする。
+//     compositeOutfitOverlay(baseHtml, cols, rows, cellPx, pose) の pose引数
+//     で解決される（app.jsのrenderCatWithOutfit()/renderStretchProgressBar()
+//     が実際のsitting/walkingを渡す）。
+//     2026-08-24の位置調整（猫のピクセル1マス=3pxとして換算）:
+//       リボン: offsetY -3 → -5（5px上げ。座り／歩き共通のまま）
+//       首輪: sitting {offsetX:-3, offsetY:0}（3px左）／
+//             walking {offsetX:0, offsetY:-3}（3px上、横は動かさない）
+//       王冠: offsetX 3 → -2（5px左へ）は座り姿勢のデフォルトとして維持、
+//             walkingはそこからさらに3px上げて offsetY -10 → -13。
 //
 // Loaded via <script> before app.js (and after pixel-arts.js), so these
 // become globals: OUTFIT_ART, FOOD_ART.
@@ -38,7 +51,10 @@ const OUTFIT_ART = {
   collar: {
     name: { ja: '首輪', en: 'Collar' },
     colors: { 5: '#ff3b30', 7: '#ffcc00' },
-    overlay: { scale: 1, anchor: 'full' },
+    overlay: { scale: 1, anchor: 'full', byPose: {
+      sitting: { offsetX: -3, offsetY: 0 },
+      walking: { offsetX: 0, offsetY: -3 }
+    } },
     grid: [
       [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
       [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
@@ -88,7 +104,7 @@ const OUTFIT_ART = {
   ribbon: {
     name: { ja: 'リボン', en: 'Ribbon' },
     colors: { 1: '#000000', 13: '#ff9a9a', 5: '#ff3b30', 29: '#c00000' },
-    overlay: { scale: 0.7, anchor: 'top-right', offsetY: -3 },
+    overlay: { scale: 0.7, anchor: 'top-right', offsetY: -5 },
     grid: [
       [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
       [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
@@ -111,7 +127,9 @@ const OUTFIT_ART = {
   crown: {
     name: { ja: '王冠', en: 'Crown' },
     colors: { 1: '#000000', 15: '#fff3a0', 7: '#ffcc00', 6: '#ff9500' },
-    overlay: { scale: 0.7, anchor: 'top-right', offsetX: 3, offsetY: -10 },
+    overlay: { scale: 0.7, anchor: 'top-right', offsetX: -2, offsetY: -10, byPose: {
+      walking: { offsetX: -2, offsetY: -13 }
+    } },
     grid: [
       [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
       [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
@@ -133,11 +151,15 @@ const OUTFIT_ART = {
   },
 };
 
-// えさ (food). Same independent per-category unlock order as OUTFIT_ART.
-// When one is equipped in Settings, it also replaces the "goal fish" icon at
-// the end of the progress bar (see app.js's renderStretchProgressBar /
-// walkGoal), i.e. the fish the cat is stretching/walking toward changes to
-// whatever food is currently equipped.
+// えさ→ごはん (food). Same independent per-category unlock order as
+// OUTFIT_ART. When one is equipped in Settings, it also replaces the "goal
+// fish" icon at the end of the progress bar (see app.js's
+// renderStretchProgressBar / walkGoal), i.e. the fish the cat is
+// stretching/walking toward changes to whatever ごはん is currently equipped.
+// Each item also carries a `fin` variant (same {colors,grid} shape as the
+// item itself) -- the "eaten/finished" art swapped in once the goal is
+// reached at 100%, mirroring the existing fish→bone (STRETCH_GOAL_MARKER →
+// STRETCH_GOAL_MARKER_DONE) swap. See app.js's currentGoalDoneArt().
 // Unlock order: カリカリ → あのおやつ → ささみ → 猫草.
 const FOOD_ART = {
   karikari: {
@@ -161,8 +183,6 @@ colors: { 1: '#000000', 6: '#ff9500', 16: '#a8f0a4', 7: '#ffcc00', 4: '#ffffff',
             [0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
             [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     ],
-    // "eaten" sprite shown at the goal marker once the progress bar reaches
-    // 100% while this えさ is equipped (see app.js's currentGoalDoneArt()).
     fin: {
       colors: { 1: '#000000', 4: '#ffffff', 14: '#ffcb8e', 3: '#aaaaaa', 7: '#ffcc00' },
       grid: [

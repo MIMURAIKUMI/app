@@ -1,15 +1,21 @@
 // pixel-arts-decorations.js
-// かざりつけ (decoration) reward art -- a third プレゼント category alongside
-// おめかし (pixel-arts-outfits.js's OUTFIT_ART) and えさ (FOOD_ART), unlocked
-// through the same 7-day gift cycle (see app.js's evaluateRewards() /
-// chooseReward()). Each entry is a single static 16x16 icon, same shape as a
-// FOOD_ART/OUTFIT_ART item ({name, colors, grid}) -- rendered via
-// renderIconArt() in the Settings > ピクセルアート > かざりつけ list, and
-// composited onto the cat (both あるくねこ／のびるねこ styles) via
-// app.js's compositeDecorationOverlay() whenever rewards.equippedDecoration
-// is set, floating near the top-left of the sprite with a gentle bob
-// (see index.html's .deco-float keyframes).
+// Real art for the unlockable "かざりつけ" (decoration/effect) reward -- a
+// 3rd reward category alongside おめかし (OUTFIT_ART) and ごはん (FOOD_ART),
+// kept in its own file (loaded after pixel-arts-outfits.js, before
+// pixel-arts-legendary.js -- see index.html) so it can keep evolving without
+// touching those registries or the app logic in app.js.
 //
+// Each item is a single static 16x16 icon (same shape as OUTFIT_ART/FOOD_ART
+// entries: `name`, a `colors` palette map, and a 16x16 `grid`) -- composited
+// via app.js's compositeDecorationOverlay(), called from both
+// renderCatWithOutfit() (walking/sitting cat) and renderStretchProgressBar()
+// (のびるねこ head piece). Unlike おめかし, a decoration always renders at
+// the same full cat-cell size and sits BEHIND the cat sprite (z-index below
+// the base sprite) rather than composited on top of it, and gets a small
+// idle bob/twinkle animation (.deco-float, see index.html) instead of a
+// fixed anchor/offset -- so no `overlay` hint is needed here.
+//
+// Loaded via <script> before app.js, so this becomes a global: DECORATION_ART.
 // Unlock order: きらきら → くも → おんぷ.
 const DECORATION_ART = {
   sparkle: {

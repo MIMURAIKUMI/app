@@ -203,16 +203,15 @@ const LEGENDARY_ART_GRIDS = (function(){
   };
 })();
 
-// SECRET_CAT_ART -- the black silhouette shown in the "ねこ" picker's 6th
-// slot (see app.js's renderSettings()) before 伝説のねこ is unlocked (30-day
-// streak). Tapping it while still locked shows a teaser toast instead of
-// selecting it (app.js's tapSecretCat()); once LEGENDARY_STREAK_DAYS is
-// reached this slot swaps over to the real gold cat (LEGENDARY_ART_GRIDS.gold)
-// and behaves like any other selectable cat.
-//
-// Single static 16x16 icon (not a {poses:{walking,sitting}} cat like the
-// entries above) -- rendered via renderIconArtAtCellPx()/renderIconArt(),
-// same as an おめかし/えさ item icon.
+// SECRET_CAT_ART -- the locked "？？？" silhouette shown in the 6th slot of
+// the ねこ picker (after the 5 default cats) before the Legendary Cat is
+// unlocked. Purely a static 16x16 icon (not a full pose-set cat like
+// PIXEL_ART_GRIDS/LEGENDARY_ART_GRIDS entries), rendered via
+// renderIconArt()/renderIconArtAtCellPx() -- app.js's Settings ねこ section
+// swaps this in for the 6th card while !rewards.legendaryUnlocked, and swaps
+// it for LEGENDARY_ART_GRIDS.gold once unlocked. Tapping it while locked
+// doesn't select anything -- see app.js's tapSecretCat(), which just shows
+// the "30日達成で登場するよ" toast (secretCatLockedToast).
 const SECRET_CAT_ART = {
   name: { ja: '？？？', en: '???' },
   colors: { 1: '#000000' },
