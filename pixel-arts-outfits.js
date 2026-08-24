@@ -80,7 +80,7 @@ const OUTFIT_ART = {
     colors: { 5: '#ff3b30', 7: '#ffcc00' },
     overlay: { scale: 1, anchor: 'full', byPose: {
       sitting: { offsetX: 0, offsetY: 0 },
-      walking: { offsetX: 0, offsetY: -9 }
+      walking: { offsetX: 0, offsetY: -4 }
     } },
     grid: [
       [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
