@@ -80,7 +80,7 @@ const OUTFIT_ART = {
     colors: { 5: '#ff3b30', 7: '#ffcc00' },
     overlay: { scale: 1, anchor: 'full', byPose: {
       sitting: { offsetX: 0, offsetY: 0 },
-      walking: { offsetX: 0, offsetY: -5 }
+      walking: { offsetX: 0, offsetY: -3 }
     } },
     grid: [
       [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
@@ -132,7 +132,7 @@ const OUTFIT_ART = {
     name: { ja: 'リボン', en: 'Ribbon' },
     colors: { 1: '#000000', 13: '#ff9a9a', 5: '#ff3b30', 29: '#c00000' },
     overlay: { scale: 0.7, anchor: 'top-right', byPose: {
-      sitting: { offsetX: -3, offsetY: -2 },
+      sitting: { offsetX: -2, offsetY: -2 },
       walking: { offsetY: -8 }
     } },
     grid: [
