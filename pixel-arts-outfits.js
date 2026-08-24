@@ -61,8 +61,8 @@ const OUTFIT_ART = {
     name: { ja: '首輪', en: 'Collar' },
     colors: { 5: '#ff3b30', 7: '#ffcc00' },
     overlay: { scale: 1, anchor: 'full', byPose: {
-      sitting: { offsetX: 0, offsetY: 0 },
-      walking: { offsetX: 0, offsetY: -8 }
+      sitting: { offsetX: -1, offsetY: 0 },
+      walking: { offsetX: 0, offsetY: -6 }
     } },
     grid: [
       [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
@@ -114,7 +114,7 @@ const OUTFIT_ART = {
     name: { ja: 'リボン', en: 'Ribbon' },
     colors: { 1: '#000000', 13: '#ff9a9a', 5: '#ff3b30', 29: '#c00000' },
     overlay: { scale: 0.7, anchor: 'top-right', byPose: {
-      sitting: { offsetY: 0 },
+      sitting: { offsetX: 2,offsetY: 0 },
       walking: { offsetY: -8 }
     } },
     grid: [
