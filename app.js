@@ -2175,9 +2175,9 @@ function renderTasks(){
           <div class="mono" style="font-size:12px;color:var(--dim);margin-top:4px;">${t('goalLabel')} ${taskGoalHoursLabel(tk.targetHours)}</div>
         </div>
         <div style="display:flex;gap:6px;">
-          <button class="icobtn" onclick="openTaskForm('${tk.id}')">✎</button>
-          <button class="icobtn" title="${t('archiveTitle')}" onclick="archiveTask('${tk.id}', true)">🗄</button>
-          <button class="icobtn" style="color:var(--rust);" onclick="removeTask('${tk.id}')">🗑</button>
+          <button class="icobtn" onclick="openTaskForm('${tk.id}')">${renderIconArt(TASK_ICON_ART.edit, 1.0)}</button>
+          <button class="icobtn" title="${t('archiveTitle')}" onclick="archiveTask('${tk.id}', true)">${renderIconArt(TASK_ICON_ART.archive, 1.0)}</button>
+          <button class="icobtn" onclick="removeTask('${tk.id}')">${renderIconArt(TASK_ICON_ART.trash, 1.0)}</button>
         </div>
       </div>
     </div>`).join('');
@@ -2197,7 +2197,7 @@ function renderTasks(){
           </div>
           <div style="display:flex;gap:6px;">
             <button class="icobtn" title="${t('restoreTitle')}" onclick="archiveTask('${tk.id}', false)">↩</button>
-            <button class="icobtn" style="color:var(--rust);" onclick="removeTask('${tk.id}')">🗑</button>
+            <button class="icobtn" onclick="removeTask('${tk.id}')">${renderIconArt(TASK_ICON_ART.trash, 1.0)}</button>
           </div>
         </div>
       </div>`).join('');
@@ -3126,10 +3126,10 @@ function selectReportDate(dateStr){
           </div>
           <div class="mono" style="color:var(--dim);">${hmLabel(r.ms)}</div>
           <div class="mono" style="width:40px;text-align:right;color:${rate === null ? 'var(--faint)' : (rate >= 100 ? 'var(--teal)' : 'var(--text)')};font-weight:700;">${rate === null ? '—' : Math.round(rate) + '%'}</div>
-          <div style="display:flex;gap:2px;flex-shrink:0;margin-left:4px;">
-            <button onclick="openRecordEdit('${r.date}','${r.id}')" style="background:none;border:none;color:var(--dim);cursor:pointer;padding:2px;">✎</button>
-            <button onclick="openMemoEdit('${r.date}','${r.id}')" style="background:none;border:none;color:${r.memo ? 'var(--brassDim)' : 'var(--dim)'};cursor:pointer;padding:2px;">📝</button>
-            <button onclick="deleteSession('${r.date}','${r.id}')" style="background:none;border:none;color:var(--dim);cursor:pointer;padding:2px;">🗑</button>
+          <div style="display:flex;align-items:center;gap:2px;flex-shrink:0;margin-left:4px;">
+            <button onclick="openRecordEdit('${r.date}','${r.id}')" style="background:none;border:none;cursor:pointer;padding:2px;line-height:0;">${renderIconArt(TASK_ICON_ART.edit, 0.7)}</button>
+            <button onclick="openMemoEdit('${r.date}','${r.id}')" style="background:none;border:none;cursor:pointer;padding:2px;line-height:0;opacity:${r.memo ? 1 : 0.55};">${renderIconArt(TASK_ICON_ART.memo, 0.7)}</button>
+            <button onclick="deleteSession('${r.date}','${r.id}')" style="background:none;border:none;cursor:pointer;padding:2px;line-height:0;">${renderIconArt(TASK_ICON_ART.trash, 0.7)}</button>
           </div>
         </div>
         ${rate !== null ? `
