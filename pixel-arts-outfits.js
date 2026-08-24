@@ -37,6 +37,15 @@
 //             walking {offsetX:0, offsetY:-3}（3px上、横は動かさない）
 //       王冠: offsetX 3 → -2（5px左へ）は座り姿勢のデフォルトとして維持、
 //             walkingはそこからさらに3px上げて offsetY -10 → -13。
+//     2026-08-24 追加の位置調整（同日2回目。上の値からさらに調整）:
+//       首輪: sitting offsetX -3 → 0（3px右へ）／
+//             walking offsetY -3 → -8（5px上へ）
+//       リボン: sitting offsetY -5 → 0（5px下げ）／
+//              walking offsetY -5 → -8（3px上げ）
+//              （座り／歩きでズレ方が違うようになったため、リボンも
+//              首輪・王冠と同じくbyPoseで座り/歩きを分けるように変更）
+//       王冠: 座り姿勢は変更なし（offsetX -2, offsetY -10のまま）／
+//             walkingはoffsetX -2→1（3px右へ）、offsetY -13→-16（3px上へ）
 //
 // Loaded via <script> before app.js (and after pixel-arts.js), so these
 // become globals: OUTFIT_ART, FOOD_ART.
@@ -52,8 +61,8 @@ const OUTFIT_ART = {
     name: { ja: '首輪', en: 'Collar' },
     colors: { 5: '#ff3b30', 7: '#ffcc00' },
     overlay: { scale: 1, anchor: 'full', byPose: {
-      sitting: { offsetX: -3, offsetY: 0 },
-      walking: { offsetX: 0, offsetY: -3 }
+      sitting: { offsetX: 0, offsetY: 0 },
+      walking: { offsetX: 0, offsetY: -8 }
     } },
     grid: [
       [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
@@ -104,7 +113,10 @@ const OUTFIT_ART = {
   ribbon: {
     name: { ja: 'リボン', en: 'Ribbon' },
     colors: { 1: '#000000', 13: '#ff9a9a', 5: '#ff3b30', 29: '#c00000' },
-    overlay: { scale: 0.7, anchor: 'top-right', offsetY: -5 },
+    overlay: { scale: 0.7, anchor: 'top-right', byPose: {
+      sitting: { offsetY: 0 },
+      walking: { offsetY: -8 }
+    } },
     grid: [
       [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
       [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
@@ -128,7 +140,7 @@ const OUTFIT_ART = {
     name: { ja: '王冠', en: 'Crown' },
     colors: { 1: '#000000', 15: '#fff3a0', 7: '#ffcc00', 6: '#ff9500' },
     overlay: { scale: 0.7, anchor: 'top-right', offsetX: -2, offsetY: -10, byPose: {
-      walking: { offsetX: -2, offsetY: -13 }
+      walking: { offsetX: 1, offsetY: -16 }
     } },
     grid: [
       [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
