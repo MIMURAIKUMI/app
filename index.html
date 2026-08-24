@@ -354,16 +354,18 @@
   .pixcard.secret-locked{opacity:0.55;}
   /* シークレットねこが解禁済み(rewards.legendaryUnlocked)だが、まだ本人が
      タップして開けていない(!rewards.legendaryRevealed)間の「開封待ち」表示。
-     おめかし/ごはんを選ぶ時の.pixcard.onと同じピンクの縁取り・影を使い、
-     もう選べる状態になったことを一目でわかるようにする。さらにpixcard.on
-     より一段強いピンクの背景と、開けてねと誘う控えめな拡大縮小の点滅を
-     加えて、タップ前のロック済み表示(secret-locked)ともタップ後の通常表示
-     (.on)ともはっきり区別できるようにしてある。タップするとrevealLegendaryCat()
-     が呼ばれ、legendaryRevealedがtrueになって通常のgoldねこ表示に切り替わる。 */
+     おめかし/ごはんの解禁プロンプト(giftChoicePrompt)の選択前ボタン
+     (.themecard、background:var(--paleblue)/border-color:#8FCBEA)と同じ
+     水色を使い、まだ選ぶ前の「新しく選べるようになったもの」だと一目で
+     わかるようにする。開けてねと誘う控えめな拡大縮小の点滅も加えて、
+     タップ前のロック済み表示(secret-locked)ともタップ後の通常表示(.on、
+     こちらはピンク)ともはっきり区別できるようにしてある。タップすると
+     revealLegendaryCat()が呼ばれ、legendaryRevealedがtrueになって通常の
+     goldねこ表示に切り替わる。 */
   .pixcard.secret-ready{
-    border-color:var(--brassDim);
-    background:color-mix(in srgb, var(--brass) 20%, var(--panel));
-    box-shadow:2px 2px 0 color-mix(in srgb, var(--brassDim) 45%, transparent);
+    background:var(--paleblue);
+    border-color:#8FCBEA;
+    box-shadow:2px 2px 0 color-mix(in srgb, #8FCBEA 45%, transparent);
     animation:secretReadyPulse 1.4s ease-in-out infinite;
   }
   @keyframes secretReadyPulse{

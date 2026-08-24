@@ -91,7 +91,7 @@ const I18N = {
     legendaryCountdown: d => `1カ月達成まであと${d}日`,
     rewardUnlockedToast: name => `🎁「${name}」を手に入れました！`,
     legendaryUnlockedBanner: '✨ シークレットが解禁されたよ',
-    legendaryRevealedToast: '✨ 伝説のねこが仲間になったよ！',
+    legendaryRevealedToast: '🌟 伝説のねこが仲間になったよ！',
     secretCatLockedToast: '🔒 30日達成で登場するよ',
     giftReadyBanner: 'プレゼントがあるよ',
     giftReadyCta: 'Settingsへ',
@@ -2022,7 +2022,7 @@ function renderNow(){
         </div>` : ''}
       ${legendaryInfo ? `<div style="display:flex;align-items:center;gap:8px;">
           <span style="flex-shrink:0;line-height:0;">${renderPixelArtSilhouette('gold', 0.55, 'sitting', 0.3)}</span>
-          <span>✨ ${t('legendaryCountdown')(legendaryInfo.daysRemaining)}</span>
+          <span>🌈 ${t('legendaryCountdown')(legendaryInfo.daysRemaining)}</span>
         </div>` : ''}
     </div>`;
   }
@@ -2695,8 +2695,9 @@ function renderSettings(){
   const catKeys = Object.keys(PIXEL_ART_GRIDS);
   // 6枠目: 状態は3通り。①未解禁 = シークレット(ロック済み表示、opacity 0.55)、
   // ②解禁済みだがまだ本人が開けていない = 同じシークレット(？？？)の絵のまま、
-  // 「えさ/ごはんを選ぶ時」と同じピンクの選択色でハイライトして開封を促す状態
-  // (secret-ready、revealLegendaryCat()参照)、③開封済み = 通常のgoldねこ。
+  // 「えさ/ごはんを選ぶ時」(giftChoicePromptの選択前ボタン)と同じ水色でハイ
+  // ライトして開封を促す状態(secret-ready、revealLegendaryCat()参照。CSSは
+  // index.htmlの.pixcard.secret-ready)、③開封済み = 通常のgoldねこ。
   const secretLocked = !rewards.legendaryUnlocked;
   const secretReady = rewards.legendaryUnlocked && !rewards.legendaryRevealed;
 
