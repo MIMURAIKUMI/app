@@ -2121,10 +2121,10 @@ function renderSessionCard(s, todayStr){
         </div>
         <div style="display:flex;gap:6px;">
           ${s.segments.length? `
-          <button class="icobtn" title="${t('editTime')}" onclick="openRecordEdit('${todayStr}','${s.id}')">✎</button>
-          <button class="icobtn" title="${t('duplicate')}" onclick="openDuplicate('${todayStr}','${s.id}')">⧉</button>` : ''}
-          <button class="icobtn" title="${s.memo? t('editMemo') : t('addMemo')}" style="color:${s.memo?'var(--brassDim)':'var(--dim)'};" onclick="openMemoEdit('${todayStr}','${s.id}')">📝</button>
-          ${s.status==='done'? `<button class="icobtn" title="${t('deleteBtn')}" style="color:var(--rust);" onclick="deleteSession('${todayStr}','${s.id}')">🗑</button>` : ''}
+          <button class="icobtn" title="${t('editTime')}" onclick="openRecordEdit('${todayStr}','${s.id}')">${renderIconArt(TASK_ICON_ART.edit, 1.0)}</button>
+          <button class="icobtn" title="${t('duplicate')}" onclick="openDuplicate('${todayStr}','${s.id}')">${renderIconArt(TASK_ICON_ART.duplicate, 1.0)}</button>` : ''}
+          <button class="icobtn" title="${s.memo? t('editMemo') : t('addMemo')}" style="opacity:${s.memo?1:0.55};" onclick="openMemoEdit('${todayStr}','${s.id}')">${renderIconArt(TASK_ICON_ART.memo, 1.0)}</button>
+          ${s.status==='done'? `<button class="icobtn" title="${t('deleteBtn')}" onclick="deleteSession('${todayStr}','${s.id}')">${renderIconArt(TASK_ICON_ART.trash, 1.0)}</button>` : ''}
         </div>
       </div>
       ${s.segments.length? `<div>
