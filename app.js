@@ -960,9 +960,25 @@ let pomodoroState = null; // transient, not persisted: {sessionId, templateId, p
 // を今すぐ適用せず、いったん保留しておく。モーダルを閉じる/保存すると
 // render() が呼ばれるので、そのタイミングで保留していたリモート更新を
 // 安全に適用する。
+//
+// 2026-08-24追記: 「集中タイマーのプルダウンがすぐ閉じる」バグも同じ原因
+// だったが、こちらは上記のモーダル系フラグ(showAddRecordなど)がどれも
+// trueにならないケースだった -- テンプレート選択の<select>(renderPomodoroPanel()
+// 内)はPunchタブ画面に直接置かれていて、モーダルを開かずに操作するため。
+// そのため個別のフラグを増やす代わりに、「今まさにフォームコントロールに
+// フォーカスが当たっているか」を汎用的に見るチェックを追加した。モーダルの
+// 有無に関わらず、ユーザーが<select>/<input>/<textarea>を操作中は同じ理由で
+// 再構築を保留すべきなので、今後同様の箇所が増えてもここだけで塞げる。
 let fbPendingRemoteData = null;
+function isFormControlFocused(){
+  const el = document.activeElement;
+  if(!el) return false;
+  const tag = el.tagName;
+  return tag==='SELECT' || tag==='INPUT' || tag==='TEXTAREA';
+}
 function isEditingModalOpen(){
-  return !!(editingRecordDate || showAddRecord || showTaskForm || editingMemoDate || showDuplicate || showPomodoroForm);
+  if(editingRecordDate || showAddRecord || showTaskForm || editingMemoDate || showDuplicate || showPomodoroForm) return true;
+  return isFormControlFocused();
 }
 
 // ---------- helpers ----------
