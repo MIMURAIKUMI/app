@@ -8,7 +8,7 @@
 // ---------- language detection ----------
 // Bump this string every time index.html is updated — shown in Settings so it's
 // easy to confirm which build is actually live (helps catch stale-deploy/cache issues).
-const APP_VERSION = 'v23-2026-08-16';
+const APP_VERSION = 'v24-2026-08-24';
 
 const LANG = (function(){
   const langs = (navigator.languages && navigator.languages.length) ? navigator.languages : [navigator.language || 'en'];
@@ -693,15 +693,23 @@ function renderStretchProgressBar(key, percent, isWorking, cell, showGoal, pause
   const reachedGoal = percent>=100;
   const goal = showGoal ? (reachedGoal ? (typeof STRETCH_GOAL_MARKER_DONE!=='undefined'?STRETCH_GOAL_MARKER_DONE:null) : currentGoalFishArt()) : null;
   const goalHTML = goal ? renderStretchPart(goal.grid, goal.colors, cell) : '';
-  // Same always-on shine as renderPixelArt() for 伝説のねこ, applied to the
-  // whole stretch bar (front/mid/back together) rather than each piece
-  // separately, so the body reads as one continuously glowing cat.
+  // Same always-on shine as renderPixelArt() for 伝説のねこ, applied to an
+  // inner wrapper around front/mid/back (the cat's body) rather than to
+  // .stretchbar itself, so the body reads as one continuously glowing cat --
+  // but WITHOUT also lighting up the goal marker (.stretchbar-goal, the
+  // fish/bone at the end of the bar), which sits outside this wrapper as a
+  // direct child of .stretchbar. A CSS filter on an ancestor visually affects
+  // its entire subtree, so if legendary-glow stayed on .stretchbar, the goal
+  // marker would glow too even though it has no filter of its own -- this
+  // wrapper scopes the glow to just the pieces that should shine.
   const glowCls = (art && art.legendary) ? ' legendary-glow' : '';
-  return `<div class="stretchbar${glowCls}" style="height:${wrapH}px;" data-front-right="${frontRightPx}" data-back-anchor="${backAnchorPx}" data-right-margin="${rightMarginPx}">
+  return `<div class="stretchbar" style="height:${wrapH}px;" data-front-right="${frontRightPx}" data-back-anchor="${backAnchorPx}" data-right-margin="${rightMarginPx}">
     ${goal ? `<div class="stretchbar-goal" data-goal-state="${reachedGoal?'done':'fish'}" style="left:calc(100% - 10px); top:8px;">${goalHTML}</div>` : ''}
-    <div class="stretchbar-mid" style="left:${frontRightPx}px; top:${midTop}px; height:${midH}px; width:${midWidth}; background-image:url('${midTileURI}'); background-repeat:repeat-x; background-size:${midTileWidth}px ${midH}px;"></div>
-    <div class="stretchbar-front" style="left:0;">${frontHTML}</div>
-    <div class="stretchbar-back${workingCls}" style="left:${backLeft};">${backHTML}</div>
+    <div class="stretchbar-catbody${glowCls}">
+      <div class="stretchbar-mid" style="left:${frontRightPx}px; top:${midTop}px; height:${midH}px; width:${midWidth}; background-image:url('${midTileURI}'); background-repeat:repeat-x; background-size:${midTileWidth}px ${midH}px;"></div>
+      <div class="stretchbar-front" style="left:0;">${frontHTML}</div>
+      <div class="stretchbar-back${workingCls}" style="left:${backLeft};">${backHTML}</div>
+    </div>
   </div>`;
 }
 

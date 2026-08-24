@@ -166,6 +166,13 @@
      elasticity always reads clearly, even when idle. ---- */
   .progresswrap.stretch{margin:18px 0 18px; height:40px;}
   .stretchbar{position:relative; width:100%;}
+  /* 伝説のねこの発光(.legendary-glow)を当てる範囲を、猫の本体(尻尾/胴体/頭)
+     だけに絞るための内側ラッパー。.stretchbar-goal(進捗バー最終点のえさ/骨)
+     はこのラッパーの外、.stretchbarの直接の子のままにしておくことで、
+     filterの影響を受けない。position:absoluteの子(front/mid/back)は、この
+     ラッパー自身がposition:staticのままでも、祖先である.stretchbar
+     (position:relative)を基準にそのまま正しく配置される。 */
+  .stretchbar-catbody{position:absolute; inset:0;}
   .stretchbar-back{position:absolute; top:0; filter:drop-shadow(1px 1px 0 var(--lineS));}
   .stretchbar-goal{position:absolute; top:0; transform:translateX(-50%) scale(0.8); transform-origin:center; z-index:0; opacity:0.9;}
   /* The not-yet-reached fish should draw in front of the cat (instead of
@@ -305,10 +312,16 @@
   ::-webkit-scrollbar{height:6px; width:6px;}
   ::-webkit-scrollbar-thumb{background:var(--lineS); border-radius:4px;}
   @keyframes catBob{ 0%,100%{transform:translateX(-30%) translateY(0);} 50%{transform:translateX(-30%) translateY(-3px);} }
-  /* 伝説のねこ（黄金）専用の常時発光演出。renderPixelArt()/
-     renderStretchProgressBar()（app.js）が art.legendary===true のときだけ
-     このクラスを付与する。ドロップシャドウの色そのものを黄金にしつつ
-     brightnessも揺らすことで「ピカピカ光っている」質感を常時出す。 */
+  /* 伝説のねこ（黄金）専用の常時発光演出。renderPixelArt()（あるくねこ）で
+     は.pixelartに、renderStretchProgressBar()（のびるねこ）では猫の本体
+     だけをまとめた内側ラッパー.stretchbar-catbodyに、art.legendary===true
+     のときだけこのクラスを付与する。ドロップシャドウの色そのものを黄金に
+     しつつbrightnessも揺らすことで「ピカピカ光っている」質感を常時出す。
+     のびるねこ側で.stretchbar本体ではなく.stretchbar-catbodyに付与して
+     いるのは、進捗バー最終点のえさ/骨マーカー(.stretchbar-goal)まで一緒に
+     光ってしまうのを防ぐため（filterは祖先要素にかけると子孫すべての
+     描画結果に効いてしまうので、光らせたくない.stretchbar-goalは
+     .stretchbar-catbodyの外＝.stretchbarの直接の子のままにしてある）。 */
   @keyframes legendaryGoldGlow{
     0%   { filter: drop-shadow(0 0 6px rgba(255,215,0,0.45)) brightness(1); }
     100% { filter: drop-shadow(0 0 18px rgba(255,231,133,0.95)) brightness(1.15); }
@@ -318,16 +331,16 @@
   }
   /* バグ修正: のびるねこの「頭」パーツ(.stretchbar-back)には常時、輪郭用の
      小さな固定drop-shadow(上の.stretchbar-back規則)が別途かかっている。
-     伝説のねこの常時発光(.legendary-glow)は親の.stretchbarにアニメーション
-     付きのfilterとして付与しているが、子要素である.stretchbar-back自身が
-     すでに自分のfilterを持っていると、そちらが優先して描画されてしまい、
-     頭パーツだけ親の発光アニメーションがほとんど見えなくなっていた
+     伝説のねこの常時発光(.legendary-glow)は.stretchbar-catbodyにアニメー
+     ション付きのfilterとして付与しているが、子要素である.stretchbar-back
+     自身がすでに自分のfilterを持っていると、そちらが優先して描画されて
+     しまい、頭パーツだけ発光アニメーションがほとんど見えなくなっていた
      （尻尾・胴体は自前のfilterを持たないので正しく光る）。伝説のねこの
      ときだけ、頭パーツの固定filterを外して親の発光に完全に任せることで
      頭も含めて全身が同じように光るようにする。
      (Playwrightで .stretchbar-back の computed filter を検証し、この
      子要素側の固定filterが原因であることを確認済み) */
-  .stretchbar.legendary-glow .stretchbar-back{ filter:none; }
+  .stretchbar-catbody.legendary-glow .stretchbar-back{ filter:none; }
   @media (prefers-reduced-motion: reduce){
     .legendary-glow{ animation:none; filter: drop-shadow(0 0 10px rgba(255,215,0,0.6)) brightness(1.08); }
   }
