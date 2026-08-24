@@ -71,7 +71,7 @@ const I18N = {
     enterTemplateNameAlert: 'テンプレート名を入力してください',
     enterFocusBreakAlert: '集中時間と休憩時間を入力してください',
     deleteTemplateConfirm: 'このテンプレートを削除しますか？',
-    focusTimer: '⏱ 集中タイマー',
+    focusTimer: '集中タイマー',
     phaseWork: '集中', phaseBreak: '休憩', phaseLongBreak: 'ロング休憩',
     templateLabel: 'テンプレート',
     templateOption: (w,b) => `（集中${w}分/休憩${b}分）`,
@@ -175,7 +175,7 @@ const I18N = {
     howToIcons: [
       { art: 'edit', label: '編集' }, { art: 'duplicate', label: '複製' }, { art: 'trash', label: '削除' },
       { art: 'archive', label: 'アーカイブ（一時的に非表示にする）' }, { art: 'undo', label: '復元' },
-      { icon: '⏱', label: '集中タイマーの回数' }, { art: 'memo', label: '完了したタスクにメモを残せます' }
+      { art: 'focustimer', label: '集中タイマーの回数' }, { art: 'memo', label: '完了したタスクにメモを残せます' }
     ],
     syncSignedInAnon: '端末内に保存中（未ログイン）',
     syncSignedInGoogle: name => `Googleアカウントで同期中：${name}`,
@@ -255,7 +255,7 @@ const I18N = {
     enterTemplateNameAlert: 'Please enter a template name',
     enterFocusBreakAlert: 'Please enter focus and break times',
     deleteTemplateConfirm: 'Delete this template?',
-    focusTimer: '⏱ Focus timer',
+    focusTimer: 'Focus timer',
     phaseWork: 'Focus', phaseBreak: 'Break', phaseLongBreak: 'Long break',
     templateLabel: 'Template',
     templateOption: (w,b) => ` (Focus ${w}m / Break ${b}m)`,
@@ -358,7 +358,7 @@ const I18N = {
     howToIcons: [
       {art:'edit', label:'Edit'}, {art:'duplicate', label:'Duplicate'}, {art:'trash', label:'Delete'},
       {art:'archive', label:'Archive (hide temporarily)'}, {art:'undo', label:'Restore'},
-      {icon:'⏱', label:'Focus timer count'}, {art:'memo', label:'Leave a memo on a finished task'}
+      {art:'focustimer', label:'Focus timer count'}, {art:'memo', label:'Leave a memo on a finished task'}
     ],
     syncSignedInAnon: 'Saved on this device (not signed in)',
     syncSignedInGoogle: name => `Synced with Google account: ${name}`,
@@ -1842,12 +1842,12 @@ function renderPomodoroPanel(session){
   const phaseColor = ps ? (ps.phase==='work' ? 'var(--brass)' : 'var(--blue)') : 'var(--dim)';
   return `<div class="panel" style="padding:16px;margin-bottom:16px;">
     <div style="display:flex;align-items:center;justify-content:space-between;">
-      <div style="font-size:12px;color:var(--dim);">${t('focusTimer')}</div>
+      <div style="font-size:12px;color:var(--dim);display:flex;align-items:center;gap:4px;">${renderIconArt(TASK_ICON_ART.focustimer, 0.6)}${t('focusTimer')}</div>
       ${session? `<div class="switch ${ps?'on':''}" onclick="togglePomodoro('${session.id}')"><div class="knob"></div></div>` : ''}
     </div>
     ${ps? `
       <div style="text-align:center;margin-top:10px;">
-        <div class="mono" style="font-size:11px;color:var(--dim);margin-bottom:4px;">${phaseLabel[ps.phase]} ・ ⏱×${ps.cycleCount}</div>
+        <div class="mono" style="font-size:11px;color:var(--dim);margin-bottom:4px;display:flex;align-items:center;justify-content:center;gap:3px;">${phaseLabel[ps.phase]} ・ ${renderIconArt(TASK_ICON_ART.focustimer, 0.5)}×${ps.cycleCount}</div>
         <div id="pomoTimer" class="pixnum" style="font-size:20px;color:${phaseColor};">${msToHMS(Math.max(0,ps.remainingMs)).slice(3)}</div>
       </div>` : `
       <div class="field" style="margin:10px 0 0;"><label>${t('templateLabel')}</label>
@@ -2620,7 +2620,7 @@ function renderSettings(){
   const templates = settings.pomodoro.templates;
   html += `<div class="panel" style="padding:16px;margin-bottom:16px;">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
-      <div class="settitle" style="margin-bottom:0;">${t('focusTimer')}</div>
+      <div class="settitle" style="margin-bottom:0;">${renderIconArt(TASK_ICON_ART.focustimer, 0.7)}${t('focusTimer')}</div>
       <div class="switch ${settings.pomodoro.autoEnable?'on':''}" onclick="togglePomodoroAutoEnable()"><div class="knob"></div></div>
     </div>
     <div style="font-size:11px;color:var(--faint);margin-bottom:12px;">${t('autoEnableNote')}</div>
