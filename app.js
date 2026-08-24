@@ -2119,12 +2119,12 @@ function renderSessionCard(s, todayStr){
         <div style="font-size:12px;color:var(--dim);display:flex;align-items:center;gap:6px;">
           <span class="dot-sm" style="background:${taskColor(s.taskId)};"></span>${escapeHtml(s.taskName)}${s.status!=='done'?t('inProgress'):''}
         </div>
-        <div style="display:flex;gap:6px;">
+        <div style="display:flex;align-items:center;gap:2px;">
           ${s.segments.length? `
-          <button class="icobtn" title="${t('editTime')}" onclick="openRecordEdit('${todayStr}','${s.id}')">${renderIconArt(TASK_ICON_ART.edit, 1.0)}</button>
-          <button class="icobtn" title="${t('duplicate')}" onclick="openDuplicate('${todayStr}','${s.id}')">${renderIconArt(TASK_ICON_ART.duplicate, 1.0)}</button>` : ''}
-          <button class="icobtn" title="${s.memo? t('editMemo') : t('addMemo')}" onclick="openMemoEdit('${todayStr}','${s.id}')">${renderIconArt(TASK_ICON_ART.memo, 1.0)}</button>
-          ${s.status==='done'? `<button class="icobtn" title="${t('deleteBtn')}" onclick="deleteSession('${todayStr}','${s.id}')">${renderIconArt(TASK_ICON_ART.trash, 1.0)}</button>` : ''}
+          <button title="${t('editTime')}" style="background:none;border:none;cursor:pointer;padding:2px;line-height:0;" onclick="openRecordEdit('${todayStr}','${s.id}')">${renderIconArt(TASK_ICON_ART.edit, 0.7)}</button>
+          <button title="${t('duplicate')}" style="background:none;border:none;cursor:pointer;padding:2px;line-height:0;" onclick="openDuplicate('${todayStr}','${s.id}')">${renderIconArt(TASK_ICON_ART.duplicate, 0.7)}</button>` : ''}
+          <button title="${s.memo? t('editMemo') : t('addMemo')}" style="background:none;border:none;cursor:pointer;padding:2px;line-height:0;" onclick="openMemoEdit('${todayStr}','${s.id}')">${renderIconArt(TASK_ICON_ART.memo, 0.7)}</button>
+          ${s.status==='done'? `<button title="${t('deleteBtn')}" style="background:none;border:none;cursor:pointer;padding:2px;line-height:0;" onclick="deleteSession('${todayStr}','${s.id}')">${renderIconArt(TASK_ICON_ART.trash, 0.7)}</button>` : ''}
         </div>
       </div>
       ${s.segments.length? `<div>
@@ -2174,10 +2174,10 @@ function renderTasks(){
           <div class="mono" style="font-size:12px;color:var(--faint);">${(tk.days||[]).map(d=>WEEKDAYS_JP[d]).join('・')||t('everyDay')}</div>
           <div class="mono" style="font-size:12px;color:var(--dim);margin-top:4px;">${t('goalLabel')} ${taskGoalHoursLabel(tk.targetHours)}</div>
         </div>
-        <div style="display:flex;gap:6px;">
-          <button class="icobtn" onclick="openTaskForm('${tk.id}')">${renderIconArt(TASK_ICON_ART.edit, 1.0)}</button>
-          <button class="icobtn" title="${t('archiveTitle')}" onclick="archiveTask('${tk.id}', true)">${renderIconArt(TASK_ICON_ART.archive, 1.0)}</button>
-          <button class="icobtn" onclick="removeTask('${tk.id}')">${renderIconArt(TASK_ICON_ART.trash, 1.0)}</button>
+        <div style="display:flex;align-items:center;gap:2px;">
+          <button style="background:none;border:none;cursor:pointer;padding:2px;line-height:0;" onclick="openTaskForm('${tk.id}')">${renderIconArt(TASK_ICON_ART.edit, 0.7)}</button>
+          <button title="${t('archiveTitle')}" style="background:none;border:none;cursor:pointer;padding:2px;line-height:0;" onclick="archiveTask('${tk.id}', true)">${renderIconArt(TASK_ICON_ART.archive, 0.7)}</button>
+          <button style="background:none;border:none;cursor:pointer;padding:2px;line-height:0;" onclick="removeTask('${tk.id}')">${renderIconArt(TASK_ICON_ART.trash, 0.7)}</button>
         </div>
       </div>
     </div>`).join('');
@@ -2195,9 +2195,9 @@ function renderTasks(){
             <div class="loc-name"><span class="dot-sm" style="background:${taskColor(tk.id)};"></span>${escapeHtml(tk.name)}</div>
             <div class="mono" style="font-size:12px;color:var(--faint);">${(tk.days||[]).map(d=>WEEKDAYS_JP[d]).join('・')||t('everyDay')}</div>
           </div>
-          <div style="display:flex;gap:6px;">
-            <button class="icobtn" title="${t('restoreTitle')}" onclick="archiveTask('${tk.id}', false)">${renderIconArt(TASK_ICON_ART.undo, 1.0)}</button>
-            <button class="icobtn" onclick="removeTask('${tk.id}')">${renderIconArt(TASK_ICON_ART.trash, 1.0)}</button>
+          <div style="display:flex;align-items:center;gap:2px;">
+            <button title="${t('restoreTitle')}" style="background:none;border:none;cursor:pointer;padding:2px;line-height:0;" onclick="archiveTask('${tk.id}', false)">${renderIconArt(TASK_ICON_ART.undo, 0.7)}</button>
+            <button style="background:none;border:none;cursor:pointer;padding:2px;line-height:0;" onclick="removeTask('${tk.id}')">${renderIconArt(TASK_ICON_ART.trash, 0.7)}</button>
           </div>
         </div>
       </div>`).join('');
