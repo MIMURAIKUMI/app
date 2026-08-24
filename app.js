@@ -91,7 +91,7 @@ const I18N = {
     legendaryCountdown: d => `1カ月達成まであと${d}日`,
     rewardUnlockedToast: name => `🎁「${name}」を手に入れました！`,
     legendaryUnlockedBanner: '✨ シークレットが解禁されたよ',
-    legendaryRevealedToast: '🌟 伝説のねこが仲間になったよ！',
+    legendaryRevealedToast: '✨ 伝説のねこが仲間になったよ！',
     secretCatLockedToast: '🔒 30日達成で登場するよ',
     giftReadyBanner: 'プレゼントがあるよ',
     giftReadyCta: 'Settingsへ',
@@ -2022,7 +2022,7 @@ function renderNow(){
         </div>` : ''}
       ${legendaryInfo ? `<div style="display:flex;align-items:center;gap:8px;">
           <span style="flex-shrink:0;line-height:0;">${renderPixelArtSilhouette('gold', 0.55, 'sitting', 0.3)}</span>
-          <span>🌈 ${t('legendaryCountdown')(legendaryInfo.daysRemaining)}</span>
+          <span>✨ ${t('legendaryCountdown')(legendaryInfo.daysRemaining)}</span>
         </div>` : ''}
     </div>`;
   }
