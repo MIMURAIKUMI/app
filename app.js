@@ -24,7 +24,7 @@ const I18N = {
     noGoalSet: '目標未設定',
     hoursSuffix: '時間',
     minutesSuffix: '分',
-    noActiveTasks: '📍<br>有効なタスクがありません。<br>「Tasks」タブから追加、またはアーカイブを解除してください。',
+    noActiveTasks: '有効なタスクがありません。<br>「Tasks」タブから追加、またはアーカイブを解除してください。',
     noActiveTasksShort: '有効なタスクがありません',
     statusWorking: '作業中', statusPaused: '中断中', statusNone: '未開始',
     start: 'はじめる', pauseBtn: '少し休む', resumeBtn: 'また進める', endBtn: 'おつかれ',
@@ -76,9 +76,9 @@ const I18N = {
     templateLabel: 'テンプレート',
     templateOption: (w,b) => `（集中${w}分/休憩${b}分）`,
     focusTimerHint: '「はじめる」を押してタイマーをスイッチをONにするか<div>SettingsでONにしておくと自動的に開始されます</div>',
-    purchaseThanks: '🎉 購入ありがとうございます！',
+    purchaseThanks: '購入ありがとうございます！',
     settingsIntro: 'アプリの見た目や機能を項目別に調整します',
-    appearancePixelArt: '🎨 ピクセルアート',
+    appearancePixelArt: 'ピクセルアート',
         morePixelArtSoon: 'あなたのがんばりでピクセルアートが増えます<br>猫のピクセル素材参考：kohacu (https://kohacu.com/)',
     pixelArtRowCat: 'ねこ',
     pixelArtRowOutfit: 'おめかし',
@@ -90,9 +90,9 @@ const I18N = {
     giftProgressCountdown: d => `プレゼントまであと${d}日`,
     legendaryCountdown: d => `1カ月達成まであと${d}日`,
     rewardUnlockedToast: name => `🎁「${name}」を手に入れました！`,
-    legendaryUnlockedBanner: '✨ シークレットが解禁されたよ',
+    legendaryUnlockedBanner: '🌟 シークレットが解禁されたよ',
     legendaryRevealedToast: '🌟 伝説のねこが仲間になったよ！',
-    secretCatLockedToast: '🔒 30日達成で登場するよ',
+    secretCatLockedToast: '30日達成で登場するよ',
     giftReadyBanner: 'プレゼントがあるよ',
     giftReadyCta: 'Settingsへ',
     giftChoicePrompt: 'おめかし・ごはん、どれのピクセルを解禁する？',
@@ -101,15 +101,15 @@ const I18N = {
     // 「今から選ぶのも含めて残り何回か」の方がわかりやすいというフィードバックを
     // 受けて、2026-08-18に総数表示に変更した。
     giftPendingCount: n => `プレゼントはあと${n}個あるよ`,
-    appearanceBarStyle: '📊 進捗バーのスタイル',
+    appearanceBarStyle: '進捗バーのスタイル',
     barStyleNames: {normal:'あるくねこ', stretch:'のびるねこ'},
-    appearanceTheme: '🌈 カラーテーマ',
+    appearanceTheme: 'カラーテーマ',
     autoEnableNote: 'スイッチON：タスク開始時に自動で集中タイマーを開始します',
     templateDetail: (w,b,every,lb) => `集中${w}分 ／ 休憩${b}分${every>0?` ／ ${every}回ごとにロング休憩${lb}分`:''}`,
     addTemplate: '＋ テンプレートを追加',
-    dataSection: '💾 データ',
+    dataSection: 'データ',
     exportBtn: '書き出す', importBtn: '読み込む',
-    backupSection: '💾 バックアップ',
+    backupSection: 'バックアップ',
     backupSectionDesc: 'ログインまたはデータを書き出してバックアップします',
     backupMethod1Title: 'ログインしてデータを引き継ぐ',
     backupMethod2Title: '手動でバックアップ',
@@ -117,11 +117,11 @@ const I18N = {
     importConfirm: '現在のデータを上書きしてバックアップを読み込みますか？',
     importSuccess: 'バックアップを読み込みました!',
     importFail: 'ファイルの読み込みに失敗しました。正しいバックアップファイルか確認してください。',
-    resetSection: '⚠️ データの初期化',
+    resetSection: 'データの初期化',
     resetSectionDesc: 'すべてのデータが削除されます この操作は取り消せません',
     resetAllBtn: '出荷時に戻す',
     resetAllConfirm: '本当にすべてのデータを削除しますか？この操作は取り消せません。',
-    addToHomeScreen: '📲 ホーム画面に追加',
+    addToHomeScreen: 'ホーム画面に追加',
     installNote: '追加するとホーム画面から起動でき、オフラインでも利用できます',
     iphoneCase: 'iPhone（Safari）の場合',
     iphoneStep1: 'Safariでこのページを開く',
@@ -160,12 +160,12 @@ const I18N = {
     hm: (h,m) => h>0 ? `${h}時間${m}分` : `${m}分`,
     tplStandard: 'スタンダード', tplDeep: 'じっくり集中', tplShort: 'ショート',
     parenWrap: name => name ? `（${name}）` : '',
-    appTitleSection: '👤 アプリのタイトル',
+    appTitleSection: 'アプリのタイトル',
     appTitlePlaceholder: '例：My、ワタシの、〇〇\'s',
     appTitleHint: '「入力した文字 ＋ TIMECARD」が画面左上に表示されます',
-    aboutSection: '📖 アプリについて',
+    aboutSection: 'アプリについて',
     appConcept: 'MyTimecardは、日々の作業や習慣を記録するための、あなた専用の打刻システムです。', 
-    howToTitle: '🐱 アプリの使い方',
+    howToTitle: 'アプリの使い方',
     howToPages: [
       {name:'Timecard', desc:'今日のタスクを選んで時間を計測するページです。「はじめる」で計測開始、「少し休む／また進める」で一時停止・再開、「おつかれ」で終了します。'},
       {name:'Tasks', desc:'記録したいタスク（学習・運動など）と、曜日・目標時間を登録するページです。'},
@@ -187,7 +187,7 @@ const I18N = {
     emailSentMessage: (email)=>`${email} 宛にログインリンクを送信しました。メールを確認してリンクをタップしてください。`,
     emailInvalidAlert: '正しいメールアドレスを入力してください',
     emailLinkConfirmPrompt: '確認のため、リンクをリクエストしたメールアドレスを入力してください',
-    emailLinkSignInSuccess: '🎉 ログインしました！',
+    emailLinkSignInSuccess: 'ログインしました！',
     syncSignOutBtn: 'ログアウト',
     syncConnecting: '接続中…',
     syncNote: 'ログインすると複数の端末でデータを共有できます',
@@ -209,7 +209,7 @@ const I18N = {
     noGoalSet: 'No goal set',
     hoursSuffix: 'h',
     minutesSuffix: 'm',
-    noActiveTasks: '📍<br>No active tasks.<br>Add one from the "Tasks" tab, or unarchive an existing task.',
+    noActiveTasks: 'No active tasks.<br>Add one from the "Tasks" tab, or unarchive an existing task.',
     noActiveTasksShort: 'No active tasks',
     statusWorking: 'Working', statusPaused: 'Paused', statusNone: 'Not started',
     start: 'Start', pauseBtn: 'Take a break', resumeBtn: 'Resume', endBtn: 'Finish',
@@ -261,9 +261,9 @@ const I18N = {
     templateLabel: 'Template',
     templateOption: (w,b) => ` (Focus ${w}m / Break ${b}m)`,
     focusTimerHint: 'The timer becomes active once you press Start',
-    purchaseThanks: '🎉 Thanks for your purchase!',
+    purchaseThanks: 'Thanks for your purchase!',
     settingsIntro: "Adjust the app's look and features",
-    appearancePixelArt: '🎨 Pixel Art',
+    appearancePixelArt: 'Pixel Art',
     morePixelArtSoon: 'Your effort unlocks more pixel art<br>Cat pixel art reference: kohacu (https://kohacu.com/)',
     pixelArtRowCat: 'Cats',
     pixelArtRowOutfit: 'Outfits',
@@ -275,9 +275,9 @@ const I18N = {
     giftProgressCountdown: d => `${d} more successful day${d===1?'':'s'} until your next present`,
     legendaryCountdown: d => `${d} days left until you reach a full month`,
     rewardUnlockedToast: name => `🎁 You got "${name}"!`,
-    legendaryUnlockedBanner: '✨ The secret has been unlocked!',
+    legendaryUnlockedBanner: '🌟 The secret has been unlocked!',
     legendaryRevealedToast: '🌟 The Legendary Cat has joined you!',
-    secretCatLockedToast: '🔒 Reach a 30-day streak to reveal this',
+    secretCatLockedToast: 'Reach a 30-day streak to reveal this',
     giftReadyBanner: 'You have a present waiting',
     giftReadyCta: 'Go to Settings',
     giftChoicePrompt: 'Choose a category to unlock: Outfits or Food?',
@@ -285,15 +285,15 @@ const I18N = {
     // being chosen right now) -- see the ja string's comment for why this
     // switched from an "other than this one" count.
     giftPendingCount: n => `${n} gift${n===1?'':'s'} left to unlock`,
-    appearanceBarStyle: '📊 Progress Bar Style',
+    appearanceBarStyle: 'Progress Bar Style',
     barStyleNames: {normal:'Walking cat', stretch:'Growing cat'},
-    appearanceTheme: '🌈  Color Theme',
+    appearanceTheme: 'Color Theme',
     autoEnableNote: 'When ON: automatically start the focus timer when a task begins',
     templateDetail: (w,b,every,lb) => `Focus ${w}m / Break ${b}m${every>0?` / long break ${lb}m every ${every}`:''}`,
     addTemplate: '＋ Add template',
-    dataSection: '💾 Data',
+    dataSection: 'Data',
     exportBtn: 'Export', importBtn: 'Import',
-    backupSection: '💾 Backup',
+    backupSection: 'Backup',
     backupSectionDesc: 'Back up by signing in, or by exporting your data.',
     backupMethod1Title: 'Sign in to carry over your data',
     backupMethod2Title: 'Manual backup',
@@ -301,11 +301,11 @@ const I18N = {
     importConfirm: 'This will overwrite your current data with the backup. Continue?',
     importSuccess: 'Backup loaded!',
     importFail: 'Failed to load the file. Please check that it is a valid backup file.',
-    resetSection: '⚠️ Reset Data',
+    resetSection: 'Reset Data',
     resetSectionDesc: 'All data will be deleted. This action cannot be undone.',
     resetAllBtn: 'Restore to Factory Settings',
     resetAllConfirm: 'Are you sure you want to delete all data? This cannot be undone.',
-    addToHomeScreen: '📲 Add to Home Screen',
+    addToHomeScreen: 'Add to Home Screen',
     installNote: 'Once added, you can launch it directly from the icon and use it offline',
     iphoneCase: 'On iPhone (Safari)',
     iphoneStep1: 'Open this page in Safari',
@@ -344,12 +344,12 @@ const I18N = {
     hm: (h,m) => h>0 ? `${h}h ${m}m` : `${m}m`,
     tplStandard: 'Standard', tplDeep: 'Deep focus', tplShort: 'Short',
     parenWrap: name => name ? ` (${name})` : '',
-    appTitleSection: '👤 App Title',
+    appTitleSection: 'App Title',
     appTitlePlaceholder: 'e.g. My, Your Name\'s',
     appTitleHint: 'What you type + "TIMECARD" appears in the top left of the screen',
-    aboutSection: '📖 About This App',
+    aboutSection: 'About This App',
     appConcept: 'MyTimecard is your personal time-tracking system for recording daily tasks and habits.',
-    howToTitle: '🐱 How to Use',
+    howToTitle: 'How to Use',
     howToPages: [
       {name:'Timecard', desc:'Pick a task and time it here. "Start" begins tracking, "Take a break / Resume" pauses and resumes, and "Finish" ends the session.'},
       {name:'Tasks', desc:'Register the tasks you want to track (study, exercise, etc.) along with their days of the week and target time.'},
@@ -371,7 +371,7 @@ const I18N = {
     emailSentMessage: (email)=>`Sent a sign-in link to ${email}. Check your inbox and tap the link.`,
     emailInvalidAlert: 'Please enter a valid email address',
     emailLinkConfirmPrompt: 'Please confirm the email address you used to request this link',
-    emailLinkSignInSuccess: '🎉 Signed in!',
+    emailLinkSignInSuccess: 'Signed in!',
     syncSignOutBtn: 'Sign out',
     syncConnecting: 'Connecting…',
     syncNote: 'Sign in to share your data across devices',
@@ -1629,7 +1629,7 @@ function renderBackupReminder(){
   const msg = (days === null) ? t('backupReminderNever') : (days >= 30 ? t('backupReminderStale').replace('{days}', days) : '');
   if(!msg) return '';
   return `<div id="backupReminderBanner" style="display:flex;align-items:center;gap:8px;justify-content:space-between;background:var(--panel2);border:2px solid var(--lineS);border-radius:10px;padding:8px 12px;margin-bottom:10px;font-size:12px;color:var(--dim);">
-    <span>💾 ${msg}</span>
+    <span>${msg}</span>
     <button class="icobtn" style="width:auto;padding:0 8px;flex-shrink:0;" onclick="dismissBackupReminder()">${t('backupReminderDismiss')}</button>
   </div>`;
 }
@@ -1980,7 +1980,6 @@ function renderNow(){
   if(unfinished.length){
     html += `<div class="banner">
       <div style="display:flex;align-items:flex-start;gap:8px;">
-        <span style="color:var(--rust);flex-shrink:0;">⚠</span>
         <div style="font-size:13px;">
           <div style="color:var(--rust);margin-bottom:6px;">${t('unfinishedBanner')}</div>
           ${unfinished.map(r=>`
@@ -2022,7 +2021,7 @@ function renderNow(){
         </div>` : ''}
       ${legendaryInfo ? `<div style="display:flex;align-items:center;gap:8px;">
           <span style="flex-shrink:0;line-height:0;">${renderPixelArtSilhouette('gold', 0.55, 'sitting', 0.3)}</span>
-          <span>🌈 ${t('legendaryCountdown')(legendaryInfo.daysRemaining)}</span>
+          <span>🌟 ${t('legendaryCountdown')(legendaryInfo.daysRemaining)}</span>
         </div>` : ''}
     </div>`;
   }
@@ -2853,7 +2852,7 @@ function renderSettings(){
     </div>` : ''}
 
     <div style="height:1px;background:var(--line);margin:14px 0;"></div>
-    <a href="./privacy.html" target="_blank" rel="noopener" style="font-size:12px;color:var(--dim);text-decoration:none;display:flex;align-items:center;gap:6px;">📄 ${LANG==='ja'?'プライバシーポリシー':'Privacy Policy'}</a>
+    <a href="./privacy.html" target="_blank" rel="noopener" style="font-size:12px;color:var(--dim);text-decoration:none;display:flex;align-items:center;gap:6px;">${LANG==='ja'?'プライバシーポリシー':'Privacy Policy'}</a>
     <div class="mono" style="font-size:10px;color:var(--faint);margin-top:10px;">Build: ${APP_VERSION}</div>
   </div>`;
 
@@ -3209,7 +3208,7 @@ function selectReportDate(dateStr){
           <div class="bar" style="width:${Math.round(rate)}%; background:${taskColor(r.taskId)}; height:100%; border-radius:3px;"></div>
         </div>
         ` : ''}
-        ${r.memo ? `<div style="font-size:12px;color:var(--dim);white-space:pre-wrap;word-break:break-word;background:var(--panel2);padding:10px;border-radius:8px;">📝 ${escapeHtml(r.memo)}</div>` : ''}
+        ${r.memo ? `<div style="font-size:12px;color:var(--dim);white-space:pre-wrap;word-break:break-word;background:var(--panel2);padding:10px;border-radius:8px;display:flex;align-items:flex-start;gap:6px;"><span style="flex-shrink:0;line-height:0;">${renderIconArt(TASK_ICON_ART.memo, 0.7)}</span><span>${escapeHtml(r.memo)}</span></div>` : ''}
       </div>
     `;
         }).join('');
