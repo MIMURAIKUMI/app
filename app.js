@@ -8,7 +8,12 @@
 // ---------- language detection ----------
 // Bump this string every time index.html is updated — shown in Settings so it's
 // easy to confirm which build is actually live (helps catch stale-deploy/cache issues).
-const APP_VERSION = 'v26-2026-08-24';
+const APP_VERSION = 'v27-2026-09-11';
+
+// 広告審査が通っていないため、暫定的に「広告なし版」表記を「開発者を応援」表記に
+// 差し替えている。購入導線(fbUpgradeToPaid/Stripe決済)自体は変更なし、表示文言のみ切替。
+// 広告審査が通ったら false -> true に戻すだけで元の「広告なし版」表記に戻る。
+const ADS_APPROVED = false;
 
 const LANG = (function(){
   const langs = (navigator.languages && navigator.languages.length) ? navigator.languages : [navigator.language || 'en'];
@@ -196,6 +201,11 @@ const I18N = {
     planPaidLabel: '✓ 広告なし版をご利用中です',
     planUpgradeNote: '¥500の買い切りで広告を非表示にできます',
     planUpgradeBtn: '広告なし版にアップグレード',
+    // 広告審査が通るまでの暫定表記（ADS_APPROVED=falseの間だけ使用）
+    planSupportFreeLabel: '無料版',
+    planSupportPaidLabel: '✓ 応援ありがとうございます！',
+    planSupportNote: '¥500で開発者を応援できます',
+    planSupportBtn: '開発者を応援',
     planUpgradeLoading: '処理中…',
     planUpgradeError: '決済ページを開けませんでした。もう一度お試しください。',
     planUpgradeLoginRequired: '購入には Google ログインが必要です。今ログインしますか？（ホーム画面のアイコンから開いている場合は、Safariなどの通常のブラウザで開いてからログインしてください）',
@@ -380,6 +390,11 @@ const I18N = {
     planPaidLabel: "✓ You're on the ad-free plan",
     planUpgradeNote: 'One-time ¥500 payment removes ads',
     planUpgradeBtn: 'Upgrade to ad-free',
+    // Temporary wording while ad review is pending (used only when ADS_APPROVED=false)
+    planSupportFreeLabel: 'Free plan',
+    planSupportPaidLabel: '✓ Thanks for your support!',
+    planSupportNote: 'Support the developer for ¥500',
+    planSupportBtn: 'Support the developer',
     planUpgradeLoading: 'Loading…',
     planUpgradeError: "Couldn't open checkout. Please try again.",
     planUpgradeLoginRequired: 'You need to sign in with Google to purchase. Sign in now? (If you opened this from the home screen icon, please open it in a regular browser like Safari first, then sign in.)',
@@ -1581,7 +1596,9 @@ function fbUpgradeToPaid(btn){
     })
     .catch((e)=>{
       console.error('checkout session failed', e);
-      if(btn){ btn.disabled = false; btn.textContent = t('planUpgradeBtn'); }
+      // ADS_APPROVEDに合わせて「広告なし版」/「開発者を応援」どちらの表記に
+      // 戻すかを揃える（renderUpgradeBar()のbtnKeyと同じ切替ロジック）。
+      if(btn){ btn.disabled = false; btn.textContent = t(ADS_APPROVED ? 'planUpgradeBtn' : 'planSupportBtn'); }
       if(e && e.code === 'functions/failed-precondition'){
         if(confirm(t('planUpgradeLoginRequired'))){ fbSignInGoogle(); }
         return;
@@ -2630,15 +2647,22 @@ function renderSyncBar(){
 
 function renderUpgradeBar(){
   if(!window.__fb || !window.__fb.ready || !fbUser) return '';
+  // 広告審査が通るまでの暫定措置：ADS_APPROVEDがfalseの間は「広告なし版」表記の
+  // 代わりに「開発者を応援」表記を出す。購入導線(fbUpgradeToPaid)自体は共通のまま。
+  // 広告審査通過後はADS_APPROVED=trueに戻せば元の広告訴求文言に自動で戻る。
+  const freeLabelKey = ADS_APPROVED ? 'planFreeLabel' : 'planSupportFreeLabel';
+  const paidLabelKey = ADS_APPROVED ? 'planPaidLabel' : 'planSupportPaidLabel';
+  const noteKey = ADS_APPROVED ? 'planUpgradeNote' : 'planSupportNote';
+  const btnKey = ADS_APPROVED ? 'planUpgradeBtn' : 'planSupportBtn';
   if(userPlan === 'paid'){
-    return `<div style="font-size:12px;color:var(--teal);">${t('planPaidLabel')}</div>`;
+    return `<div style="font-size:12px;color:var(--teal);">${t(paidLabelKey)}</div>`;
   }
   return `<div style="display:flex;align-items:center;gap:10px;">
     <div style="font-size:12px;color:var(--dim);flex:1;">
-      <div>${t('planFreeLabel')}</div>
-      <div style="font-size:11px;color:var(--faint);margin-top:2px;">${t('planUpgradeNote')}</div>
+      <div>${t(freeLabelKey)}</div>
+      <div style="font-size:11px;color:var(--faint);margin-top:2px;">${t(noteKey)}</div>
     </div>
-    <button class="icobtn" style="width:auto;padding:0 10px;color:var(--brassDim);" onclick="fbUpgradeToPaid(this)">${t('planUpgradeBtn')}</button>
+    <button class="icobtn" style="width:auto;padding:0 10px;color:var(--brassDim);" onclick="fbUpgradeToPaid(this)">${t(btnKey)}</button>
   </div>`;
 }
 
