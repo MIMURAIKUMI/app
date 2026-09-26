@@ -8,7 +8,7 @@
 // ---------- language detection ----------
 // Bump this string every time index.html is updated — shown in Settings so it's
 // easy to confirm which build is actually live (helps catch stale-deploy/cache issues).
-const APP_VERSION = 'v27-2026-09-11';
+const APP_VERSION = 'v28-2026-09-26';
 
 // 広告審査が通っていないため、暫定的に「広告なし版」表記を「開発者を応援」表記に
 // 差し替えている。購入導線(fbUpgradeToPaid/Stripe決済)自体は変更なし、表示文言のみ切替。
@@ -2657,10 +2657,17 @@ function renderUpgradeBar(){
   if(userPlan === 'paid'){
     return `<div style="font-size:12px;color:var(--teal);">${t(paidLabelKey)}</div>`;
   }
+  // 応援表記の間（ADS_APPROVED=false）は、すべての機能が無料で「無料版」と書くと
+  // 有料版に別の機能があるように読めてしまうため、プラン名の行は出さずに
+  // 「¥500で開発者を応援できます」とボタンだけを並べる。
+  // 広告審査通過後（ADS_APPROVED=true）は従来どおり「無料版（広告あり）」＋補足の2行に戻る。
+  const planInfoHtml = ADS_APPROVED
+    ? `<div>${t(freeLabelKey)}</div>
+      <div style="font-size:11px;color:var(--faint);margin-top:2px;">${t(noteKey)}</div>`
+    : `<div>${t(noteKey)}</div>`;
   return `<div style="display:flex;align-items:center;gap:10px;">
     <div style="font-size:12px;color:var(--dim);flex:1;">
-      <div>${t(freeLabelKey)}</div>
-      <div style="font-size:11px;color:var(--faint);margin-top:2px;">${t(noteKey)}</div>
+      ${planInfoHtml}
     </div>
     <button class="icobtn" style="width:auto;padding:0 10px;color:var(--brassDim);" onclick="fbUpgradeToPaid(this)">${t(btnKey)}</button>
   </div>`;
