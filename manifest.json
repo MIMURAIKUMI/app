@@ -1,6 +1,6 @@
 {
-  "name": "MyTimecard",
-  "short_name": "MyTimecard",
+  "name": "My TIMECARD",
+  "short_name": "My TIMECARD",
   "description": "学習・運動・タスクなど、毎日の習慣を記録するアプリ",
   "start_url": "./index.html",
   "scope": "./",

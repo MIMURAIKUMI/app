@@ -8,7 +8,7 @@
 // ---------- language detection ----------
 // Bump this string every time index.html is updated — shown in Settings so it's
 // easy to confirm which build is actually live (helps catch stale-deploy/cache issues).
-const APP_VERSION = 'v28-2026-09-26';
+const APP_VERSION = 'v29-2026-09-27';
 
 // 広告審査が通っていないため、暫定的に「広告なし版」表記を「開発者を応援」表記に
 // 差し替えている。購入導線(fbUpgradeToPaid/Stripe決済)自体は変更なし、表示文言のみ切替。
@@ -169,7 +169,7 @@ const I18N = {
     appTitlePlaceholder: '例：My、ワタシの、〇〇\'s',
     appTitleHint: '「入力した文字 ＋ TIMECARD」が画面左上に表示されます',
     aboutSection: 'アプリについて',
-    appConcept: 'MyTimecardは、日々の作業や習慣を記録するための、あなた専用の打刻システムです。', 
+    appConcept: 'My TIMECARDは、日々の作業や習慣を記録するための、あなた専用の打刻システムです。', 
     howToTitle: 'アプリの使い方',
     howToPages: [
       {name:'Timecard', desc:'今日のタスクを選んで時間を計測するページです。「はじめる」で計測開始、「少し休む／また進める」で一時停止・再開、「おつかれ」で終了します。'},
@@ -358,7 +358,7 @@ const I18N = {
     appTitlePlaceholder: 'e.g. My, Your Name\'s',
     appTitleHint: 'What you type + "TIMECARD" appears in the top left of the screen',
     aboutSection: 'About This App',
-    appConcept: 'MyTimecard is your personal time-tracking system for recording daily tasks and habits.',
+    appConcept: 'My TIMECARD is your personal time-tracking system for recording daily tasks and habits.',
     howToTitle: 'How to Use',
     howToPages: [
       {name:'Timecard', desc:'Pick a task and time it here. "Start" begins tracking, "Take a break / Resume" pauses and resumes, and "Finish" ends the session.'},
