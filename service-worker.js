@@ -1,6 +1,6 @@
 // Timecard - offline cache
 // Bump CACHE_NAME whenever index.html changes so users get the new version.
-const CACHE_NAME = 'habitcard-v22';
+const CACHE_NAME = 'habitcard-v25';
 const CORE_ASSETS = ['./', './index.html', './manifest.json', './pixel-arts.js', './app.js'];
 
 // Requests matching this list prefer the network (to get the latest version
@@ -51,6 +51,10 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
   const url = new URL(event.request.url);
+
+  // Google Analytics (gtag.js and its collect requests) always goes straight
+  // to the network -- never cached, so tracking isn't affected by this worker.
+  if (/(^|\.)(googletagmanager\.com|google-analytics\.com|analytics\.google\.com)$/.test(url.hostname)) return;
 
   // App shell / app code: network-first, but with a short timeout fallback
   // to cache so a slow connection doesn't block startup (see comment above).
