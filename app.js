@@ -8,7 +8,7 @@
 // ---------- language detection ----------
 // Bump this string every time index.html is updated — shown in Settings so it's
 // easy to confirm which build is actually live (helps catch stale-deploy/cache issues).
-const APP_VERSION = 'v32-2026-10-04';
+const APP_VERSION = 'v33-2026-10-04';
 
 // 広告審査が通っていないため、暫定的に「広告なし版」表記を「開発者を応援」表記に
 // 差し替えている。購入導線(fbUpgradeToPaid/Stripe決済)自体は変更なし、表示文言のみ切替。
@@ -74,6 +74,7 @@ const I18N = {
     carryoverSurplus: (total, left) => `目標超過 ${total}（振り分け可能 ${left}）`,
     carryoverReceived: m => `振替で目標 -${m}`,
     carryoverAchieved: '✓ 達成',
+    carryoverFromLabel: f => `${f}から振替`,
     carryoverDateLabel: '振り分け先の日',
     carryoverMinLabel: '振り分ける時間（分）',
     carryoverNoTarget: '振り分けできる日がありません（このタスクの曜日で、目標が残っている日が対象です）',
@@ -279,6 +280,7 @@ const I18N = {
     carryoverSurplus: (total, left) => `Over goal by ${total} (${left} available)`,
     carryoverReceived: m => `Goal reduced by ${m} (carried over)`,
     carryoverAchieved: '✓ Achieved',
+    carryoverFromLabel: f => `moved from ${f}`,
     carryoverDateLabel: 'Move to',
     carryoverMinLabel: 'Minutes to move',
     carryoverNoTarget: 'No days to move to (only this task\'s scheduled days with goal time left)',
@@ -2678,18 +2680,12 @@ function renderCarryoverSection(dateStr){
   const lines = [];
   tasks.filter(tk=>!tk.archived && Number(tk.targetHours) > 0).forEach(tk=>{
     const info = taskSurplusInfo(tk, dateStr);
-    const carryIn = taskScheduledOn(tk, dateStr) ? taskCarryInMin(tk, dateStr) : 0;
-    if(!info.surplus && !info.out && !carryIn) return;
+    if(!info.surplus && !info.out) return;
     const dot = `<span class="dot-sm" style="background:${taskColor(tk.id)};flex-shrink:0;"></span>`;
     if(info.surplus || info.out){
       lines.push(`<div style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--dim);margin-top:6px;">
         ${dot}<span style="flex:1;min-width:0;">${escapeHtml(tk.name)}：${t('carryoverSurplus')(hmLabel(info.surplus*60000), hmLabel(info.available*60000))}</span>
         <button onclick="openCarryover('${tk.id}','${dateStr}')" style="flex-shrink:0;font-size:12px;color:var(--brass);background:none;border:1px solid var(--brassDim);border-radius:6px;padding:3px 8px;cursor:pointer;font-family:inherit;">${t('carryoverBtn')}</button>
-      </div>`);
-    }
-    if(carryIn){
-      lines.push(`<div style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--faint);margin-top:6px;">
-        ${dot}<span>${escapeHtml(tk.name)}：${t('carryoverReceived')(hmLabel(carryIn*60000))}${taskDayActualMin(tk, dateStr) >= taskDayGoalMin(tk, dateStr) ? `<span style="color:var(--teal);font-weight:700;">　${t('carryoverAchieved')}</span>` : ''}</span>
       </div>`);
     }
   });
@@ -3307,7 +3303,7 @@ function renderCalendar(rows, month, selectedDate){
   rows.forEach(r=>{
     if(!byDate[r.date]) byDate[r.date] = {ms:0, taskIds:new Set()};
     const d = byDate[r.date];
-    d.ms += r.ms; d.taskIds.add(r.taskId);
+    d.ms += r.ms; if(!r.noDot) d.taskIds.add(r.taskId);
   });
   const [y,m] = month.split('-').map(Number);
   const daysInMonth = new Date(y, m, 0).getDate();
@@ -3373,6 +3369,13 @@ function selectReportDate(dateStr){
         Object.entries(records).forEach(([date, arr]) => arr.forEach(s => allSessions.push(s)));
         const monthSessions = allSessions.filter(s => s.date.startsWith(reportMonth)).sort((a, b) => a.date.localeCompare(b.date) || (a.currentStart || a.segments[0]?.start || '').localeCompare(b.currentStart || b.segments[0]?.start || ''));
         const rows = monthSessions.map(r => ({ ...r, ms: computeWorkMs(r) }));
+        // 振り分け（振替）した時間を、カレンダー上では「振り分け先の日の時間」として扱う。
+        // 振り分け先：時間を加算＋タスク色のポッチ、振り分け元：その分の時間を差し引く。
+        // （月の合計時間は同じ月の中での振り分けなら変わらない）
+        tasks.forEach(tk => taskCarryovers(tk).forEach(c => {
+            if (c.to.startsWith(reportMonth)) rows.push({ date: c.to, taskId: tk.id, ms: c.min * 60000, carry: true });
+            if (c.from.startsWith(reportMonth)) rows.push({ date: c.from, taskId: tk.id, ms: -c.min * 60000, carry: true, noDot: true });
+        }));
         const totalMs = rows.reduce((s, r) => s + r.ms, 0);
 
         // ターゲット日付を決定（選択日、なければ今日、過去月なら1日）
@@ -3434,8 +3437,40 @@ function selectReportDate(dateStr){
         html += renderCalendar(rows, reportMonth, selectedReportDate);
 
         // 指定した日（選択日 or 今日）の記録リストをカレンダー下に表示
+        // この日に振り分けられてきた時間（タスクごと）
+        const carryInRows = [];
+        let dayCarryOutMs = 0;
+        tasks.forEach(tk => {
+            const inMin = taskCarryInMin(tk, targetDate);
+            if (inMin > 0) carryInRows.push({ task: tk, ms: inMin * 60000, froms: [...new Set(taskCarryovers(tk).filter(c => c.to === targetDate).map(c => c.from))].sort() });
+            dayCarryOutMs += taskCarryOutMin(tk, targetDate) * 60000;
+        });
+        const dayCarryInMs = carryInRows.reduce((a, r) => a + r.ms, 0);
+        const dayShownMs = Math.max(0, dayActualMs + dayCarryInMs - dayCarryOutMs);
         const dayRows = targetDaySessions.map(r => ({ ...r, ms: computeWorkMs(r) }))
             .sort((a, b) => (a.currentStart || a.segments[0]?.start || '').localeCompare(b.currentStart || b.segments[0]?.start || ''));
+        const carryInHtml = carryInRows.map((r, i) => {
+            const baseGoalMin = Number(r.task.targetHours || 0) * 60;
+            const rate = baseGoalMin > 0 ? Math.min(100, (r.ms / 60000) / baseGoalMin * 100) : null;
+            const isLast = i === carryInRows.length - 1;
+            const fromLabel = r.froms.map(f => f.slice(5).replace('-', '/')).join('・');
+            return `
+      <div style="padding:12px 0; border-top:${(i === 0 && dayRows.length) ? '1px solid var(--line)' : 'none'}; border-bottom:${isLast ? 'none' : '1px solid var(--line)'};">
+        <div style="display:flex;align-items:center;gap:8px;font-size:13px;margin-bottom:${rate !== null ? '8px' : '0'};">
+          <div style="flex:1;display:flex;align-items:center;gap:6px;min-width:0;">
+            <span class="dot-sm" style="background:${taskColor(r.task.id)};flex-shrink:0;"></span>
+            <span style="font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(r.task.name)}</span>
+            <span style="font-size:11px;color:var(--faint);flex-shrink:0;">${t('carryoverFromLabel')(fromLabel)}</span>
+          </div>
+          <div class="mono" style="color:var(--dim);">${hmLabel(r.ms)}</div>
+          <div class="mono" style="width:40px;text-align:right;color:${rate === null ? 'var(--faint)' : (rate >= 100 ? 'var(--teal)' : 'var(--text)')};font-weight:700;">${rate === null ? '—' : Math.round(rate) + '%'}</div>
+        </div>
+        ${rate !== null ? `
+        <div class="barwrap" style="height:6px; background:var(--line);">
+          <div class="bar" style="width:${Math.round(rate)}%; background:${taskColor(r.task.id)}; height:100%; border-radius:3px; opacity:0.6;"></div>
+        </div>` : ''}
+      </div>`;
+        }).join('');
         const wd = WEEKDAYS[targetDayOfWeek];
         const rowsHtml = dayRows.map((r, i) => {
             const task = tasks.find(tk => tk.id === r.taskId);
@@ -3472,9 +3507,10 @@ function selectReportDate(dateStr){
         html += `<div class="panel" style="padding:14px;margin-bottom:10px;">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:${dayRows.length ? '8px' : '0'};">
       <span class="mono" style="font-weight:700;font-size:13px;">${targetDate.slice(5).replace('-', '/')} (${wd})</span>
-      <span class="mono" style="font-size:11px;color:var(--dim);">${t('entriesCount')(dayRows.length)} ・ ${hmLabel(dayActualMs)}</span>
+      <span class="mono" style="font-size:11px;color:var(--dim);">${t('entriesCount')(dayRows.length + carryInRows.length)} ・ ${hmLabel(dayShownMs)}</span>
     </div>
-    ${dayRows.length ? rowsHtml : `<div style="font-size:12px;color:var(--faint);padding:6px 0;">${t('noRecordsThisDay')}</div>`}
+    ${dayRows.length ? rowsHtml : (carryInRows.length ? '' : `<div style="font-size:12px;color:var(--faint);padding:6px 0;">${t('noRecordsThisDay')}</div>`)}
+    ${carryInHtml}
     ${renderCarryoverSection(targetDate)}
   </div>`;
 
