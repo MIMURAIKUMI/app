@@ -8,7 +8,7 @@
 // ---------- language detection ----------
 // Bump this string every time index.html is updated — shown in Settings so it's
 // easy to confirm which build is actually live (helps catch stale-deploy/cache issues).
-const APP_VERSION = 'v34-2026-10-04';
+const APP_VERSION = 'v35-2026-10-04';
 
 // 広告審査が通っていないため、暫定的に「広告なし版」表記を「開発者を応援」表記に
 // 差し替えている。購入導線(fbUpgradeToPaid/Stripe決済)自体は変更なし、表示文言のみ切替。
@@ -70,6 +70,9 @@ const I18N = {
     duplicateNote: '同じタスク・時間帯でその日にコピーします',
     duplicateAction: '複製する',
     carryoverBtn: '超過分を他の日へ振り分け',
+    carryoverBtnShort: '振り分ける',
+    carryoverOverLabel: '超過時間',
+    carryoverAllMoved: '振り分け済み',
     carryoverTitle: '超過分を他の日へ振り分け',
     carryoverSurplus: (total, left) => `目標超過 ${total}（振り分け可能 ${left}）`,
     carryoverReceived: m => `振替で目標 -${m}`,
@@ -194,7 +197,7 @@ const I18N = {
     howToPages: [
       {name:'Timecard', desc:'今日のタスクを選んで時間を計測するページです。「はじめる」で計測開始、「少し休む／また進める」で一時停止・再開、「おつかれ」で終了します。'},
       {name:'Tasks', desc:'記録したいタスク（学習・運動など）と、曜日・目標時間を登録するページです。'},
-      {name:'Summary', desc:'月ごとの合計時間・達成率をグラフやカレンダーで確認できるページです。'},
+      {name:'Summary', desc:'月ごとの合計時間・達成率をグラフやカレンダーで確認できるページです。目標より多くできた日は、超過分を他の日へ振り替えられます。'},
       {name:'Settings', desc:'アプリの見た目や機能を調整するページです（このページです）。'}
     ],
     howToIconsTitle: 'アイコンの意味',
@@ -280,6 +283,9 @@ const I18N = {
     duplicateNote: 'Copies the same task and time range to that day',
     duplicateAction: 'Duplicate',
     carryoverBtn: 'Move extra time to other days',
+    carryoverBtnShort: 'Move',
+    carryoverOverLabel: 'Extra',
+    carryoverAllMoved: 'All moved',
     carryoverTitle: 'Move extra time to other days',
     carryoverSurplus: (total, left) => `Over goal by ${total} (${left} available)`,
     carryoverReceived: m => `Goal reduced by ${m} (carried over)`,
@@ -403,7 +409,7 @@ const I18N = {
     howToPages: [
       {name:'Timecard', desc:'Pick a task and time it here. "Start" begins tracking, "Take a break / Resume" pauses and resumes, and "Finish" ends the session.'},
       {name:'Tasks', desc:'Register the tasks you want to track (study, exercise, etc.) along with their days of the week and target time.'},
-      {name:'Summary', desc:'See your total time and achievement rate by month, with charts and a calendar view.'},
+      {name:'Summary', desc:'See your total time and achievement rate by month, with charts and a calendar view. Extra time beyond your goal can be moved to other days.'},
       {name:'Settings', desc:"Adjust the app's appearance and features (this page)."}
     ],
     howToIconsTitle: 'Icon meanings',
@@ -2692,9 +2698,15 @@ function renderCarryoverSection(dateStr){
     if(!info.surplus && !info.out) return;
     const dot = `<span class="dot-sm" style="background:${taskColor(tk.id)};flex-shrink:0;"></span>`;
     if(info.surplus || info.out){
-      lines.push(`<div style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--dim);margin-top:6px;">
-        ${dot}<span style="flex:1;min-width:0;">${escapeHtml(tk.name)}：${t('carryoverSurplus')(hmLabel(info.surplus*60000), hmLabel(info.available*60000))}</span>
-        <button onclick="openCarryover('${tk.id}','${dateStr}')" style="flex-shrink:0;font-size:12px;color:var(--brass);background:none;border:1px solid var(--brassDim);border-radius:6px;padding:3px 8px;cursor:pointer;font-family:inherit;">${t('carryoverBtn')}</button>
+      const status = info.available > 0
+        ? `${t('carryoverOverLabel')} <span class="mono">${shortHM(info.available)}</span>`
+        : t('carryoverAllMoved');
+      lines.push(`<div style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--dim);margin-top:8px;">
+        <div style="flex:1;min-width:0;">
+          <div style="display:flex;align-items:center;gap:6px;min-width:0;">${dot}<span style="font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(tk.name)}</span></div>
+          <div style="margin:2px 0 0 14px;">${status}</div>
+        </div>
+        <button onclick="openCarryover('${tk.id}','${dateStr}')" style="flex-shrink:0;font-size:12px;color:var(--brass);background:none;border:1px solid var(--brassDim);border-radius:6px;padding:4px 10px;cursor:pointer;font-family:inherit;">${t('carryoverBtnShort')}</button>
       </div>`);
     }
   });
@@ -2713,6 +2725,11 @@ function isCarryoverAchieved(dateStr){
 // 初期選択は振り分け元より後の最初の候補日（なければ一番近い過去の日）
 function defaultCarryoverTarget(cands, fromDate){
   return cands.find(c=>c.date > fromDate && c.remain > 0) || cands.find(c=>c.date > fromDate) || cands[cands.length-1] || null;
+}
+// 「2h6m」形式（分→短い表記）
+function shortHM(min){
+  const h = Math.floor(min/60), m = Math.round(min%60);
+  return h ? `${h}h${m}m` : `${m}m`;
 }
 function fmtCarryDate(dateStr){
   const wd = new Date(dateStr + 'T00:00:00').getDay();
