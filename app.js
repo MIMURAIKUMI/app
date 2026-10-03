@@ -8,7 +8,7 @@
 // ---------- language detection ----------
 // Bump this string every time index.html is updated — shown in Settings so it's
 // easy to confirm which build is actually live (helps catch stale-deploy/cache issues).
-const APP_VERSION = 'v30-2026-09-27';
+const APP_VERSION = 'v31-2026-10-03';
 
 // 広告審査が通っていないため、暫定的に「広告なし版」表記を「開発者を応援」表記に
 // 差し替えている。購入導線(fbUpgradeToPaid/Stripe決済)自体は変更なし、表示文言のみ切替。
@@ -69,6 +69,20 @@ const I18N = {
     duplicateTargetLabel: '複製先の日付',
     duplicateNote: '同じタスク・時間帯でその日にコピーします',
     duplicateAction: '複製する',
+    carryoverBtn: '超過分を他の日へ振り分け',
+    carryoverTitle: '超過分を他の日へ振り分け',
+    carryoverSurplus: (total, left) => `目標超過 ${total}（振り分け可能 ${left}）`,
+    carryoverReceived: m => `振替で目標 -${m}`,
+    carryoverDateLabel: '振り分け先の日',
+    carryoverMinLabel: '振り分ける時間（分）',
+    carryoverNoTarget: '振り分けできる日がありません（このタスクの曜日で、目標が残っている日が対象です）',
+    carryoverRemain: r => `残り目標 ${r}`,
+    carryoverAdd: '振り分ける',
+    carryoverListTitle: 'この日から振り分け済み',
+    carryoverCancel: '取消',
+    carryoverNote: '振り分けた分だけ、選んだ日の目標が減ります',
+    carryoverInvalid: '振り分ける時間を正しく入力してください',
+    close: '閉じる',
     selectDateAlert: '日付を選択してください',
     addPomodoroTemplateTitle: '集中タイマーテンプレートを追加',
     pomodoroNamePlaceholder: '例：夜集中モード',
@@ -259,6 +273,20 @@ const I18N = {
     duplicateTargetLabel: 'Target date',
     duplicateNote: 'Copies the same task and time range to that day',
     duplicateAction: 'Duplicate',
+    carryoverBtn: 'Move extra time to other days',
+    carryoverTitle: 'Move extra time to other days',
+    carryoverSurplus: (total, left) => `Over goal by ${total} (${left} available)`,
+    carryoverReceived: m => `Goal reduced by ${m} (carried over)`,
+    carryoverDateLabel: 'Move to',
+    carryoverMinLabel: 'Minutes to move',
+    carryoverNoTarget: 'No days to move to (only this task\'s scheduled days with goal time left)',
+    carryoverRemain: r => `${r} left`,
+    carryoverAdd: 'Move',
+    carryoverListTitle: 'Already moved from this day',
+    carryoverCancel: 'Undo',
+    carryoverNote: 'The goal on the chosen day is reduced by the amount you move',
+    carryoverInvalid: 'Please enter a valid number of minutes',
+    close: 'Close',
     selectDateAlert: 'Please select a date',
     addPomodoroTemplateTitle: 'Add focus timer template',
     pomodoroNamePlaceholder: 'e.g. Night focus mode',
@@ -959,6 +987,7 @@ let showDuplicate = false;
 let duplicateSource = null; // {taskId, taskName, segmentsTimes}
 let duplicateTargetDate = null;
 let showPomodoroForm = false;
+let carryoverDraft = null; // {taskId, from, to, min} 超過分振り分けモーダル
 let pomodoroDraft = null; // {name, work, break}
 let pomodoroState = null; // transient, not persisted: {sessionId, templateId, phase, remainingMs, running, cycleCount}
 
@@ -995,7 +1024,7 @@ function isFormControlFocused(){
   return tag==='SELECT' || tag==='INPUT' || tag==='TEXTAREA';
 }
 function isEditingModalOpen(){
-  if(editingRecordDate || showAddRecord || showTaskForm || editingMemoDate || showDuplicate || showPomodoroForm) return true;
+  if(editingRecordDate || showAddRecord || showTaskForm || editingMemoDate || showDuplicate || showPomodoroForm || carryoverDraft) return true;
   return isFormControlFocused();
 }
 
@@ -1046,13 +1075,63 @@ function dateDayTotals(dateStr){
   const wd = new Date(dateStr + 'T00:00:00').getDay();
   const sessions = records[dateStr] || [];
   let goalMin = 0, actualMin = 0;
+  let hasGoal = false;
   activeGoalTasks().forEach(tk=>{
-    const days = tk.days && tk.days.length ? tk.days : null; // null = every day
-    if(days && !days.includes(wd)) return;
-    goalMin += Number(tk.targetHours) * 60;
+    if(!taskScheduledOn(tk, dateStr)) return;
+    hasGoal = true; // 振替で目標が0分になった日も「目標のある日」として扱う（達成扱いになる）
+    goalMin += taskDayGoalMin(tk, dateStr);
     actualMin += sessions.filter(s=>s.taskId===tk.id).reduce((sum,s)=>sum + computeWorkMs(s), 0) / 60000;
   });
-  return { goalMin, actualMin, hasGoal: goalMin > 0 };
+  return { goalMin, actualMin, hasGoal };
+}
+
+// ---------- 超過分の振り分け（carryover） ----------
+// 目標より多く達成した日の超過分を、同じタスクの他の日へ手動で振り分ける。
+// tk.carryovers = [{id, from:'YYYY-MM-DD', to:'YYYY-MM-DD', min}]
+// tasks の中に持たせているので、保存・クラウド同期・書き出しはタスクと一緒に行われる。
+// 振り分け先の日は min の分だけ目標が減る（0分未満にはならない）。
+function taskCarryovers(tk){ return (tk && Array.isArray(tk.carryovers)) ? tk.carryovers : []; }
+function taskScheduledOn(tk, dateStr){
+  if(!tk || !(Number(tk.targetHours) > 0)) return false;
+  const days = tk.days && tk.days.length ? tk.days : null; // null = every day
+  if(!days) return true;
+  return days.includes(new Date(dateStr + 'T00:00:00').getDay());
+}
+function taskCarryInMin(tk, dateStr){
+  return taskCarryovers(tk).filter(c=>c.to===dateStr).reduce((a,c)=>a + Number(c.min||0), 0);
+}
+function taskCarryOutMin(tk, dateStr){
+  return taskCarryovers(tk).filter(c=>c.from===dateStr).reduce((a,c)=>a + Number(c.min||0), 0);
+}
+// その日の（振替反映後の）目標分数。予定外の曜日は0。
+function taskDayGoalMin(tk, dateStr){
+  if(!taskScheduledOn(tk, dateStr)) return 0;
+  return Math.max(0, Number(tk.targetHours) * 60 - taskCarryInMin(tk, dateStr));
+}
+function taskDayActualMin(tk, dateStr){
+  const sessions = records[dateStr] || [];
+  return sessions.filter(s=>s.taskId===tk.id).reduce((sum,s)=>sum + computeWorkMs(s), 0) / 60000;
+}
+// 目標を超えた分（分）と、まだ振り分けていない分（分）
+function taskSurplusInfo(tk, dateStr){
+  if(!tk || !(Number(tk.targetHours) > 0)) return { surplus:0, available:0, out:0 };
+  const surplus = Math.max(0, Math.floor(taskDayActualMin(tk, dateStr) - taskDayGoalMin(tk, dateStr)));
+  const out = taskCarryOutMin(tk, dateStr);
+  return { surplus, out, available: Math.max(0, surplus - out) };
+}
+// 振り分け先の候補：同じタスクの予定曜日で、まだ目標が残っている日。
+// 振り分け元の2週間前〜今日から4週間先まで（振り分け元の日自体は除く）。
+function carryoverCandidateDates(tk, fromDate){
+  const todayStr = fmtDate(new Date());
+  const startStr = addDaysStr(fromDate, -14);
+  const endStr = addDaysStr(todayStr > fromDate ? todayStr : fromDate, 28);
+  const out = [];
+  for(let d = startStr; d <= endStr; d = addDaysStr(d, 1)){
+    if(d === fromDate || !taskScheduledOn(tk, d)) continue;
+    const remain = Math.ceil(taskDayGoalMin(tk, d) - taskDayActualMin(tk, d));
+    if(remain > 0) out.push({ date:d, remain });
+  }
+  return out;
 }
 // True the instant today's combined goal is actually met, whether or not
 // evaluateRewards() has officially committed it to rewards.achievedDates yet
@@ -2068,8 +2147,23 @@ function renderNow(){
   if(showDuplicate) renderDuplicateModal();
   if(showPomodoroForm) renderPomodoroFormModal();
   if(editingMemoDate) renderMemoModal();
+  if(carryoverDraft) renderCarryoverModal();
 }
 
+// 打刻画面用：その日の目標（振替で減っていればその分を反映）。
+// covered=true は「振替で目標が0分になった」状態で、達成済み(100%)として扱う。
+function taskGoalInfoForDate(task, dateStr){
+  const base = taskGoalHours(task);
+  const carryIn = base ? taskCarryInMin(task, dateStr) : 0;
+  if(!carryIn) return { hours: base, covered: false };
+  const hours = Math.max(0, base - carryIn/60);
+  return { hours, covered: hours <= 0 };
+}
+function goalPercent(ms, g){
+  if(g.covered) return 100;
+  return g.hours>0 ? Math.min(100, (ms/3600000/g.hours)*100) : 0;
+}
+function goalInfoLabel(g){ return g.covered ? t('hm')(0,0) : taskGoalHoursLabel(g.hours); }
 function taskGoalHoursLabel(hours){
   if(!hours) return t('noGoalSet');
   const totalMin = Math.round(hours*60);
@@ -2096,8 +2190,8 @@ function renderPunch(today, todayStr, weekday, suggested){
   }
   const currentTaskId = locked ? activeSession.taskId : selectedTaskId;
   const currentTask = tasks.find(t=>t.id===currentTaskId);
-  const goalHours = taskGoalHours(currentTask);
-  const percent = goalHours>0 ? Math.min(100, (ms/3600000/goalHours)*100) : 0;
+  const goalInfo = taskGoalInfoForDate(currentTask, todayStr);
+  const percent = goalPercent(ms, goalInfo);
 
   const statusMap = {working:['var(--brass)',t('statusWorking')], paused:['var(--blue)',t('statusPaused')], none:['var(--faint)',t('statusNone')]};
   const [sColor,sLabel] = statusMap[status];
@@ -2176,7 +2270,7 @@ function renderPunch(today, todayStr, weekday, suggested){
     <div id="clockDisplay" class="clock" style="color:${status==='none'?'var(--faint)':sColor};">${msToHMS(ms)}</div>
     <div class="projlist">${chipsHtml}</div>
     <div class="progresswrap${barStyleIsStretch?' stretch':''}" style="position:relative;">${barHTML}</div>
-    <div class="goalline">${hmLabel(ms)} / ${taskGoalHoursLabel(goalHours)}${t('parenWrap')(escapeHtml(currentTask?currentTask.name:''))}</div>
+    <div class="goalline">${hmLabel(ms)} / ${goalInfoLabel(goalInfo)}${t('parenWrap')(escapeHtml(currentTask?currentTask.name:''))}</div>
     ${buttonsHtml}
   </div>`;
 
@@ -2573,6 +2667,125 @@ function confirmDuplicate(){
   showDuplicate = false; duplicateSource = null; duplicateTargetDate = null;
   render();
 }
+// ---------- 超過分の振り分け（Summaryの日別パネル内） ----------
+function renderCarryoverSection(dateStr){
+  const lines = [];
+  tasks.filter(tk=>!tk.archived && Number(tk.targetHours) > 0).forEach(tk=>{
+    const info = taskSurplusInfo(tk, dateStr);
+    const carryIn = taskScheduledOn(tk, dateStr) ? taskCarryInMin(tk, dateStr) : 0;
+    if(!info.surplus && !info.out && !carryIn) return;
+    const dot = `<span class="dot-sm" style="background:${taskColor(tk.id)};flex-shrink:0;"></span>`;
+    if(info.surplus || info.out){
+      lines.push(`<div style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--dim);margin-top:6px;">
+        ${dot}<span style="flex:1;min-width:0;">${escapeHtml(tk.name)}：${t('carryoverSurplus')(hmLabel(info.surplus*60000), hmLabel(info.available*60000))}</span>
+        <button onclick="openCarryover('${tk.id}','${dateStr}')" style="flex-shrink:0;font-size:12px;color:var(--brass);background:none;border:1px solid var(--brassDim);border-radius:6px;padding:3px 8px;cursor:pointer;font-family:inherit;">${t('carryoverBtn')}</button>
+      </div>`);
+    }
+    if(carryIn){
+      lines.push(`<div style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--faint);margin-top:6px;">
+        ${dot}<span>${escapeHtml(tk.name)}：${t('carryoverReceived')(hmLabel(carryIn*60000))}</span>
+      </div>`);
+    }
+  });
+  if(!lines.length) return '';
+  return `<div style="border-top:1px solid var(--line);margin-top:8px;padding-top:4px;">${lines.join('')}</div>`;
+}
+// 初期選択は振り分け元より後の最初の候補日（なければ一番近い過去の日）
+function defaultCarryoverTarget(cands, fromDate){
+  return cands.find(c=>c.date > fromDate) || cands[cands.length-1] || null;
+}
+function fmtCarryDate(dateStr){
+  const wd = new Date(dateStr + 'T00:00:00').getDay();
+  return `${dateStr.slice(5).replace('-', '/')} (${WEEKDAYS[wd]})`;
+}
+function openCarryover(taskId, fromDate){
+  const tk = tasks.find(x=>x.id===taskId);
+  if(!tk) return;
+  const cands = carryoverCandidateDates(tk, fromDate);
+  const avail = taskSurplusInfo(tk, fromDate).available;
+  const first = defaultCarryoverTarget(cands, fromDate);
+  carryoverDraft = { taskId, from: fromDate, to: first ? first.date : '', min: first ? Math.min(avail, first.remain) : 0 };
+  render();
+}
+function closeCarryover(){ carryoverDraft = null; render(); }
+function updateCarryoverTo(value){
+  carryoverDraft.to = value;
+  const tk = tasks.find(x=>x.id===carryoverDraft.taskId);
+  const cand = carryoverCandidateDates(tk, carryoverDraft.from).find(c=>c.date===value);
+  const avail = taskSurplusInfo(tk, carryoverDraft.from).available;
+  carryoverDraft.min = cand ? Math.min(avail, cand.remain) : 0;
+  const inp = document.getElementById('carryoverMinInput');
+  if(inp) inp.value = carryoverDraft.min; // render()しない（selectを閉じないため）
+}
+function updateCarryoverMin(value){ carryoverDraft.min = Math.floor(Number(value)||0); }
+function persistCarryovers(){
+  persistTasks();
+  evaluateRewards(); // 目標が変わるので⭐/プレゼントを再計算
+}
+function confirmCarryover(){
+  const d = carryoverDraft;
+  const tk = tasks.find(x=>x.id===d.taskId);
+  if(!tk || !d.to) return;
+  const avail = taskSurplusInfo(tk, d.from).available;
+  const cand = carryoverCandidateDates(tk, d.from).find(c=>c.date===d.to);
+  const maxMin = Math.min(avail, cand ? cand.remain : 0);
+  if(!(d.min > 0) || d.min > maxMin){ alert(t('carryoverInvalid')); return; }
+  const entry = { id: uid(), from: d.from, to: d.to, min: d.min };
+  tasks = tasks.map(x=> x.id===tk.id ? {...x, carryovers: [...taskCarryovers(x), entry]} : x);
+  persistCarryovers();
+  // 続けて別の日にも振り分けられるよう、モーダルは開いたまま次の候補をセット
+  const tk2 = tasks.find(x=>x.id===d.taskId);
+  const next = defaultCarryoverTarget(carryoverCandidateDates(tk2, d.from), d.from);
+  const avail2 = taskSurplusInfo(tk2, d.from).available;
+  carryoverDraft = (avail2 > 0) ? { taskId: d.taskId, from: d.from, to: next ? next.date : '', min: next ? Math.min(avail2, next.remain) : 0 } : { taskId: d.taskId, from: d.from, to: '', min: 0 };
+  render();
+}
+function cancelCarryover(taskId, entryId){
+  tasks = tasks.map(x=> x.id===taskId ? {...x, carryovers: taskCarryovers(x).filter(c=>c.id!==entryId)} : x);
+  persistCarryovers();
+  render();
+}
+function renderCarryoverModal(){
+  const d = carryoverDraft;
+  const tk = tasks.find(x=>x.id===d.taskId);
+  if(!tk){ carryoverDraft = null; return; }
+  const info = taskSurplusInfo(tk, d.from);
+  const cands = info.available > 0 ? carryoverCandidateDates(tk, d.from) : [];
+  const given = taskCarryovers(tk).filter(c=>c.from===d.from).sort((a,b)=>a.to.localeCompare(b.to));
+  const formHtml = info.available <= 0 ? '' : (cands.length ? `
+        <div class="field"><label>${t('carryoverDateLabel')}</label>
+          <select onchange="updateCarryoverTo(this.value)">
+            ${cands.map(c=>`<option value="${c.date}" ${c.date===d.to?'selected':''}>${fmtCarryDate(c.date)}　${t('carryoverRemain')(hmLabel(c.remain*60000))}</option>`).join('')}
+          </select>
+        </div>
+        <div class="field"><label>${t('carryoverMinLabel')}</label>
+          <input id="carryoverMinInput" type="number" inputmode="numeric" min="1" step="5" value="${d.min}" oninput="updateCarryoverMin(this.value)">
+        </div>
+        <div style="font-size:12px;color:var(--faint);margin-bottom:8px;">${t('carryoverNote')}</div>` :
+        `<div style="font-size:12px;color:var(--faint);margin-bottom:8px;">${t('carryoverNoTarget')}</div>`);
+  const givenHtml = given.length ? `
+        <div style="font-size:12px;color:var(--dim);margin:10px 0 4px;">${t('carryoverListTitle')}</div>
+        ${given.map(c=>`<div class="mono" style="display:flex;align-items:center;gap:8px;font-size:12px;padding:4px 0;border-bottom:1px solid var(--line);">
+          <span style="flex:1;">→ ${fmtCarryDate(c.to)}</span><span>${hmLabel(c.min*60000)}</span>
+          <button onclick="cancelCarryover('${tk.id}','${c.id}')" style="font-size:11px;color:var(--rust);background:none;border:1px solid var(--line);border-radius:6px;padding:2px 8px;cursor:pointer;font-family:inherit;">${t('carryoverCancel')}</button>
+        </div>`).join('')}` : '';
+  const canAdd = info.available > 0 && cands.length > 0;
+  const modalHtml = `
+    <div class="modal-bg" onmousedown="modalBgPress(event)" ontouchstart="modalBgPress(event)" onclick="modalBgClick(event, closeCarryover)">
+      <div class="modal" onclick="event.stopPropagation()">
+        <div style="font-weight:700;font-size:15px;margin-bottom:4px;">${t('carryoverTitle')}</div>
+        <div class="mono" style="font-size:12px;color:var(--faint);margin-bottom:14px;">${escapeHtml(tk.name)}　${fmtCarryDate(d.from)}<br>${t('carryoverSurplus')(hmLabel(info.surplus*60000), hmLabel(info.available*60000))}</div>
+        ${formHtml}
+        ${givenHtml}
+        <div style="display:flex;gap:10px;margin-top:12px;">
+          <button class="btn-ghost" onclick="closeCarryover()">${t('close')}</button>
+          ${canAdd ? `<button class="btn-primary" onclick="confirmCarryover()">${t('carryoverAdd')}</button>` : ''}
+        </div>
+      </div>
+    </div>`;
+  document.getElementById('app').insertAdjacentHTML('beforeend', modalHtml);
+}
+
 function renderDuplicateModal(){
   const src = duplicateSource;
   const modalHtml = `
@@ -3156,17 +3369,13 @@ function selectReportDate(dateStr){
 
         // ターゲット日付のタスクごとの実績と目標を集計
         const targetDaySessions = allSessions.filter(s => s.date === targetDate);
-        let dayGoalMinutes = 0;
-        tasks.filter(tk => !tk.archived && tk.targetHours > 0).forEach(tk => {
-            const days = tk.days && tk.days.length ? tk.days : null;
-            if (!days || days.includes(targetDayOfWeek)) {
-                dayGoalMinutes += Number(tk.targetHours || 0) * 60;
-            }
-        });
+        // 目標は振替（超過分の振り分け）を反映した値。振替で目標が0分になった日は100%扱い。
+        const dayTotals = dateDayTotals(targetDate);
+        const dayGoalMinutes = dayTotals.goalMin;
 
         const dayActualMs = targetDaySessions.reduce((s, r) => s + computeWorkMs(r), 0);
         const dayActualMinutes = dayActualMs / 60000;
-        const dayAchievementRate = dayGoalMinutes > 0 ? Math.min(100, dayActualMinutes / dayGoalMinutes * 100) : (dayActualMinutes > 0 ? 100 : 0);
+        const dayAchievementRate = dayGoalMinutes > 0 ? Math.min(100, dayActualMinutes / dayGoalMinutes * 100) : ((dayActualMinutes > 0 || dayTotals.hasGoal) ? 100 : 0);
         const dayLabel = targetDate === todayStr ? t('todayAchievement') : t('dateAchievement')(targetDate.slice(5).replace('-', '/'));
         // 表示上「100%」に見えたら強調色にしたいので、生の割合ではなく実際に
         // 画面に出す丸め後の値で判定する（例：99.6%は生の値だと100%未満だが
@@ -3215,8 +3424,9 @@ function selectReportDate(dateStr){
         const wd = WEEKDAYS[targetDayOfWeek];
         const rowsHtml = dayRows.map((r, i) => {
             const task = tasks.find(tk => tk.id === r.taskId);
-            const goalMin = task ? (task.targetHours || 0) * 60 : 0;
-            const rate = goalMin > 0 ? Math.min(100, (r.ms / 60000) / goalMin * 100) : null;
+            const goalMin = task ? (taskScheduledOn(task, targetDate) ? taskDayGoalMin(task, targetDate) : (task.targetHours || 0) * 60) : 0;
+            const covered = task && taskScheduledOn(task, targetDate) && goalMin <= 0;
+            const rate = covered ? 100 : (goalMin > 0 ? Math.min(100, (r.ms / 60000) / goalMin * 100) : null);
             const isLast = i === dayRows.length - 1;
 
             return `
@@ -3250,6 +3460,7 @@ function selectReportDate(dateStr){
       <span class="mono" style="font-size:11px;color:var(--dim);">${t('entriesCount')(dayRows.length)} ・ ${hmLabel(dayActualMs)}</span>
     </div>
     ${dayRows.length ? rowsHtml : `<div style="font-size:12px;color:var(--faint);padding:6px 0;">${t('noRecordsThisDay')}</div>`}
+    ${renderCarryoverSection(targetDate)}
   </div>`;
 
         return html;
@@ -3317,14 +3528,14 @@ function tickClock(){
       return;
     }
   }
-  if(tab!=='punch' || showTaskForm || editingRecordDate || showAddRecord || showDuplicate || showPomodoroForm || editingMemoDate) return;
+  if(tab!=='punch' || showTaskForm || editingRecordDate || showAddRecord || showDuplicate || showPomodoroForm || editingMemoDate || carryoverDraft) return;
   if(activeS && activeS.status==='working'){
     const ms = computeWorkMs(activeS);
     const el = document.getElementById('clockDisplay');
     if(el) el.textContent = msToHMS(ms);
     const task = tasks.find(t=>t.id===activeS.taskId);
-    const goalHours = taskGoalHours(task);
-    const percent = goalHours>0 ? Math.min(100, (ms/3600000/goalHours)*100) : 0;
+    const goalInfo = taskGoalInfoForDate(task, fmtDate(new Date()));
+    const percent = goalPercent(ms, goalInfo);
     if(settings.barStyle==='stretch'){
       const sb = document.querySelector('.stretchbar');
       if(sb){
@@ -3386,7 +3597,7 @@ function tickClock(){
       }
     }
     const gl = document.querySelector('.goalline');
-    if(gl) gl.textContent = `${hmLabel(ms)} / ${taskGoalHoursLabel(goalHours)}${t('parenWrap')(task?task.name:'')}`;
+    if(gl) gl.textContent = `${hmLabel(ms)} / ${goalInfoLabel(goalInfo)}${t('parenWrap')(task?task.name:'')}`;
   }
   if(pomodoroState && activeS && pomodoroState.sessionId===activeS.id){
     const pt = document.getElementById('pomoTimer');
