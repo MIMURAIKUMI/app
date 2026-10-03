@@ -8,7 +8,7 @@
 // ---------- language detection ----------
 // Bump this string every time index.html is updated — shown in Settings so it's
 // easy to confirm which build is actually live (helps catch stale-deploy/cache issues).
-const APP_VERSION = 'v36-2026-10-04';
+const APP_VERSION = 'v37-2026-10-04';
 
 // 広告審査が通っていないため、暫定的に「広告なし版」表記を「開発者を応援」表記に
 // 差し替えている。購入導線(fbUpgradeToPaid/Stripe決済)自体は変更なし、表示文言のみ切替。
@@ -77,8 +77,6 @@ const I18N = {
     carryoverSurplus: (total, left) => `目標超過 ${total}（振り分け可能 ${left}）`,
     carryoverReceived: m => `振替で目標 -${m}`,
     carryoverAchieved: '✓ 達成',
-    carryoverFromLabel: f => `${f}から振替`,
-    carryoverToLabel: f => `${f}へ振替`,
     carryoverDateLabel: '振り分け先の日',
     carryoverMinLabel: '振り分ける時間',
     carryoverHourUnit: '時間',
@@ -291,8 +289,6 @@ const I18N = {
     carryoverSurplus: (total, left) => `Over goal by ${total} (${left} available)`,
     carryoverReceived: m => `Goal reduced by ${m} (carried over)`,
     carryoverAchieved: '✓ Achieved',
-    carryoverFromLabel: f => `moved from ${f}`,
-    carryoverToLabel: f => `moved to ${f}`,
     carryoverDateLabel: 'Move to',
     carryoverMinLabel: 'Time to move',
     carryoverHourUnit: 'h',
@@ -3359,9 +3355,10 @@ function polarToCartesian(cx, cy, r, angleDeg){
 function renderCalendar(rows, month, selectedDate){
   const byDate = {};
   rows.forEach(r=>{
-    if(!byDate[r.date]) byDate[r.date] = {ms:0, taskIds:new Set()};
+    if(!byDate[r.date]) byDate[r.date] = {ms:0, taskIds:new Set(), recordedIds:new Set()};
     const d = byDate[r.date];
     d.ms += r.ms; if(!r.noDot) d.taskIds.add(r.taskId);
+    if(!r.carry) d.recordedIds.add(r.taskId);
   });
   const [y,m] = month.split('-').map(Number);
   const daysInMonth = new Date(y, m, 0).getDate();
@@ -3400,7 +3397,10 @@ function renderCalendar(rows, month, selectedDate){
     if(!info){
       return `<div class="${cls}" onclick="selectReportDate('${dateStr}')"><div class="cal-day">${d}${badges}</div></div>`;
     }
-    const dots = [...info.taskIds].map(id=>`<span class="cal-dot" style="background:${taskColor(id)};"></span>`).join('');
+    // 振り分けで来ただけのタスク（その日に実際の記録がない）は白抜きのポッチ
+    const dots = [...info.taskIds].map(id=> info.recordedIds.has(id)
+      ? `<span class="cal-dot" style="background:${taskColor(id)};"></span>`
+      : `<span class="cal-dot" style="background:transparent;box-shadow:inset 0 0 0 1.5px ${taskColor(id)};"></span>`).join('');
     return `<div class="${cls}" onclick="selectReportDate('${dateStr}')">
       <div class="cal-day">${d}${badges}</div>
       <div class="cal-hrs">${(info.ms/3600000).toFixed(1)}h</div>
@@ -3500,7 +3500,7 @@ function selectReportDate(dateStr){
         let dayCarryOutMs = 0;
         tasks.forEach(tk => {
             const inMin = taskCarryInMin(tk, targetDate);
-            if (inMin > 0) carryInRows.push({ task: tk, ms: inMin * 60000, froms: [...new Set(taskCarryovers(tk).filter(c => c.to === targetDate).map(c => c.from))].sort() });
+            if (inMin > 0) carryInRows.push({ task: tk, ms: inMin * 60000 });
             dayCarryOutMs += taskCarryOutMin(tk, targetDate) * 60000;
         });
         const dayCarryInMs = carryInRows.reduce((a, r) => a + r.ms, 0);
@@ -3513,27 +3513,23 @@ function selectReportDate(dateStr){
         tasks.forEach(tk => {
             let outMs = taskCarryOutMin(tk, targetDate) * 60000;
             if (outMs <= 0) return;
-            const tos = [...new Set(taskCarryovers(tk).filter(c => c.from === targetDate).map(c => c.to))].sort();
             for (let k = dayRows.length - 1; k >= 0 && outMs > 0; k--) {
                 const r = dayRows[k];
                 if (r.taskId !== tk.id) continue;
                 const cut = Math.min(r.shownMs, outMs);
                 r.shownMs -= cut; outMs -= cut;
-                if (cut > 0) r.carryToLabel = tos.map(d => d.slice(5).replace('-', '/')).join('・');
             }
         });
         const carryInHtml = carryInRows.map((r, i) => {
             const baseGoalMin = Number(r.task.targetHours || 0) * 60;
             const rate = baseGoalMin > 0 ? Math.min(100, (r.ms / 60000) / baseGoalMin * 100) : null;
             const isLast = i === carryInRows.length - 1;
-            const fromLabel = r.froms.map(f => f.slice(5).replace('-', '/')).join('・');
             return `
       <div style="padding:12px 0; border-top:${(i === 0 && dayRows.length) ? '1px solid var(--line)' : 'none'}; border-bottom:${isLast ? 'none' : '1px solid var(--line)'};">
         <div style="display:flex;align-items:center;gap:8px;font-size:13px;margin-bottom:${rate !== null ? '8px' : '0'};">
           <div style="flex:1;display:flex;align-items:center;gap:6px;min-width:0;">
-            <span class="dot-sm" style="background:${taskColor(r.task.id)};flex-shrink:0;"></span>
+            <span class="dot-sm" style="background:transparent;box-shadow:inset 0 0 0 2px ${taskColor(r.task.id)};flex-shrink:0;"></span>
             <span style="font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(r.task.name)}</span>
-            <span style="font-size:11px;color:var(--faint);flex-shrink:0;">${t('carryoverFromLabel')(fromLabel)}</span>
           </div>
           <div class="mono" style="color:var(--dim);">${hmLabel(r.ms)}</div>
           <div class="mono" style="width:40px;text-align:right;color:${rate === null ? 'var(--faint)' : (rate >= 100 ? 'var(--teal)' : 'var(--text)')};font-weight:700;">${rate === null ? '—' : Math.round(rate) + '%'}</div>
@@ -3558,7 +3554,6 @@ function selectReportDate(dateStr){
           <div style="flex:1;display:flex;align-items:center;gap:6px;min-width:0;">
             <span class="dot-sm" style="background:${taskColor(r.taskId)};flex-shrink:0;"></span>
             <span style="font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(r.taskName)}</span>
-            ${r.carryToLabel ? `<span style="font-size:11px;color:var(--faint);flex-shrink:0;">${t('carryoverToLabel')(r.carryToLabel)}</span>` : ''}
           </div>
           <div class="mono" style="color:var(--dim);">${hmLabel(r.shownMs)}</div>
           <div class="mono" style="width:40px;text-align:right;color:${rate === null ? 'var(--faint)' : (rate >= 100 ? 'var(--teal)' : 'var(--text)')};font-weight:700;">${rate === null ? '—' : Math.round(rate) + '%'}</div>

@@ -1,6 +1,6 @@
 // Timecard - offline cache
 // Bump CACHE_NAME whenever index.html changes so users get the new version.
-const CACHE_NAME = 'habitcard-v31';
+const CACHE_NAME = 'habitcard-v32';
 const CORE_ASSETS = ['./', './index.html', './manifest.json', './pixel-arts.js', './app.js'];
 
 // Requests matching this list prefer the network (to get the latest version
