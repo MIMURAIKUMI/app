@@ -8,7 +8,7 @@
 // ---------- language detection ----------
 // Bump this string every time index.html is updated — shown in Settings so it's
 // easy to confirm which build is actually live (helps catch stale-deploy/cache issues).
-const APP_VERSION = 'v31-2026-10-03';
+const APP_VERSION = 'v32-2026-10-04';
 
 // 広告審査が通っていないため、暫定的に「広告なし版」表記を「開発者を応援」表記に
 // 差し替えている。購入導線(fbUpgradeToPaid/Stripe決済)自体は変更なし、表示文言のみ切替。
@@ -73,6 +73,7 @@ const I18N = {
     carryoverTitle: '超過分を他の日へ振り分け',
     carryoverSurplus: (total, left) => `目標超過 ${total}（振り分け可能 ${left}）`,
     carryoverReceived: m => `振替で目標 -${m}`,
+    carryoverAchieved: '✓ 達成',
     carryoverDateLabel: '振り分け先の日',
     carryoverMinLabel: '振り分ける時間（分）',
     carryoverNoTarget: '振り分けできる日がありません（このタスクの曜日で、目標が残っている日が対象です）',
@@ -277,6 +278,7 @@ const I18N = {
     carryoverTitle: 'Move extra time to other days',
     carryoverSurplus: (total, left) => `Over goal by ${total} (${left} available)`,
     carryoverReceived: m => `Goal reduced by ${m} (carried over)`,
+    carryoverAchieved: '✓ Achieved',
     carryoverDateLabel: 'Move to',
     carryoverMinLabel: 'Minutes to move',
     carryoverNoTarget: 'No days to move to (only this task\'s scheduled days with goal time left)',
@@ -1300,7 +1302,11 @@ function evaluateRewards(){
   // outside the walk below and could never earn its ⭐, no matter how much
   // time gets logged for it -- which is exactly the bug: adding a record
   // for a past date not yet covered silently did nothing.
-  const recordDates = Object.keys(records);
+  // 振替先の日（今日まで）も対象に含める。記録が1件もない過去日でも、
+  // 振替で目標0分になっていれば達成として⭐が付くように。
+  const carryTargetDates = [];
+  tasks.forEach(tk=> taskCarryovers(tk).forEach(c=>{ if(c.to <= todayStr) carryTargetDates.push(c.to); }));
+  const recordDates = [...Object.keys(records), ...carryTargetDates];
   const earliestRecordDate = recordDates.length ? recordDates.reduce((min, d) => d < min ? d : min) : todayStr;
   if(rewards.trackingStartDate === null || earliestRecordDate < rewards.trackingStartDate){
     rewards.trackingStartDate = earliestRecordDate;
@@ -2683,12 +2689,21 @@ function renderCarryoverSection(dateStr){
     }
     if(carryIn){
       lines.push(`<div style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--faint);margin-top:6px;">
-        ${dot}<span>${escapeHtml(tk.name)}：${t('carryoverReceived')(hmLabel(carryIn*60000))}</span>
+        ${dot}<span>${escapeHtml(tk.name)}：${t('carryoverReceived')(hmLabel(carryIn*60000))}${taskDayActualMin(tk, dateStr) >= taskDayGoalMin(tk, dateStr) ? `<span style="color:var(--teal);font-weight:700;">　${t('carryoverAchieved')}</span>` : ''}</span>
       </div>`);
     }
   });
   if(!lines.length) return '';
   return `<div style="border-top:1px solid var(--line);margin-top:8px;padding-top:4px;">${lines.join('')}</div>`;
+}
+// 振替（振り分けを受け取った）で、その日の目標を満たしているか。
+// 未来の日でも表示上は達成（⭐）にする。⭐の数・プレゼントへの加算は、
+// その日が来て evaluateRewards() が通常どおり数えた時点で行われる。
+function isCarryoverAchieved(dateStr){
+  const received = tasks.some(tk=> !tk.archived && taskCarryInMin(tk, dateStr) > 0);
+  if(!received) return false;
+  const totals = dateDayTotals(dateStr);
+  return totals.hasGoal && totals.actualMin >= totals.goalMin;
 }
 // 初期選択は振り分け元より後の最初の候補日（なければ一番近い過去の日）
 function defaultCarryoverTarget(cands, fromDate){
@@ -3326,7 +3341,7 @@ function renderCalendar(rows, month, selectedDate){
     const isToday = dateStr === todayStr;
     const isSelected = dateStr === selectedDate;
     const cls = `cal-cell${isToday?' today':''}${isSelected?' selected':''}`;
-    const isAchieved = achievedSet.has(dateStr) || (isToday && todayLiveAchieved);
+    const isAchieved = achievedSet.has(dateStr) || (isToday && todayLiveAchieved) || isCarryoverAchieved(dateStr);
     const badges = `${isAchieved ? '<span class="cal-star">⭐</span>' : ''}`;
     if(!info){
       return `<div class="${cls}" onclick="selectReportDate('${dateStr}')"><div class="cal-day">${d}${badges}</div></div>`;
