@@ -8,7 +8,7 @@
 // ---------- language detection ----------
 // Bump this string every time index.html is updated — shown in Settings so it's
 // easy to confirm which build is actually live (helps catch stale-deploy/cache issues).
-const APP_VERSION = 'v33-2026-10-04';
+const APP_VERSION = 'v34-2026-10-04';
 
 // 広告審査が通っていないため、暫定的に「広告なし版」表記を「開発者を応援」表記に
 // 差し替えている。購入導線(fbUpgradeToPaid/Stripe決済)自体は変更なし、表示文言のみ切替。
@@ -76,14 +76,18 @@ const I18N = {
     carryoverAchieved: '✓ 達成',
     carryoverFromLabel: f => `${f}から振替`,
     carryoverDateLabel: '振り分け先の日',
-    carryoverMinLabel: '振り分ける時間（分）',
-    carryoverNoTarget: '振り分けできる日がありません（このタスクの曜日で、目標が残っている日が対象です）',
+    carryoverMinLabel: '振り分ける時間',
+    carryoverHourUnit: '時間',
+    carryoverMinUnit: '分',
+    carryoverDone: '完了',
+    carryoverNoTarget: '振り分けできる日がありません（このタスクの曜日が対象です）',
     carryoverRemain: r => `残り目標 ${r}`,
-    carryoverAdd: '振り分ける',
-    carryoverListTitle: 'この日から振り分け済み',
+    carryoverAdd: '振り分け',
+    carryoverListTitle: '振り分け先',
     carryoverCancel: '取消',
-    carryoverNote: '振り分けた分だけ、選んだ日の目標が減ります',
-    carryoverInvalid: '振り分ける時間を正しく入力してください',
+    carryoverNote: '振り分けた分だけ、選んだ日の目標が減ります。残りはそのままでも大丈夫です。「完了」で保存されます',
+    carryoverInvalid: max => `振り分ける時間は ${max} 以内で入力してください`,
+    carryoverGoalMet: '目標達成済み',
     close: '閉じる',
     selectDateAlert: '日付を選択してください',
     addPomodoroTemplateTitle: '集中タイマーテンプレートを追加',
@@ -282,14 +286,18 @@ const I18N = {
     carryoverAchieved: '✓ Achieved',
     carryoverFromLabel: f => `moved from ${f}`,
     carryoverDateLabel: 'Move to',
-    carryoverMinLabel: 'Minutes to move',
-    carryoverNoTarget: 'No days to move to (only this task\'s scheduled days with goal time left)',
+    carryoverMinLabel: 'Time to move',
+    carryoverHourUnit: 'h',
+    carryoverMinUnit: 'min',
+    carryoverDone: 'Done',
+    carryoverNoTarget: 'No days to move to (only this task\'s scheduled days)',
     carryoverRemain: r => `${r} left`,
     carryoverAdd: 'Move',
     carryoverListTitle: 'Already moved from this day',
     carryoverCancel: 'Undo',
-    carryoverNote: 'The goal on the chosen day is reduced by the amount you move',
-    carryoverInvalid: 'Please enter a valid number of minutes',
+    carryoverNote: 'The goal on the chosen day is reduced by the amount you move. You don\'t have to move all of it. Tap Done to save',
+    carryoverInvalid: max => `Please enter up to ${max}`,
+    carryoverGoalMet: 'goal met',
     close: 'Close',
     selectDateAlert: 'Please select a date',
     addPomodoroTemplateTitle: 'Add focus timer template',
@@ -1123,7 +1131,8 @@ function taskSurplusInfo(tk, dateStr){
   const out = taskCarryOutMin(tk, dateStr);
   return { surplus, out, available: Math.max(0, surplus - out) };
 }
-// 振り分け先の候補：同じタスクの予定曜日で、まだ目標が残っている日。
+// 振り分け先の候補：同じタスクの予定曜日（目標が残っていない日も含む。
+// 振り分けた時間はその日の時間として表示されるので、目標以上に振り分けてもよい）。
 // 振り分け元の2週間前〜今日から4週間先まで（振り分け元の日自体は除く）。
 function carryoverCandidateDates(tk, fromDate){
   const todayStr = fmtDate(new Date());
@@ -1132,8 +1141,8 @@ function carryoverCandidateDates(tk, fromDate){
   const out = [];
   for(let d = startStr; d <= endStr; d = addDaysStr(d, 1)){
     if(d === fromDate || !taskScheduledOn(tk, d)) continue;
-    const remain = Math.ceil(taskDayGoalMin(tk, d) - taskDayActualMin(tk, d));
-    if(remain > 0) out.push({ date:d, remain });
+    const remain = Math.max(0, Math.ceil(taskDayGoalMin(tk, d) - taskDayActualMin(tk, d)));
+    out.push({ date:d, remain });
   }
   return out;
 }
@@ -2703,94 +2712,129 @@ function isCarryoverAchieved(dateStr){
 }
 // 初期選択は振り分け元より後の最初の候補日（なければ一番近い過去の日）
 function defaultCarryoverTarget(cands, fromDate){
-  return cands.find(c=>c.date > fromDate) || cands[cands.length-1] || null;
+  return cands.find(c=>c.date > fromDate && c.remain > 0) || cands.find(c=>c.date > fromDate) || cands[cands.length-1] || null;
 }
 function fmtCarryDate(dateStr){
   const wd = new Date(dateStr + 'T00:00:00').getDay();
   return `${dateStr.slice(5).replace('-', '/')} (${WEEKDAYS[wd]})`;
 }
+// 振り分けモーダルは「作業用コピー(working)」を編集し、「完了」で初めて保存する。
+// ×（キャンセル）なら何も保存せずに閉じる。超過分を全部振り分けなくても完了できる。
+function carryoverWorkTask(){
+  const d = carryoverDraft;
+  const tk = tasks.find(x=>x.id===d.taskId);
+  return tk ? {...tk, carryovers: d.working} : null;
+}
+function resetCarryoverInputs(){
+  const d = carryoverDraft;
+  const wt = carryoverWorkTask();
+  const cands = carryoverCandidateDates(wt, d.from);
+  const avail = taskSurplusInfo(wt, d.from).available;
+  const first = defaultCarryoverTarget(cands, d.from);
+  d.to = first ? first.date : '';
+  d.min = first ? defaultCarryoverMin(avail, first) : 0;
+}
+function defaultCarryoverMin(avail, cand){ return cand.remain > 0 ? Math.min(avail, cand.remain) : avail; }
 function openCarryover(taskId, fromDate){
   const tk = tasks.find(x=>x.id===taskId);
   if(!tk) return;
-  const cands = carryoverCandidateDates(tk, fromDate);
-  const avail = taskSurplusInfo(tk, fromDate).available;
-  const first = defaultCarryoverTarget(cands, fromDate);
-  carryoverDraft = { taskId, from: fromDate, to: first ? first.date : '', min: first ? Math.min(avail, first.remain) : 0 };
+  carryoverDraft = { taskId, from: fromDate, to: '', min: 0, working: taskCarryovers(tk).map(c=>({...c})) };
+  resetCarryoverInputs();
   render();
 }
 function closeCarryover(){ carryoverDraft = null; render(); }
-function updateCarryoverTo(value){
-  carryoverDraft.to = value;
-  const tk = tasks.find(x=>x.id===carryoverDraft.taskId);
-  const cand = carryoverCandidateDates(tk, carryoverDraft.from).find(c=>c.date===value);
-  const avail = taskSurplusInfo(tk, carryoverDraft.from).available;
-  carryoverDraft.min = cand ? Math.min(avail, cand.remain) : 0;
-  const inp = document.getElementById('carryoverMinInput');
-  if(inp) inp.value = carryoverDraft.min; // render()しない（selectを閉じないため）
+function setCarryoverMinInputs(){
+  // render()しない（selectを閉じないため）
+  const h = document.getElementById('carryoverHInput');
+  const m = document.getElementById('carryoverMInput');
+  if(h) h.value = Math.floor(carryoverDraft.min/60);
+  if(m) m.value = carryoverDraft.min%60;
 }
-function updateCarryoverMin(value){ carryoverDraft.min = Math.floor(Number(value)||0); }
+function updateCarryoverTo(value){
+  const d = carryoverDraft;
+  d.to = value;
+  const wt = carryoverWorkTask();
+  const cand = carryoverCandidateDates(wt, d.from).find(c=>c.date===value);
+  const avail = taskSurplusInfo(wt, d.from).available;
+  d.min = cand ? defaultCarryoverMin(avail, cand) : 0;
+  setCarryoverMinInputs();
+}
+function updateCarryoverHM(){
+  const h = Math.max(0, Math.floor(Number((document.getElementById('carryoverHInput')||{}).value)||0));
+  const m = Math.max(0, Math.floor(Number((document.getElementById('carryoverMInput')||{}).value)||0));
+  carryoverDraft.min = h*60 + m;
+}
 function persistCarryovers(){
   persistTasks();
   evaluateRewards(); // 目標が変わるので⭐/プレゼントを再計算
 }
-function confirmCarryover(){
+// 「振り分け」：作業用コピーに1件追加（まだ保存しない）
+function addCarryover(){
   const d = carryoverDraft;
-  const tk = tasks.find(x=>x.id===d.taskId);
-  if(!tk || !d.to) return;
-  const avail = taskSurplusInfo(tk, d.from).available;
-  const cand = carryoverCandidateDates(tk, d.from).find(c=>c.date===d.to);
-  const maxMin = Math.min(avail, cand ? cand.remain : 0);
-  if(!(d.min > 0) || d.min > maxMin){ alert(t('carryoverInvalid')); return; }
-  const entry = { id: uid(), from: d.from, to: d.to, min: d.min };
-  tasks = tasks.map(x=> x.id===tk.id ? {...x, carryovers: [...taskCarryovers(x), entry]} : x);
-  persistCarryovers();
-  // 続けて別の日にも振り分けられるよう、モーダルは開いたまま次の候補をセット
-  const tk2 = tasks.find(x=>x.id===d.taskId);
-  const next = defaultCarryoverTarget(carryoverCandidateDates(tk2, d.from), d.from);
-  const avail2 = taskSurplusInfo(tk2, d.from).available;
-  carryoverDraft = (avail2 > 0) ? { taskId: d.taskId, from: d.from, to: next ? next.date : '', min: next ? Math.min(avail2, next.remain) : 0 } : { taskId: d.taskId, from: d.from, to: '', min: 0 };
+  const wt = carryoverWorkTask();
+  if(!wt || !d.to) return;
+  const avail = taskSurplusInfo(wt, d.from).available;
+  if(!(d.min > 0) || d.min > avail){ alert(t('carryoverInvalid')(hmLabel(avail*60000))); return; }
+  d.working = [...d.working, { id: uid(), from: d.from, to: d.to, min: d.min }];
+  resetCarryoverInputs();
   render();
 }
-function cancelCarryover(taskId, entryId){
-  tasks = tasks.map(x=> x.id===taskId ? {...x, carryovers: taskCarryovers(x).filter(c=>c.id!==entryId)} : x);
+// 一覧の「取消」：作業用コピーから外す（まだ保存しない）
+function removeCarryover(entryId){
+  const d = carryoverDraft;
+  d.working = d.working.filter(c=>c.id!==entryId);
+  resetCarryoverInputs();
+  render();
+}
+// 「完了」：作業用コピーを保存して閉じる
+function completeCarryover(){
+  const d = carryoverDraft;
+  tasks = tasks.map(x=> x.id===d.taskId ? {...x, carryovers: d.working} : x);
   persistCarryovers();
+  carryoverDraft = null;
   render();
 }
 function renderCarryoverModal(){
   const d = carryoverDraft;
-  const tk = tasks.find(x=>x.id===d.taskId);
-  if(!tk){ carryoverDraft = null; return; }
-  const info = taskSurplusInfo(tk, d.from);
-  const cands = info.available > 0 ? carryoverCandidateDates(tk, d.from) : [];
-  const given = taskCarryovers(tk).filter(c=>c.from===d.from).sort((a,b)=>a.to.localeCompare(b.to));
+  const wt = carryoverWorkTask();
+  if(!wt){ carryoverDraft = null; return; }
+  const info = taskSurplusInfo(wt, d.from);
+  const cands = info.available > 0 ? carryoverCandidateDates(wt, d.from) : [];
+  const given = d.working.filter(c=>c.from===d.from).sort((a,b)=>a.to.localeCompare(b.to));
+  const numStyle = 'width:64px;text-align:right;';
   const formHtml = info.available <= 0 ? '' : (cands.length ? `
         <div class="field"><label>${t('carryoverDateLabel')}</label>
           <select onchange="updateCarryoverTo(this.value)">
-            ${cands.map(c=>`<option value="${c.date}" ${c.date===d.to?'selected':''}>${fmtCarryDate(c.date)}　${t('carryoverRemain')(hmLabel(c.remain*60000))}</option>`).join('')}
+            ${cands.map(c=>`<option value="${c.date}" ${c.date===d.to?'selected':''}>${fmtCarryDate(c.date)}　${c.remain > 0 ? t('carryoverRemain')(hmLabel(c.remain*60000)) : t('carryoverGoalMet')}</option>`).join('')}
           </select>
         </div>
         <div class="field"><label>${t('carryoverMinLabel')}</label>
-          <input id="carryoverMinInput" type="number" inputmode="numeric" min="1" step="5" value="${d.min}" oninput="updateCarryoverMin(this.value)">
+          <div style="display:flex;align-items:center;gap:6px;">
+            <input id="carryoverHInput" type="number" inputmode="numeric" min="0" value="${Math.floor(d.min/60)}" oninput="updateCarryoverHM()" style="${numStyle}"><span>${t('carryoverHourUnit')}</span>
+            <input id="carryoverMInput" type="number" inputmode="numeric" min="0" max="59" step="5" value="${d.min%60}" oninput="updateCarryoverHM()" style="${numStyle}"><span>${t('carryoverMinUnit')}</span>
+          </div>
         </div>
-        <div style="font-size:12px;color:var(--faint);margin-bottom:8px;">${t('carryoverNote')}</div>` :
+        <button class="btn-ghost" style="width:100%;" onclick="addCarryover()">＋ ${t('carryoverAdd')}</button>` :
         `<div style="font-size:12px;color:var(--faint);margin-bottom:8px;">${t('carryoverNoTarget')}</div>`);
   const givenHtml = given.length ? `
-        <div style="font-size:12px;color:var(--dim);margin:10px 0 4px;">${t('carryoverListTitle')}</div>
-        ${given.map(c=>`<div class="mono" style="display:flex;align-items:center;gap:8px;font-size:12px;padding:4px 0;border-bottom:1px solid var(--line);">
+        <div style="font-size:12px;color:var(--dim);margin:14px 0 4px;">${t('carryoverListTitle')}</div>
+        ${given.map(c=>`<div class="mono" style="display:flex;align-items:center;gap:8px;font-size:12px;padding:6px 0;border-bottom:1px solid var(--line);">
           <span style="flex:1;">→ ${fmtCarryDate(c.to)}</span><span>${hmLabel(c.min*60000)}</span>
-          <button onclick="cancelCarryover('${tk.id}','${c.id}')" style="font-size:11px;color:var(--rust);background:none;border:1px solid var(--line);border-radius:6px;padding:2px 8px;cursor:pointer;font-family:inherit;">${t('carryoverCancel')}</button>
+          <button onclick="removeCarryover('${c.id}')" style="font-size:11px;color:var(--rust);background:none;border:1px solid var(--line);border-radius:6px;padding:2px 8px;cursor:pointer;font-family:inherit;">${t('carryoverCancel')}</button>
         </div>`).join('')}` : '';
-  const canAdd = info.available > 0 && cands.length > 0;
   const modalHtml = `
     <div class="modal-bg" onmousedown="modalBgPress(event)" ontouchstart="modalBgPress(event)" onclick="modalBgClick(event, closeCarryover)">
       <div class="modal" onclick="event.stopPropagation()">
-        <div style="font-weight:700;font-size:15px;margin-bottom:4px;">${t('carryoverTitle')}</div>
-        <div class="mono" style="font-size:12px;color:var(--faint);margin-bottom:14px;">${escapeHtml(tk.name)}　${fmtCarryDate(d.from)}<br>${t('carryoverSurplus')(hmLabel(info.surplus*60000), hmLabel(info.available*60000))}</div>
+        <div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:4px;">
+          <div style="flex:1;font-weight:700;font-size:15px;">${t('carryoverTitle')}</div>
+          <button title="${t('cancel')}" aria-label="${t('cancel')}" onclick="closeCarryover()" style="background:none;border:none;cursor:pointer;font-size:20px;line-height:1;color:var(--dim);padding:0 2px;">×</button>
+        </div>
+        <div class="mono" style="font-size:12px;color:var(--faint);margin-bottom:14px;">${escapeHtml(wt.name)}　${fmtCarryDate(d.from)}<br>${t('carryoverSurplus')(hmLabel(info.surplus*60000), hmLabel(info.available*60000))}</div>
         ${formHtml}
         ${givenHtml}
-        <div style="display:flex;gap:10px;margin-top:12px;">
-          <button class="btn-ghost" onclick="closeCarryover()">${t('close')}</button>
-          ${canAdd ? `<button class="btn-primary" onclick="confirmCarryover()">${t('carryoverAdd')}</button>` : ''}
+        <div style="font-size:12px;color:var(--faint);margin-top:12px;">${t('carryoverNote')}</div>
+        <div style="display:flex;gap:10px;margin-top:10px;">
+          <button class="btn-primary" style="flex:1;" onclick="completeCarryover()">${t('carryoverDone')}</button>
         </div>
       </div>
     </div>`;
