@@ -8,7 +8,7 @@
 // ---------- language detection ----------
 // Bump this string every time index.html is updated — shown in Settings so it's
 // easy to confirm which build is actually live (helps catch stale-deploy/cache issues).
-const APP_VERSION = 'v35-2026-10-04';
+const APP_VERSION = 'v36-2026-10-04';
 
 // 広告審査が通っていないため、暫定的に「広告なし版」表記を「開発者を応援」表記に
 // 差し替えている。購入導線(fbUpgradeToPaid/Stripe決済)自体は変更なし、表示文言のみ切替。
@@ -78,6 +78,7 @@ const I18N = {
     carryoverReceived: m => `振替で目標 -${m}`,
     carryoverAchieved: '✓ 達成',
     carryoverFromLabel: f => `${f}から振替`,
+    carryoverToLabel: f => `${f}へ振替`,
     carryoverDateLabel: '振り分け先の日',
     carryoverMinLabel: '振り分ける時間',
     carryoverHourUnit: '時間',
@@ -291,6 +292,7 @@ const I18N = {
     carryoverReceived: m => `Goal reduced by ${m} (carried over)`,
     carryoverAchieved: '✓ Achieved',
     carryoverFromLabel: f => `moved from ${f}`,
+    carryoverToLabel: f => `moved to ${f}`,
     carryoverDateLabel: 'Move to',
     carryoverMinLabel: 'Time to move',
     carryoverHourUnit: 'h',
@@ -2699,7 +2701,7 @@ function renderCarryoverSection(dateStr){
     const dot = `<span class="dot-sm" style="background:${taskColor(tk.id)};flex-shrink:0;"></span>`;
     if(info.surplus || info.out){
       const status = info.available > 0
-        ? `${t('carryoverOverLabel')} <span class="mono">${shortHM(info.available)}</span>`
+        ? `${t('carryoverOverLabel')} ${hmLabel(info.available*60000)}`
         : t('carryoverAllMoved');
       lines.push(`<div style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--dim);margin-top:8px;">
         <div style="flex:1;min-width:0;">
@@ -2725,11 +2727,6 @@ function isCarryoverAchieved(dateStr){
 // 初期選択は振り分け元より後の最初の候補日（なければ一番近い過去の日）
 function defaultCarryoverTarget(cands, fromDate){
   return cands.find(c=>c.date > fromDate && c.remain > 0) || cands.find(c=>c.date > fromDate) || cands[cands.length-1] || null;
-}
-// 「2h6m」形式（分→短い表記）
-function shortHM(min){
-  const h = Math.floor(min/60), m = Math.round(min%60);
-  return h ? `${h}h${m}m` : `${m}m`;
 }
 function fmtCarryDate(dateStr){
   const wd = new Date(dateStr + 'T00:00:00').getDay();
@@ -3510,6 +3507,21 @@ function selectReportDate(dateStr){
         const dayShownMs = Math.max(0, dayActualMs + dayCarryInMs - dayCarryOutMs);
         const dayRows = targetDaySessions.map(r => ({ ...r, ms: computeWorkMs(r) }))
             .sort((a, b) => (a.currentStart || a.segments[0]?.start || '').localeCompare(b.currentStart || b.segments[0]?.start || ''));
+        // 他の日へ振り分けた分は、この日の記録の表示時間から差し引く
+        // （同じタスクの記録が複数あるときは後ろの記録から順に差し引く）
+        dayRows.forEach(r => { r.shownMs = r.ms; });
+        tasks.forEach(tk => {
+            let outMs = taskCarryOutMin(tk, targetDate) * 60000;
+            if (outMs <= 0) return;
+            const tos = [...new Set(taskCarryovers(tk).filter(c => c.from === targetDate).map(c => c.to))].sort();
+            for (let k = dayRows.length - 1; k >= 0 && outMs > 0; k--) {
+                const r = dayRows[k];
+                if (r.taskId !== tk.id) continue;
+                const cut = Math.min(r.shownMs, outMs);
+                r.shownMs -= cut; outMs -= cut;
+                if (cut > 0) r.carryToLabel = tos.map(d => d.slice(5).replace('-', '/')).join('・');
+            }
+        });
         const carryInHtml = carryInRows.map((r, i) => {
             const baseGoalMin = Number(r.task.targetHours || 0) * 60;
             const rate = baseGoalMin > 0 ? Math.min(100, (r.ms / 60000) / baseGoalMin * 100) : null;
@@ -3537,7 +3549,7 @@ function selectReportDate(dateStr){
             const task = tasks.find(tk => tk.id === r.taskId);
             const goalMin = task ? (taskScheduledOn(task, targetDate) ? taskDayGoalMin(task, targetDate) : (task.targetHours || 0) * 60) : 0;
             const covered = task && taskScheduledOn(task, targetDate) && goalMin <= 0;
-            const rate = covered ? 100 : (goalMin > 0 ? Math.min(100, (r.ms / 60000) / goalMin * 100) : null);
+            const rate = covered ? 100 : (goalMin > 0 ? Math.min(100, (r.shownMs / 60000) / goalMin * 100) : null);
             const isLast = i === dayRows.length - 1;
 
             return `
@@ -3546,8 +3558,9 @@ function selectReportDate(dateStr){
           <div style="flex:1;display:flex;align-items:center;gap:6px;min-width:0;">
             <span class="dot-sm" style="background:${taskColor(r.taskId)};flex-shrink:0;"></span>
             <span style="font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(r.taskName)}</span>
+            ${r.carryToLabel ? `<span style="font-size:11px;color:var(--faint);flex-shrink:0;">${t('carryoverToLabel')(r.carryToLabel)}</span>` : ''}
           </div>
-          <div class="mono" style="color:var(--dim);">${hmLabel(r.ms)}</div>
+          <div class="mono" style="color:var(--dim);">${hmLabel(r.shownMs)}</div>
           <div class="mono" style="width:40px;text-align:right;color:${rate === null ? 'var(--faint)' : (rate >= 100 ? 'var(--teal)' : 'var(--text)')};font-weight:700;">${rate === null ? '—' : Math.round(rate) + '%'}</div>
           <div style="display:flex;align-items:center;gap:2px;flex-shrink:0;margin-left:4px;">
             <button onclick="openRecordEdit('${r.date}','${r.id}')" style="background:none;border:none;cursor:pointer;padding:2px;line-height:0;">${renderIconArt(TASK_ICON_ART.edit, 0.7)}</button>
