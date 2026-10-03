@@ -8,7 +8,7 @@
 // ---------- language detection ----------
 // Bump this string every time index.html is updated — shown in Settings so it's
 // easy to confirm which build is actually live (helps catch stale-deploy/cache issues).
-const APP_VERSION = 'v37-2026-10-04';
+const APP_VERSION = 'v38-2026-10-04';
 
 // 広告審査が通っていないため、暫定的に「広告なし版」表記を「開発者を応援」表記に
 // 差し替えている。購入導線(fbUpgradeToPaid/Stripe決済)自体は変更なし、表示文言のみ切替。
@@ -87,6 +87,7 @@ const I18N = {
     carryoverAdd: '振り分け',
     carryoverListTitle: '振り分け先',
     carryoverCancel: '取消',
+    carryoverUndoConfirm: (name, detail) => `「${name}」の振り分けを取り消して元の日に戻しますか？\n（${detail}）`,
     carryoverNote: '振り分けた分だけ、選んだ日の目標が減ります。残りはそのままでも大丈夫です。「完了」で保存されます',
     carryoverInvalid: max => `振り分ける時間は ${max} 以内で入力してください`,
     carryoverGoalMet: '目標達成済み',
@@ -299,6 +300,7 @@ const I18N = {
     carryoverAdd: 'Move',
     carryoverListTitle: 'Already moved from this day',
     carryoverCancel: 'Undo',
+    carryoverUndoConfirm: (name, detail) => `Undo the moved time for "${name}" and return it to the original day?\n(${detail})`,
     carryoverNote: 'The goal on the chosen day is reduced by the amount you move. You don\'t have to move all of it. Tap Done to save',
     carryoverInvalid: max => `Please enter up to ${max}`,
     carryoverGoalMet: 'goal met',
@@ -2804,6 +2806,19 @@ function completeCarryover(){
   carryoverDraft = null;
   render();
 }
+// 振り分け先の日から取消：この日にこのタスクへ振り分けられた分をすべて元の日に戻す
+function undoCarryIn(taskId, toDate){
+  const tk = tasks.find(x=>x.id===taskId);
+  if(!tk) return;
+  const entries = taskCarryovers(tk).filter(c=>c.to===toDate);
+  if(!entries.length) return;
+  const detail = entries.slice().sort((a,b)=>a.from.localeCompare(b.from))
+    .map(c=>`${c.from.slice(5).replace('-', '/')} ${hmLabel(c.min*60000)}`).join('、');
+  if(!confirm(t('carryoverUndoConfirm')(tk.name, detail))) return;
+  tasks = tasks.map(x=> x.id===taskId ? {...x, carryovers: taskCarryovers(x).filter(c=>c.to!==toDate)} : x);
+  persistCarryovers();
+  render();
+}
 function renderCarryoverModal(){
   const d = carryoverDraft;
   const wt = carryoverWorkTask();
@@ -3533,6 +3548,7 @@ function selectReportDate(dateStr){
           </div>
           <div class="mono" style="color:var(--dim);">${hmLabel(r.ms)}</div>
           <div class="mono" style="width:40px;text-align:right;color:${rate === null ? 'var(--faint)' : (rate >= 100 ? 'var(--teal)' : 'var(--text)')};font-weight:700;">${rate === null ? '—' : Math.round(rate) + '%'}</div>
+          <button onclick="undoCarryIn('${r.task.id}','${targetDate}')" style="flex-shrink:0;margin-left:4px;font-size:11px;color:var(--rust);background:none;border:1px solid var(--line);border-radius:6px;padding:2px 8px;cursor:pointer;font-family:inherit;">${t('carryoverCancel')}</button>
         </div>
         ${rate !== null ? `
         <div class="barwrap" style="height:6px; background:var(--line);">
