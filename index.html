@@ -17,7 +17,11 @@
   window.dataLayer = window.dataLayer || [];
   function gtag(){dataLayer.push(arguments);}
   gtag('js', new Date());
-  gtag('config', 'G-W814R72GLY');
+  // 起動モード判定：ホーム画面から起動(PWA)なら 'pwa'、ブラウザなら 'browser'。
+  // GA4の 管理→カスタム定義 で app_mode を登録すると、レポートで分けて見られる。
+  var appMode = (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone ? 'pwa' : 'browser';
+  gtag('set', 'user_properties', { app_mode: appMode });
+  gtag('config', 'G-W814R72GLY', { app_mode: appMode });
 </script>
 <!-- ファビコン。ねこアート(sns_share_cats.png)から生成した正方形版
      (favicon_master.png)を各サイズに書き出したもの。ホーム画面追加用の
